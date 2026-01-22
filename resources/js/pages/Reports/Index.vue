@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { Head, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,28 @@ import {
   FileText,
   PieChart
 } from 'lucide-vue-next'
+
+// Get currency from page props
+const page = usePage()
+const currency = computed(() => {
+  const curr = page.props.currency
+  return typeof curr === 'function' ? curr() : curr || 'USD'
+})
+
+// Currency formatting function
+const formatCurrency = (amount: number | string): string => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  if (isNaN(num)) return '$0.00'
+  const currencyCode = currency.value
+
+  const symbols: Record<string, string> = {
+    'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'CNY': '¥',
+    'INR': '₹', 'KES': 'KSh', 'TZS': 'TSh', 'UGX': 'USh', 'ZAR': 'R', 'NGN': '₦',
+  }
+
+  const symbol = symbols[currencyCode] || currencyCode + ' '
+  return `${symbol}${num.toFixed(2)}`
+}
 
 const props = defineProps<{
   stats: {
@@ -60,7 +83,7 @@ const props = defineProps<{
               </div>
             </CardHeader>
             <CardContent class="relative z-10">
-              <div class="text-4xl font-bold">${{ props.stats.today_sales.toFixed(2) }}</div>
+              <div class="text-4xl font-bold">{{ formatCurrency(props.stats.today_sales) }}</div>
               <p class="text-emerald-100 text-sm mt-2">💰 Total sales today</p>
             </CardContent>
           </Card>

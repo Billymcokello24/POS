@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Head, router } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
+import { Head, router, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,28 @@ import {
   ShoppingCart
 } from 'lucide-vue-next'
 
+// Get currency from page props
+const page = usePage()
+const currency = computed(() => {
+  const curr = page.props.currency
+  return typeof curr === 'function' ? curr() : curr || 'USD'
+})
+
+// Currency formatting function
+const formatCurrency = (amount: number | string): string => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  if (isNaN(num)) return '$0.00'
+  const currencyCode = currency.value
+
+  const symbols: Record<string, string> = {
+    'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'CNY': '¥',
+    'INR': '₹', 'KES': 'KSh', 'TZS': 'TSh', 'UGX': 'USh', 'ZAR': 'R', 'NGN': '₦',
+  }
+
+  const symbol = symbols[currencyCode] || currencyCode + ' '
+  return `${symbol}${num.toFixed(2)}`
+}
+
 interface Sale {
   id: number
   sale_number: string
@@ -30,50 +52,53 @@ interface Sale {
 }
 
 const props = defineProps<{
-  sales?: {
+  sales: {
     data: Sale[]
     current_page: number
     last_page: number
     total: number
   }
+  filters?: {
+    search?: string
+    status?: string
+    date_from?: string
+    date_to?: string
+  }
+  stats?: {
+    today_revenue: number
+    total_sales: number
+    avg_sale_value: number
+  }
 }>()
 
-const search = ref('')
-const dateFrom = ref('')
-const dateTo = ref('')
+const search = ref(props.filters?.search || '')
+const dateFrom = ref(props.filters?.date_from || '')
+const dateTo = ref(props.filters?.date_to || '')
 
-// Mock data for demonstration
-const mockSales = [
-  {
-    id: 1,
-    sale_number: 'DS000023',
-    cashier: { name: 'Admin User' },
-    customer: null,
-    total: 45.00,
-    status: 'completed',
-    created_at: '2026-01-21 14:30:00'
-  },
-  {
-    id: 2,
-    sale_number: 'DS000022',
-    cashier: { name: 'Admin User' },
-    customer: { name: 'John Doe' },
-    total: 750.00,
-    status: 'completed',
-    created_at: '2026-01-21 14:15:00'
-  },
-  {
-    id: 3,
-    sale_number: 'DS000021',
-    cashier: { name: 'Cashier User' },
-    customer: null,
-    total: 125.50,
-    status: 'completed',
-    created_at: '2026-01-21 13:45:00'
-  },
-]
+// Calculate stats from actual sales data if not provided
+const todayRevenue = computed(() => {
+  if (props.stats?.today_revenue !== undefined) {
+    return props.stats.today_revenue
+  }
+  const today = new Date().toISOString().split('T')[0]
+  return props.sales.data
+    .filter(sale => sale.created_at.startsWith(today) && sale.status === 'completed')
+    .reduce((sum, sale) => sum + Number(sale.total), 0)
+})
 
-const sales = props.sales?.data || mockSales
+const totalSales = computed(() => {
+  return props.stats?.total_sales || props.sales.total || props.sales.data.length
+})
+
+const avgSaleValue = computed(() => {
+  if (props.stats?.avg_sale_value !== undefined) {
+    return props.stats.avg_sale_value
+  }
+  const completedSales = props.sales.data.filter(sale => sale.status === 'completed')
+  if (completedSales.length === 0) return 0
+  const total = completedSales.reduce((sum, sale) => sum + Number(sale.total), 0)
+  return total / completedSales.length
+})
 
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
@@ -82,6 +107,56 @@ const getStatusColor = (status: string) => {
     'pending': 'bg-yellow-100 text-yellow-800',
   }
   return colors[status] || 'bg-gray-100 text-gray-800'
+}
+
+// Apply filters
+const applyFilters = () => {
+  router.get('/sales', {
+    search: search.value,
+    date_from: dateFrom.value,
+    date_to: dateTo.value,
+  }, {
+    preserveState: true,
+    preserveScroll: true,
+  })
+}
+
+// Export to CSV
+const exportSales = () => {
+  const params = new URLSearchParams({
+    export: 'csv',
+    search: search.value,
+    date_from: dateFrom.value,
+    date_to: dateTo.value,
+  })
+  window.location.href = `/sales/export?${params.toString()}`
+}
+
+// View sale details
+const viewSale = (saleId: number) => {
+  router.visit(`/sales/${saleId}`)
+}
+
+// Download receipt
+const downloadReceipt = (saleId: number) => {
+  window.open(`/sales/${saleId}/receipt`, '_blank')
+}
+
+// Refund sale
+const refundSale = (saleId: number) => {
+  if (confirm('Are you sure you want to refund this sale? This action cannot be undone.')) {
+    router.post(`/sales/${saleId}/refund`, {
+      reason: 'Customer request',
+      items: [], // Will need to implement proper refund UI
+    }, {
+      onSuccess: () => {
+        alert('Sale refunded successfully')
+      },
+      onError: () => {
+        alert('Failed to refund sale')
+      }
+    })
+  }
 }
 </script>
 
@@ -112,7 +187,7 @@ const getStatusColor = (status: string) => {
                   <ShoppingCart class="h-5 w-5" />
                   New Sale
                 </Button>
-                <Button variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
+                <Button @click="exportSales" variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
                   <Download class="h-5 w-5" />
                   Export
                 </Button>
@@ -148,7 +223,7 @@ const getStatusColor = (status: string) => {
                   class="h-12 border-2"
                   placeholder="To"
                 />
-                <Button class="h-12 px-6 bg-gradient-to-r from-blue-600 to-cyan-600 gap-2">
+                <Button @click="applyFilters" class="h-12 px-6 bg-gradient-to-r from-blue-600 to-cyan-600 gap-2">
                   <Filter class="h-5 w-5" />
                   Filter
                 </Button>
@@ -167,7 +242,7 @@ const getStatusColor = (status: string) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div class="text-3xl font-bold text-blue-600">$1,250.00</div>
+              <div class="text-3xl font-bold text-blue-600">{{ formatCurrency(todayRevenue) }}</div>
             </CardContent>
           </Card>
 
@@ -179,7 +254,7 @@ const getStatusColor = (status: string) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div class="text-3xl font-bold text-cyan-600">{{ sales.length }}</div>
+              <div class="text-3xl font-bold text-cyan-600">{{ totalSales }}</div>
             </CardContent>
           </Card>
 
@@ -191,7 +266,7 @@ const getStatusColor = (status: string) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div class="text-3xl font-bold text-teal-600">$306.83</div>
+              <div class="text-3xl font-bold text-teal-600">{{ formatCurrency(avgSaleValue) }}</div>
             </CardContent>
           </Card>
         </div>
@@ -215,8 +290,20 @@ const getStatusColor = (status: string) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                <TableRow v-if="props.sales.data.length === 0">
+                  <TableCell colspan="7" class="text-center py-12">
+                    <div class="flex flex-col items-center gap-3 text-slate-500">
+                      <ShoppingCart class="h-12 w-12 text-slate-300" />
+                      <p class="text-lg font-medium">No sales found</p>
+                      <p class="text-sm">Sales transactions will appear here</p>
+                      <Button @click="router.visit('/sales/create')" class="mt-4">
+                        Create New Sale
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
                 <TableRow
-                  v-for="sale in sales"
+                  v-for="sale in props.sales.data"
                   :key="sale.id"
                   class="hover:bg-blue-50/50 transition-colors"
                 >
@@ -236,7 +323,7 @@ const getStatusColor = (status: string) => {
                     <div class="text-sm">{{ sale.customer?.name || 'Walk-in' }}</div>
                   </TableCell>
                   <TableCell>
-                    <div class="text-lg font-bold text-slate-900">${{ sale.total.toFixed(2) }}</div>
+                    <div class="text-lg font-bold text-slate-900">{{ formatCurrency(sale.total) }}</div>
                   </TableCell>
                   <TableCell>
                     <Badge :class="getStatusColor(sale.status)">
@@ -245,13 +332,32 @@ const getStatusColor = (status: string) => {
                   </TableCell>
                   <TableCell class="text-right">
                     <div class="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" class="hover:bg-blue-100">
+                      <Button
+                        @click="viewSale(sale.id)"
+                        variant="ghost"
+                        size="sm"
+                        class="hover:bg-blue-100"
+                        title="View Details"
+                      >
                         <Eye class="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" class="hover:bg-orange-100">
+                      <Button
+                        @click="downloadReceipt(sale.id)"
+                        variant="ghost"
+                        size="sm"
+                        class="hover:bg-green-100"
+                        title="Download Receipt"
+                      >
                         <Download class="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" class="hover:bg-red-100">
+                      <Button
+                        v-if="sale.status === 'completed'"
+                        @click="refundSale(sale.id)"
+                        variant="ghost"
+                        size="sm"
+                        class="hover:bg-red-100"
+                        title="Refund Sale"
+                      >
                         <RefreshCw class="h-4 w-4" />
                       </Button>
                     </div>

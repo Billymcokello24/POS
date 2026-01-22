@@ -17,20 +17,47 @@ import {
   Settings
 } from 'lucide-vue-next'
 
+// Accept props from controller
+const props = defineProps<{
+  business: {
+    id: number
+    name: string
+    business_type: string | null
+    address: string | null
+    phone: string | null
+    email: string | null
+    tax_id: string | null
+    receipt_prefix: string
+    currency: string
+    timezone: string | null
+  }
+  tax_configurations: Array<any>
+}>()
+
+// Initialize form with data from database
 const form = useForm({
-  name: 'Demo Store',
-  business_type: 'retail',
-  address: '123 Main Street',
-  phone: '+1234567890',
-  email: 'demo@store.com',
-  tax_id: 'TAX123456',
-  receipt_prefix: 'DS',
-  currency: 'USD',
+  name: props.business.name,
+  business_type: props.business.business_type || '',
+  address: props.business.address || '',
+  phone: props.business.phone || '',
+  email: props.business.email || '',
+  tax_id: props.business.tax_id || '',
+  receipt_prefix: props.business.receipt_prefix,
+  currency: props.business.currency,
+  timezone: props.business.timezone || '',
 })
 
 const submit = () => {
-  alert('Settings will be saved to backend')
-  // form.put('/business/settings')
+  form.put('/business/settings', {
+    preserveScroll: true,
+    onSuccess: () => {
+      alert('Business settings updated successfully!')
+    },
+    onError: (errors) => {
+      console.error('Update failed:', errors)
+      alert('Failed to update settings. Please check the form.')
+    },
+  })
 }
 </script>
 

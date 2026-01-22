@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { Head, router, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,7 +8,6 @@ import {
     ShoppingCart,
     Package,
     DollarSign,
-    TrendingUp,
     AlertTriangle,
     BarChart3,
     Sparkles,
@@ -16,27 +16,67 @@ import {
     Clock
 } from 'lucide-vue-next'
 
-const stats = {
-    todaySales: 1250.00,
-    totalProducts: 150,
-    lowStockItems: 8,
-    todayOrders: 23,
-    yesterdaySales: 1115.00,
-    monthlyGrowth: 12.5
+// Get currency from page props
+const page = usePage()
+const currency = computed(() => {
+  const curr = page.props.currency
+  return typeof curr === 'function' ? curr() : curr || 'USD'
+})
+
+// Currency formatting function
+const formatCurrency = (amount: number | string): string => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  const currencyCode = currency.value
+
+  const symbols: Record<string, string> = {
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'JPY': '¥',
+    'CNY': '¥',
+    'INR': '₹',
+    'KES': 'KSh',
+    'TZS': 'TSh',
+    'UGX': 'USh',
+    'ZAR': 'R',
+    'NGN': '₦',
+  }
+
+  const symbol = symbols[currencyCode] || currencyCode + ' '
+  return `${symbol}${num.toFixed(2)}`
 }
 
-const recentSales = [
-    { id: 'DS000023', items: 2, time: '5 mins ago', amount: 45.00, customer: 'Walk-in' },
-    { id: 'DS000022', items: 1, time: '15 mins ago', amount: 750.00, customer: 'John Doe' },
-    { id: 'DS000021', items: 3, time: '32 mins ago', amount: 125.50, customer: 'Walk-in' },
-    { id: 'DS000020', items: 5, time: '1 hour ago', amount: 280.00, customer: 'Jane Smith' },
-]
+// Accept props from controller
+const props = defineProps<{
+    stats: {
+        todaySales: number
+        totalProducts: number
+        lowStockItems: number
+        todayOrders: number
+        yesterdaySales: number
+        monthlyGrowth: number
+    }
+    recentSales: Array<{
+        id: string
+        items: number
+        time: string
+        amount: number
+        customer: string
+    }>
+    lowStockProducts: Array<{
+        name: string
+        sku: string
+        current: number
+        min: number
+    }>
+}>()
 
-const lowStockProducts = [
-    { name: 'Wireless Mouse', sku: 'ELEC-002', current: 8, min: 10 },
-    { name: 'T-Shirt Blue', sku: 'CLOTH-001', current: 15, min: 20 },
-    { name: 'Laptop HP ProBook', sku: 'ELEC-001', current: 4, min: 5 },
-]
+// Calculate percentage change
+const salesChangePercent = props.stats.yesterdaySales > 0
+    ? ((props.stats.todaySales - props.stats.yesterdaySales) / props.stats.yesterdaySales * 100).toFixed(1)
+    : '0.0'
+
+const salesTrend = props.stats.todaySales >= props.stats.yesterdaySales ? 'up' : 'down'
 </script>
 
 <template>
@@ -83,11 +123,15 @@ const lowStockProducts = [
                             </div>
                         </CardHeader>
                         <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-slate-900">${{ stats.todaySales.toFixed(2) }}</div>
+                            <div class="text-3xl font-bold text-slate-900">${{ props.stats.todaySales.toFixed(2) }}</div>
                             <div class="mt-2 flex items-center gap-2">
-                                <div class="flex items-center text-emerald-600 text-sm font-medium">
-                                    <ArrowUpRight class="h-4 w-4" />
-                                    <span>{{ ((stats.todaySales - stats.yesterdaySales) / stats.yesterdaySales * 100).toFixed(1) }}%</span>
+                                <div :class="[
+                                    'flex items-center text-sm font-medium',
+                                    salesTrend === 'up' ? 'text-emerald-600' : 'text-red-600'
+                                ]">
+                                    <ArrowUpRight v-if="salesTrend === 'up'" class="h-4 w-4" />
+                                    <ArrowDownRight v-else class="h-4 w-4" />
+                                    <span>{{ salesChangePercent }}%</span>
                                 </div>
                                 <span class="text-slate-500 text-sm">vs yesterday</span>
                             </div>
@@ -106,13 +150,17 @@ const lowStockProducts = [
                             </div>
                         </CardHeader>
                         <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-slate-900">{{ stats.todayOrders }}</div>
+                            <div class="text-3xl font-bold text-slate-900">{{ props.stats.todayOrders }}</div>
                             <div class="mt-2 flex items-center gap-2">
-                                <div class="flex items-center text-blue-600 text-sm font-medium">
-                                    <ArrowUpRight class="h-4 w-4" />
-                                    <span>8.3%</span>
+                                <div :class="[
+                                    'flex items-center text-sm font-medium',
+                                    props.stats.monthlyGrowth >= 0 ? 'text-blue-600' : 'text-red-600'
+                                ]">
+                                    <ArrowUpRight v-if="props.stats.monthlyGrowth >= 0" class="h-4 w-4" />
+                                    <ArrowDownRight v-else class="h-4 w-4" />
+                                    <span>{{ Math.abs(props.stats.monthlyGrowth).toFixed(1) }}%</span>
                                 </div>
-                                <span class="text-slate-500 text-sm">from last week</span>
+                                <span class="text-slate-500 text-sm">monthly growth</span>
                             </div>
                         </CardContent>
                     </Card>
@@ -129,7 +177,7 @@ const lowStockProducts = [
                             </div>
                         </CardHeader>
                         <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-slate-900">{{ stats.totalProducts }}</div>
+                            <div class="text-3xl font-bold text-slate-900">{{ props.stats.totalProducts }}</div>
                             <div class="mt-2 flex items-center gap-2">
                                 <span class="text-purple-600 text-sm font-medium">Active</span>
                                 <span class="text-slate-500 text-sm">in inventory</span>
@@ -149,7 +197,7 @@ const lowStockProducts = [
                             </div>
                         </CardHeader>
                         <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-red-600">{{ stats.lowStockItems }}</div>
+                            <div class="text-3xl font-bold text-red-600">{{ props.stats.lowStockItems }}</div>
                             <div class="mt-2 flex items-center gap-2">
                                 <span class="text-red-600 text-sm font-medium">⚠️ Attention</span>
                                 <span class="text-slate-500 text-sm">needed</span>
@@ -218,9 +266,14 @@ const lowStockProducts = [
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div class="space-y-3">
+                            <div v-if="props.recentSales.length === 0" class="py-8 text-center text-slate-500">
+                                <Clock class="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                                <p>No sales yet today</p>
+                                <p class="text-sm mt-1">Start selling to see transactions here</p>
+                            </div>
+                            <div v-else class="space-y-3">
                                 <div
-                                    v-for="sale in recentSales"
+                                    v-for="sale in props.recentSales"
                                     :key="sale.id"
                                     class="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 transition-colors group"
                                 >
@@ -234,7 +287,7 @@ const lowStockProducts = [
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="text-2xl font-bold text-slate-900">${{ sale.amount.toFixed(2) }}</div>
+                                        <div class="text-2xl font-bold text-slate-900">{{ formatCurrency(sale.amount) }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -243,7 +296,7 @@ const lowStockProducts = [
                 </div>
 
                 <!-- Low Stock Alert -->
-                <Card class="border-0 shadow-xl bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white">
+                <Card v-if="props.lowStockProducts.length > 0" class="border-0 shadow-xl bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white">
                     <CardHeader>
                         <CardTitle class="text-white flex items-center gap-2 text-xl">
                             <AlertTriangle class="h-6 w-6 animate-pulse" />
@@ -253,7 +306,7 @@ const lowStockProducts = [
                     <CardContent>
                         <div class="grid gap-4 md:grid-cols-3">
                             <div
-                                v-for="product in lowStockProducts"
+                                v-for="product in props.lowStockProducts"
                                 :key="product.sku"
                                 class="bg-white/20 backdrop-blur rounded-xl p-4 hover:bg-white/30 transition-colors"
                             >

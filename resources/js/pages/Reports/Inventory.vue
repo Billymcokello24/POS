@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Head } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
+import { Head, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,8 +14,31 @@ import {
   DollarSign,
   Search,
   Download,
-  ArrowUpDown
+  ArrowUpDown,
+  FileText
 } from 'lucide-vue-next'
+
+// Get currency from page props
+const page = usePage()
+const currency = computed(() => {
+  const curr = page.props.currency
+  return typeof curr === 'function' ? curr() : curr || 'USD'
+})
+
+// Currency formatting function
+const formatCurrency = (amount: number | string): string => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  if (isNaN(num)) return '$0.00'
+  const currencyCode = currency.value
+
+  const symbols: Record<string, string> = {
+    'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'CNY': '¥',
+    'INR': '₹', 'KES': 'KSh', 'TZS': 'TSh', 'UGX': 'USh', 'ZAR': 'R', 'NGN': '₦',
+  }
+
+  const symbol = symbols[currencyCode] || currencyCode + ' '
+  return `${symbol}${num.toFixed(2)}`
+}
 
 interface Product {
   id: number
@@ -60,6 +83,19 @@ const searchProducts = () => {
     )
   }
 }
+
+// Export functions
+const exportToPDF = () => {
+  window.open('/reports/inventory/export?format=pdf', '_blank')
+}
+
+const exportToCSV = () => {
+  window.location.href = '/reports/inventory/export?format=csv'
+}
+
+const exportToExcel = () => {
+  window.location.href = '/reports/inventory/export?format=excel'
+}
 </script>
 
 <template>
@@ -79,10 +115,20 @@ const searchProducts = () => {
             </h1>
             <p class="mt-2 text-slate-600">Real-time stock monitoring and valuation</p>
           </div>
-          <Button class="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700">
-            <Download class="h-4 w-4" />
-            Export Inventory
-          </Button>
+          <div class="flex gap-3">
+            <Button @click="exportToPDF" variant="outline" class="gap-2">
+              <FileText class="h-4 w-4" />
+              PDF
+            </Button>
+            <Button @click="exportToCSV" variant="outline" class="gap-2">
+              <Download class="h-4 w-4" />
+              CSV
+            </Button>
+            <Button @click="exportToExcel" variant="outline" class="gap-2">
+              <Download class="h-4 w-4" />
+              Excel
+            </Button>
+          </div>
         </div>
 
         <!-- Key Metrics -->
@@ -95,7 +141,7 @@ const searchProducts = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div class="text-3xl font-bold text-emerald-600">${{ totalInventoryValue.toFixed(2) }}</div>
+              <div class="text-3xl font-bold text-emerald-600">{{ formatCurrency(totalInventoryValue) }}</div>
               <p class="text-xs text-slate-500 mt-1">Current stock worth</p>
             </CardContent>
           </Card>
@@ -189,7 +235,7 @@ const searchProducts = () => {
                     <div class="text-sm text-slate-600">{{ category.product_count }} products</div>
                   </div>
                   <div class="text-right">
-                    <div class="text-2xl font-bold text-emerald-600">${{ parseFloat(category.value.toString()).toFixed(2) }}</div>
+                    <div class="text-2xl font-bold text-emerald-600">{{ formatCurrency(category.value) }}</div>
                     <div class="text-xs text-slate-500">{{ ((parseFloat(category.value.toString()) / totalInventoryValue) * 100).toFixed(1) }}%</div>
                   </div>
                 </div>
@@ -251,7 +297,7 @@ const searchProducts = () => {
                   <div class="text-xs text-slate-500">Min: {{ product.reorder_level }}</div>
                 </div>
                 <div class="text-right">
-                  <div class="text-lg font-bold text-emerald-600">${{ parseFloat(product.inventory_value.toString()).toFixed(2) }}</div>
+                  <div class="text-lg font-bold text-emerald-600">{{ formatCurrency(product.inventory_value) }}</div>
                   <div class="text-xs text-slate-500">Value</div>
                 </div>
               </div>

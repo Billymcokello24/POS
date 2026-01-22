@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Head, router, useForm } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
+import { Head, router, useForm, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +12,39 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Package, AlertTriangle, Edit, Trash2, Search, Filter, X, DollarSign, Barcode, Sparkles } from 'lucide-vue-next'
+
+// Get currency from page props
+const page = usePage()
+const currency = computed(() => {
+  const curr = page.props.currency
+  return typeof curr === 'function' ? curr() : curr || 'USD'
+})
+
+// Currency formatting function
+const formatCurrency = (amount: number | string): string => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  const currencyCode = currency.value
+
+  const symbols: Record<string, string> = {
+    'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'CNY': '¥',
+    'INR': '₹', 'KES': 'KSh', 'TZS': 'TSh', 'UGX': 'USh', 'ZAR': 'R', 'NGN': '₦',
+  }
+
+  const symbol = symbols[currencyCode] || currencyCode + ' '
+  return `${symbol}${num.toFixed(2)}`
+}
+
+// Get currency symbol
+const getCurrencySymbol = (): string => {
+  const currencyCode = currency.value
+
+  const symbols: Record<string, string> = {
+    'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'CNY': '¥',
+    'INR': '₹', 'KES': 'KSh', 'TZS': 'TSh', 'UGX': 'USh', 'ZAR': 'R', 'NGN': '₦',
+  }
+
+  return symbols[currencyCode] || currencyCode
+}
 
 interface Product {
   id: number
@@ -37,23 +70,123 @@ interface Category {
 }
 
 const props = defineProps<{
-  products: {
+  products?: {
     data: Product[]
     current_page: number
     last_page: number
     per_page: number
     total: number
   }
-  categories: Category[]
-  filters: {
+  categories?: Category[]
+  filters?: {
     search?: string
     category_id?: number
     low_stock?: boolean
   }
 }>()
 
-const search = ref(props.filters.search || '')
-const showLowStock = ref(props.filters.low_stock || false)
+// Mock data for when backend doesn't return data
+const mockProducts = {
+  data: [
+    {
+      id: 1,
+      name: 'Laptop HP ProBook 450 G8',
+      sku: 'ELEC-001',
+      barcode: '1234567890123',
+      description: 'HP ProBook 450 G8 - Intel Core i5',
+      category_id: 1,
+      category: { id: 1, name: 'Electronics' },
+      selling_price: 750.00,
+      cost_price: 600.00,
+      quantity: 10,
+      reorder_level: 5,
+      unit: 'pcs',
+      is_low_stock: false,
+      is_active: true,
+      track_inventory: true,
+    },
+    {
+      id: 2,
+      name: 'Wireless Mouse Logitech',
+      sku: 'ELEC-002',
+      barcode: '1234567890124',
+      description: 'Logitech Wireless Mouse',
+      category_id: 1,
+      category: { id: 1, name: 'Electronics' },
+      selling_price: 20.00,
+      cost_price: 15.00,
+      quantity: 8,
+      reorder_level: 10,
+      unit: 'pcs',
+      is_low_stock: true,
+      is_active: true,
+      track_inventory: true,
+    },
+    {
+      id: 3,
+      name: 'T-Shirt Blue Cotton',
+      sku: 'CLOTH-001',
+      barcode: '1234567890125',
+      description: '100% Cotton Blue T-Shirt',
+      category_id: 2,
+      category: { id: 2, name: 'Clothing' },
+      selling_price: 15.00,
+      cost_price: 10.00,
+      quantity: 15,
+      reorder_level: 20,
+      unit: 'pcs',
+      is_low_stock: true,
+      is_active: true,
+      track_inventory: true,
+    },
+    {
+      id: 4,
+      name: 'Jeans Black Denim',
+      sku: 'CLOTH-002',
+      barcode: '1234567890126',
+      description: 'Black Denim Jeans',
+      category_id: 2,
+      category: { id: 2, name: 'Clothing' },
+      selling_price: 45.00,
+      cost_price: 35.00,
+      quantity: 30,
+      reorder_level: 10,
+      unit: 'pcs',
+      is_low_stock: false,
+      is_active: true,
+      track_inventory: true,
+    },
+  ] as Product[],
+  current_page: 1,
+  last_page: 1,
+  per_page: 15,
+  total: 4,
+}
+
+const mockCategories = [
+  { id: 1, name: 'Electronics' },
+  { id: 2, name: 'Clothing' },
+  { id: 3, name: 'Food & Beverage' },
+]
+
+// Use props data if available, otherwise use mock data
+const productsData = ref(props.products || mockProducts)
+
+// Ensure all prices are numbers (backend sends them as strings)
+if (productsData.value?.data) {
+  productsData.value.data = productsData.value.data.map(product => ({
+    ...product,
+    selling_price: Number(product.selling_price),
+    cost_price: Number(product.cost_price),
+    quantity: Number(product.quantity),
+    reorder_level: Number(product.reorder_level),
+  }))
+}
+
+const categoriesData = ref(props.categories || mockCategories)
+
+const search = ref(props.filters?.search || '')
+const showLowStock = ref(props.filters?.low_stock || false)
 const showModal = ref(false)
 const editingProduct = ref<Product | null>(null)
 
@@ -71,6 +204,36 @@ const form = useForm({
   track_inventory: true,
   is_active: true,
 })
+
+// VAT and barcode generation
+const VAT_RATE = 0.16 // 16% VAT
+
+const generateBarcode = () => {
+  // Generate 13-digit EAN barcode
+  const timestamp = Date.now().toString()
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+  const barcode = (timestamp.slice(-9) + random + '0').slice(0, 13)
+  return barcode
+}
+
+const calculatePriceWithVAT = (basePrice: number) => {
+  return basePrice * (1 + VAT_RATE)
+}
+
+const calculateVATAmount = (basePrice: number) => {
+  return basePrice * VAT_RATE
+}
+
+const calculateBasePrice = (priceWithVAT: number) => {
+  return priceWithVAT / (1 + VAT_RATE)
+}
+
+// Watch for price changes to auto-generate barcode
+const onSellingPriceChange = () => {
+  if (form.selling_price > 0 && !form.barcode && !editingProduct.value) {
+    form.barcode = generateBarcode()
+  }
+}
 
 const applyFilters = () => {
   router.get('/products', {
@@ -90,6 +253,9 @@ const openCreateModal = () => {
   form.unit = 'pcs'
   form.track_inventory = true
   form.is_active = true
+  // Auto-generate SKU
+  const timestamp = Date.now().toString().slice(-6)
+  form.sku = `PRD-${timestamp}`
   showModal.value = true
 }
 
@@ -100,10 +266,10 @@ const openEditModal = (product: Product) => {
   form.sku = product.sku
   form.barcode = product.barcode
   form.category_id = product.category?.id || null
-  form.cost_price = product.cost_price
-  form.selling_price = product.selling_price
-  form.quantity = product.quantity
-  form.reorder_level = product.reorder_level
+  form.cost_price = Number(product.cost_price)
+  form.selling_price = Number(product.selling_price)
+  form.quantity = Number(product.quantity)
+  form.reorder_level = Number(product.reorder_level)
   form.unit = product.unit || 'pcs'
   form.track_inventory = product.track_inventory ?? true
   form.is_active = product.is_active
@@ -119,14 +285,28 @@ const closeModal = () => {
 const submitForm = () => {
   if (editingProduct.value) {
     form.put(`/products/${editingProduct.value.id}`, {
+      preserveScroll: true,
       onSuccess: () => {
         closeModal()
+        // Force reload to show updated data
+        router.reload({ only: ['products'] })
+      },
+      onError: (errors) => {
+        console.error('Update failed:', errors)
+        alert('Failed to update product. Please check the form.')
       }
     })
   } else {
     form.post('/products', {
+      preserveScroll: true,
       onSuccess: () => {
         closeModal()
+        // Force reload to show new product
+        router.reload({ only: ['products'] })
+      },
+      onError: (errors) => {
+        console.error('Create failed:', errors)
+        alert('Failed to create product. Please check the form.')
       }
     })
   }
@@ -158,7 +338,7 @@ const deleteProduct = (product: Product) => {
                 </div>
                 <div>
                   <h1 class="text-4xl font-bold">Product Catalog</h1>
-                  <p class="text-blue-100 text-lg mt-1">{{ products.total }} items in inventory</p>
+                  <p class="text-blue-100 text-lg mt-1">{{ productsData.total }} items in inventory</p>
                 </div>
               </div>
             </div>
@@ -210,7 +390,7 @@ const deleteProduct = (product: Product) => {
                 Products
               </CardTitle>
               <div class="text-sm text-slate-600">
-                Showing {{ products.data.length }} of {{ products.total }}
+                Showing {{ productsData.data.length }} of {{ productsData.total }}
               </div>
             </div>
           </CardHeader>
@@ -229,7 +409,7 @@ const deleteProduct = (product: Product) => {
               </TableHeader>
               <TableBody>
                 <TableRow
-                  v-for="product in products.data"
+                  v-for="product in productsData.data"
                   :key="product.id"
                   class="hover:bg-blue-50/50 transition-colors"
                 >
@@ -249,8 +429,8 @@ const deleteProduct = (product: Product) => {
                   </TableCell>
                   <TableCell>
                     <div class="space-y-1">
-                      <div class="text-lg font-bold text-slate-900">${{ product.selling_price.toFixed(2) }}</div>
-                      <div class="text-xs text-slate-500">Cost: ${{ product.cost_price.toFixed(2) }}</div>
+                      <div class="text-lg font-bold text-slate-900">{{ formatCurrency(product.selling_price) }}</div>
+                      <div class="text-xs text-slate-500">Cost: {{ formatCurrency(product.cost_price) }}</div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -304,14 +484,14 @@ const deleteProduct = (product: Product) => {
             </Table>
 
             <!-- Pagination -->
-            <div v-if="products.last_page > 1" class="flex justify-center gap-2 p-6 bg-slate-50/50 border-t">
+            <div v-if="productsData.last_page > 1" class="flex justify-center gap-2 p-6 bg-slate-50/50 border-t">
               <Button
-                v-for="page in products.last_page"
+                v-for="page in productsData.last_page"
                 :key="page"
-                :variant="page === products.current_page ? 'default' : 'outline'"
+                :variant="page === productsData.current_page ? 'default' : 'outline'"
                 size="sm"
                 @click="router.get(`/products?page=${page}`)"
-                :class="page === products.current_page ? 'bg-gradient-to-r from-blue-600 to-indigo-600' : ''"
+                :class="page === productsData.current_page ? 'bg-gradient-to-r from-blue-600 to-indigo-600' : ''"
               >
                 {{ page }}
               </Button>
@@ -367,25 +547,43 @@ const deleteProduct = (product: Product) => {
               <div class="grid grid-cols-3 gap-4">
                 <div class="space-y-2">
                   <Label for="sku" class="text-base flex items-center gap-2">
-                    <Barcode class="h-4 w-4" />
-                    SKU
+                    <Package class="h-4 w-4" />
+                    SKU (Auto-generated)
                   </Label>
                   <Input
                     id="sku"
                     v-model="form.sku"
-                    placeholder="Auto-generated"
-                    class="h-11"
+                    placeholder="PRD-XXXXXX"
+                    class="h-11 font-mono"
+                    readonly
                   />
+                  <p class="text-xs text-slate-500">✨ Auto-generated on create</p>
                 </div>
 
                 <div class="space-y-2">
-                  <Label for="barcode" class="text-base">Barcode</Label>
-                  <Input
-                    id="barcode"
-                    v-model="form.barcode"
-                    placeholder="Scan or enter"
-                    class="h-11"
-                  />
+                  <Label for="barcode" class="text-base flex items-center gap-2">
+                    <Barcode class="h-4 w-4" />
+                    Barcode (Auto-generated)
+                  </Label>
+                  <div class="flex gap-2">
+                    <Input
+                      id="barcode"
+                      v-model="form.barcode"
+                      placeholder="Generated after price"
+                      class="h-11 font-mono"
+                      readonly
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      @click="form.barcode = generateBarcode()"
+                      class="h-11 px-3"
+                      title="Generate new barcode"
+                    >
+                      🔄
+                    </Button>
+                  </div>
+                  <p class="text-xs text-slate-500">✨ Auto-generated when you enter selling price</p>
                 </div>
 
                 <div class="space-y-2">
@@ -397,7 +595,7 @@ const deleteProduct = (product: Product) => {
                     <SelectContent>
                       <SelectItem :value="null">Uncategorized</SelectItem>
                       <SelectItem
-                        v-for="category in categories"
+                        v-for="category in categoriesData"
                         :key="category.id"
                         :value="category.id"
                       >
@@ -412,13 +610,13 @@ const deleteProduct = (product: Product) => {
               <div class="space-y-3 p-4 bg-green-50 rounded-lg border-2 border-green-200">
                 <h3 class="font-semibold text-green-900 flex items-center gap-2">
                   <DollarSign class="h-5 w-5" />
-                  Pricing
+                  Pricing (Prices include 16% VAT)
                 </h3>
                 <div class="grid grid-cols-2 gap-4">
                   <div class="space-y-2">
-                    <Label for="cost-price" class="text-base">Cost Price *</Label>
+                    <Label for="cost-price" class="text-base">Cost Price (incl. VAT) *</Label>
                     <div class="relative">
-                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">{{ getCurrencySymbol() }}</span>
                       <Input
                         id="cost-price"
                         v-model.number="form.cost_price"
@@ -430,12 +628,22 @@ const deleteProduct = (product: Product) => {
                         placeholder="0.00"
                       />
                     </div>
+                    <div v-if="form.cost_price > 0" class="text-xs space-y-1 bg-white/50 p-2 rounded">
+                      <div class="flex justify-between">
+                        <span class="text-slate-600">Base Price:</span>
+                        <span class="font-semibold">{{ formatCurrency(calculateBasePrice(form.cost_price)) }}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-slate-600">VAT (16%):</span>
+                        <span class="font-semibold text-green-600">{{ formatCurrency(calculateVATAmount(calculateBasePrice(form.cost_price))) }}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="space-y-2">
-                    <Label for="selling-price" class="text-base">Selling Price *</Label>
+                    <Label for="selling-price" class="text-base">Selling Price (incl. VAT) *</Label>
                     <div class="relative">
-                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">{{ getCurrencySymbol() }}</span>
                       <Input
                         id="selling-price"
                         v-model.number="form.selling_price"
@@ -445,13 +653,39 @@ const deleteProduct = (product: Product) => {
                         required
                         class="h-11 pl-8"
                         placeholder="0.00"
+                        @input="onSellingPriceChange"
                       />
+                    </div>
+                    <div v-if="form.selling_price > 0" class="text-xs space-y-1 bg-white/50 p-2 rounded">
+                      <div class="flex justify-between">
+                        <span class="text-slate-600">Base Price:</span>
+                        <span class="font-semibold">{{ formatCurrency(calculateBasePrice(form.selling_price)) }}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-slate-600">VAT (16%):</span>
+                        <span class="font-semibold text-green-600">{{ formatCurrency(calculateVATAmount(calculateBasePrice(form.selling_price))) }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div v-if="form.selling_price > 0 && form.cost_price > 0" class="text-sm text-green-700 font-medium">
-                  Profit Margin: ${{ (form.selling_price - form.cost_price).toFixed(2) }}
-                  ({{ (((form.selling_price - form.cost_price) / form.cost_price) * 100).toFixed(1) }}%)
+                <div v-if="form.selling_price > 0 && form.cost_price > 0" class="mt-3 p-3 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg border border-green-300">
+                  <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <div class="text-slate-600 text-xs mb-1">Gross Profit:</div>
+                      <div class="text-xl font-bold text-green-700">
+                        {{ formatCurrency(form.selling_price - form.cost_price) }}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-slate-600 text-xs mb-1">Profit Margin:</div>
+                      <div class="text-xl font-bold text-green-700">
+                        {{ (((form.selling_price - form.cost_price) / form.cost_price) * 100).toFixed(1) }}%
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-2 pt-2 border-t border-green-300 text-xs text-green-800">
+                    💡 Net Profit (excl. VAT): ${{ (calculateBasePrice(form.selling_price) - calculateBasePrice(form.cost_price)).toFixed(2) }}
+                  </div>
                 </div>
               </div>
 
