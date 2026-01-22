@@ -16,18 +16,21 @@ class ReportsController extends Controller
     public function index()
     {
         $businessId = auth()->user()->current_business_id;
+        $user = auth()->user();
 
-        // Get quick stats for the dashboard
-        $todaySales = Sale::where('business_id', $businessId)
-            ->whereDate('created_at', today())
-            ->where('status', 'completed')
-            ->sum('total');
+        // Get quick stats for the dashboard - apply RBAC filtering
+        $statsQuery = Sale::where('business_id', $businessId)
+            ->where('status', 'completed');
 
-        $todayOrders = Sale::where('business_id', $businessId)
-            ->whereDate('created_at', today())
-            ->where('status', 'completed')
-            ->count();
+        // RBAC: Cashiers can only see their own sales stats
+        if ($user->isCashier()) {
+            $statsQuery->where('cashier_id', $user->id);
+        }
 
+        $todaySales = (clone $statsQuery)->whereDate('created_at', today())->sum('total');
+        $todayOrders = (clone $statsQuery)->whereDate('created_at', today())->count();
+
+        // Product stats are not filtered by user role (all users can see all products)
         $totalProducts = Product::where('business_id', $businessId)
             ->where('is_active', true)
             ->count();
@@ -50,15 +53,22 @@ class ReportsController extends Controller
     public function sales(Request $request)
     {
         $businessId = auth()->user()->current_business_id;
+        $user = auth()->user();
 
         $startDate = $request->input('start_date', now()->startOfMonth());
         $endDate = $request->input('end_date', now()->endOfMonth());
 
-        // Sales summary with cost calculation
-        $salesData = Sale::where('business_id', $businessId)
+        // Sales summary with cost calculation - apply RBAC filtering
+        $salesQuery = Sale::where('business_id', $businessId)
             ->whereBetween('created_at', [$startDate, $endDate])
-            ->where('status', 'completed')
-            ->select([
+            ->where('status', 'completed');
+
+        // RBAC: Cashiers can only see their own sales
+        if ($user->isCashier()) {
+            $salesQuery->where('cashier_id', $user->id);
+        }
+
+        $salesData = $salesQuery->select([
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('COUNT(*) as total_orders'),
                 DB::raw('SUM(subtotal) as subtotal'),
@@ -70,16 +80,21 @@ class ReportsController extends Controller
             ->orderBy('date', 'desc')
             ->get();
 
-        // Calculate actual cost for each day by querying sale items
-        $salesData = $salesData->map(function($day) use ($businessId) {
-            // Get total cost for this day
-            $totalCost = DB::table('sale_items')
+        // Calculate actual cost for each day by querying sale items - apply RBAC filtering
+        $salesData = $salesData->map(function($day) use ($businessId, $user) {
+            $costQuery = DB::table('sale_items')
                 ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
                 ->join('products', 'sale_items.product_id', '=', 'products.id')
                 ->where('sales.business_id', $businessId)
                 ->whereDate('sales.created_at', $day->date)
-                ->where('sales.status', 'completed')
-                ->select(DB::raw('SUM(sale_items.quantity * products.cost_price) as total_cost'))
+                ->where('sales.status', 'completed');
+
+            // RBAC: Cashiers can only see their own sales costs
+            if ($user->isCashier()) {
+                $costQuery->where('sales.cashier_id', $user->id);
+            }
+
+            $totalCost = $costQuery->select(DB::raw('SUM(sale_items.quantity * products.cost_price) as total_cost'))
                 ->value('total_cost') ?? 0;
 
             $day->total_cost = $totalCost;
@@ -88,13 +103,19 @@ class ReportsController extends Controller
             return $day;
         });
 
-        // Top selling products
-        $topProducts = DB::table('sale_items')
+        // Top selling products - apply RBAC filtering
+        $topProductsQuery = DB::table('sale_items')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->where('sales.business_id', $businessId)
             ->whereBetween('sales.created_at', [$startDate, $endDate])
-            ->where('sales.status', 'completed')
-            ->select([
+            ->where('sales.status', 'completed');
+
+        // RBAC: Cashiers can only see their own sales products
+        if ($user->isCashier()) {
+            $topProductsQuery->where('sales.cashier_id', $user->id);
+        }
+
+        $topProducts = $topProductsQuery->select([
                 'sale_items.product_name',
                 DB::raw('SUM(sale_items.quantity) as total_quantity'),
                 DB::raw('SUM(sale_items.total) as total_revenue'),
@@ -104,13 +125,19 @@ class ReportsController extends Controller
             ->limit(10)
             ->get();
 
-        // Payment methods breakdown
-        $paymentMethods = DB::table('payments')
+        // Payment methods breakdown - apply RBAC filtering
+        $paymentMethodsQuery = DB::table('payments')
             ->join('sales', 'payments.sale_id', '=', 'sales.id')
             ->where('sales.business_id', $businessId)
             ->whereBetween('sales.created_at', [$startDate, $endDate])
-            ->where('payments.status', 'completed')
-            ->select([
+            ->where('payments.status', 'completed');
+
+        // RBAC: Cashiers can only see their own sales payments
+        if ($user->isCashier()) {
+            $paymentMethodsQuery->where('sales.cashier_id', $user->id);
+        }
+
+        $paymentMethods = $paymentMethodsQuery->select([
                 'payments.payment_method',
                 DB::raw('COUNT(*) as count'),
                 DB::raw('SUM(payments.amount) as total'),
@@ -118,12 +145,18 @@ class ReportsController extends Controller
             ->groupBy('payments.payment_method')
             ->get();
 
-        // Get individual sales for scatter plot (last 7 days)
+        // Get individual sales for scatter plot (last 7 days) - apply RBAC filtering
         $last7DaysStart = now()->subDays(6)->startOfDay();
-        $individualSales = Sale::where('business_id', $businessId)
+        $individualSalesQuery = Sale::where('business_id', $businessId)
             ->whereBetween('created_at', [$last7DaysStart, now()->endOfDay()])
-            ->where('status', 'completed')
-            ->orderBy('created_at', 'asc')
+            ->where('status', 'completed');
+
+        // RBAC: Cashiers can only see their own sales
+        if ($user->isCashier()) {
+            $individualSalesQuery->where('cashier_id', $user->id);
+        }
+
+        $individualSales = $individualSalesQuery->orderBy('created_at', 'asc')
             ->get()
             ->map(function($sale) {
                 // Calculate cost for this sale

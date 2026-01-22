@@ -17,9 +17,14 @@ class SalesController extends Controller
     public function index(Request $request)
     {
         $businessId = auth()->user()->current_business_id;
+        $user = auth()->user();
 
         $sales = Sale::with(['cashier', 'customer', 'payments'])
             ->where('business_id', $businessId)
+            // RBAC: Cashiers can only see their own sales
+            ->when($user->isCashier(), function ($query) use ($user) {
+                $query->where('cashier_id', $user->id);
+            })
             ->when($request->search, function ($query, $search) {
                 $query->where('sale_number', 'like', "%{$search}%");
             })
@@ -35,21 +40,17 @@ class SalesController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate($request->per_page ?? 15);
 
-        // Calculate stats
-        $todayRevenue = Sale::where('business_id', $businessId)
-            ->whereDate('created_at', today())
+        // Calculate stats with RBAC filtering
+        $statsQuery = Sale::where('business_id', $businessId)
             ->where('status', 'completed')
-            ->sum('total');
+            // RBAC: Cashiers can only see their own sales stats
+            ->when($user->isCashier(), function ($query) use ($user) {
+                $query->where('cashier_id', $user->id);
+            });
 
-        $totalSalesCount = Sale::where('business_id', $businessId)
-            ->where('status', 'completed')
-            ->count();
-
-        $avgSaleValue = $totalSalesCount > 0
-            ? Sale::where('business_id', $businessId)
-                ->where('status', 'completed')
-                ->avg('total')
-            : 0;
+        $todayRevenue = (clone $statsQuery)->whereDate('created_at', today())->sum('total');
+        $totalSalesCount = (clone $statsQuery)->count();
+        $avgSaleValue = $totalSalesCount > 0 ? (clone $statsQuery)->avg('total') : 0;
 
         return Inertia::render('Sales/Index', [
             'sales' => $sales,
@@ -65,9 +66,14 @@ class SalesController extends Controller
     public function export(Request $request)
     {
         $businessId = auth()->user()->current_business_id;
+        $user = auth()->user();
 
         $sales = Sale::with(['cashier', 'customer', 'payments'])
             ->where('business_id', $businessId)
+            // RBAC: Cashiers can only export their own sales
+            ->when($user->isCashier(), function ($query) use ($user) {
+                $query->where('cashier_id', $user->id);
+            })
             ->when($request->search, function ($query, $search) {
                 $query->where('sale_number', 'like', "%{$search}%");
             })

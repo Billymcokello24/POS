@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
         'current_business_id',
         'is_super_admin',
         'is_active',
@@ -53,6 +54,37 @@ class User extends Authenticatable
             'is_super_admin' => 'boolean',
             'is_active' => 'boolean',
         ];
+    }
+
+    // Role-based access control helpers
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin' || $this->is_super_admin;
+    }
+
+    public function isCashier(): bool
+    {
+        return $this->role === 'cashier';
+    }
+
+    public function isAuditor(): bool
+    {
+        return $this->role === 'auditor';
+    }
+
+    public function canManageUsers(): bool
+    {
+        return $this->isAdmin();
+    }
+
+    public function canViewAllSales(): bool
+    {
+        return $this->isAdmin() || $this->isAuditor();
+    }
+
+    public function canViewOwnSales(): bool
+    {
+        return $this->isCashier() || $this->isAdmin() || $this->isAuditor();
     }
 
     public function currentBusiness()

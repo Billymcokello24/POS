@@ -7,6 +7,7 @@ use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\UsersController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -52,10 +53,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('business/settings', [BusinessController::class, 'settings'])->name('business.settings');
     Route::put('business/settings', [BusinessController::class, 'updateSettings'])->name('business.update-settings');
 
-    // Customers
-    Route::get('customers', function () {
-        return Inertia::render('Customers/Index');
-    })->name('customers.index');
+    // Users (RBAC)
+    Route::resource('users', UsersController::class);
+    Route::post('users/{user}/toggle-status', [UsersController::class, 'toggleStatus'])->name('users.toggle-status');
 });
 
 require __DIR__.'/settings.php';

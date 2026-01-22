@@ -37,9 +37,6 @@ const isActive = (href: any) => {
     return page.url.startsWith(url)
 }
 
-// ...existing code...
-
-
 // Main Navigation Items
 const mainNavItems: NavItem[] = [
     {
@@ -99,8 +96,8 @@ const settingsNavItems: NavItem[] = [
         icon: Store,
     },
     {
-        title: 'Customers',
-        href: '/customers',
+        title: 'Users',
+        href: '/users',
         icon: Users,
     },
     {

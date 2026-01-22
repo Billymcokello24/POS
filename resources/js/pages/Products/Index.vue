@@ -288,8 +288,8 @@ const submitForm = () => {
       preserveScroll: true,
       onSuccess: () => {
         closeModal()
-        // Force reload to show updated data
-        router.reload({ only: ['products'] })
+        // Reload Inertia props so updated products and global values refresh
+        router.reload()
       },
       onError: (errors) => {
         console.error('Update failed:', errors)
@@ -301,8 +301,8 @@ const submitForm = () => {
       preserveScroll: true,
       onSuccess: () => {
         closeModal()
-        // Force reload to show new product
-        router.reload({ only: ['products'] })
+        // Reload Inertia props to show newly created product
+        router.reload()
       },
       onError: (errors) => {
         console.error('Create failed:', errors)
@@ -316,6 +316,14 @@ const deleteProduct = (product: Product) => {
   if (confirm(`Delete ${product.name}?`)) {
     router.delete(`/products/${product.id}`, {
       preserveScroll: true,
+      onSuccess: () => {
+        // Refresh products list after deletion
+        router.reload()
+      },
+      onError: (errors) => {
+        console.error('Delete failed:', errors)
+        alert('Failed to delete product')
+      }
     })
   }
 }
@@ -679,12 +687,12 @@ const deleteProduct = (product: Product) => {
                     <div>
                       <div class="text-slate-600 text-xs mb-1">Profit Margin:</div>
                       <div class="text-xl font-bold text-green-700">
-                        {{ (((form.selling_price - form.cost_price) / form.cost_price) * 100).toFixed(1) }}%
+                        {{ form.cost_price > 0 ? (((form.selling_price - form.cost_price) / form.cost_price) * 100).toFixed(1) : '—' }}%
                       </div>
                     </div>
                   </div>
                   <div class="mt-2 pt-2 border-t border-green-300 text-xs text-green-800">
-                    💡 Net Profit (excl. VAT): ${{ (calculateBasePrice(form.selling_price) - calculateBasePrice(form.cost_price)).toFixed(2) }}
+                    💡 Net Profit (excl. VAT): {{ form.cost_price > 0 ? formatCurrency(calculateBasePrice(form.selling_price) - calculateBasePrice(form.cost_price)) : formatCurrency(0) }}
                   </div>
                 </div>
               </div>
