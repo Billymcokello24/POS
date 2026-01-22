@@ -855,50 +855,45 @@ const completeSale = async () => {
 
 <template>
   <AppLayout title="Point of Sale">
-    <div class="min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 p-6">
-      <div class="mx-auto max-w-7xl space-y-6">
-        <!-- Colorful Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-          <div class="relative z-10">
-            <div class="flex items-center gap-3 mb-2">
-              <div class="rounded-xl bg-white/20 backdrop-blur p-3">
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div class="mx-auto w-[90%] space-y-6">
+        <!-- Professional Header -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-4xl font-bold text-gray-900 flex items-center gap-3">
+              <div class="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-3 text-white shadow-lg">
                 <ShoppingCart class="h-8 w-8" />
               </div>
-              <div>
-                <h1 class="text-4xl font-bold">Point of Sale</h1>
-                <p class="text-cyan-100 text-lg mt-1">Fast & Easy Checkout Terminal</p>
-              </div>
-            </div>
+              Point of Sale
+            </h1>
+            <p class="text-lg text-gray-600 mt-2">Fast & efficient checkout terminal</p>
           </div>
         </div>
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <!-- Product Search & Cart -->
-          <div class="lg:col-span-2 space-y-4">
+          <div class="lg:col-span-2 space-y-6">
             <!-- Barcode Scanner -->
-            <Card class="border-0 shadow-xl bg-white">
-              <CardHeader class="bg-gradient-to-r from-cyan-50 to-blue-50">
-                <CardTitle class="flex items-center gap-2 text-xl">
-                  <div class="rounded-lg bg-cyan-100 p-2">
-                    <Scan class="h-5 w-5 text-cyan-600" />
-                  </div>
+            <Card class="border-0 shadow-lg bg-white">
+              <CardHeader>
+                <CardTitle class="flex items-center gap-2 text-xl font-bold">
+                  <Scan class="h-5 w-5 text-blue-600" />
                   Quick Scan
                 </CardTitle>
               </CardHeader>
-              <CardContent class="pt-6">
-                <div class="flex gap-2">
+              <CardContent>
+                <div class="flex gap-3">
                   <Input
                     ref="barcodeInput"
                     v-model="barcode"
-                    placeholder="🔍 Scan or enter barcode..."
+                    placeholder="Scan or enter barcode..."
                     @keyup.enter="scanBarcode"
                     autofocus
-                    class="flex-1 h-12 border-2 focus:border-cyan-500"
+                    class="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-600"
                   />
                   <Button
                     @click="scanBarcode"
-                    class="h-12 px-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+                    class="h-12 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md"
                   >
                     <Scan class="h-5 w-5 mr-2" />
                     Scan
@@ -908,20 +903,23 @@ const completeSale = async () => {
             </Card>
 
             <!-- Product Search -->
-            <Card class="border-0 shadow-xl bg-white">
-              <CardContent class="pt-6">
+            <Card class="border-0 shadow-lg bg-white">
+              <CardHeader>
+                <CardTitle class="text-xl font-bold text-gray-900">Search Products</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div ref="searchContainer" class="relative">
-                  <div class="flex gap-2">
+                  <div class="flex gap-3">
                     <Input
                       v-model="searchQuery"
-                      placeholder="🔎 Search products by name or SKU..."
+                      placeholder="Search products by name or SKU..."
                       @keyup="searchProducts"
                       @keyup.enter="searchProducts"
-                      class="flex-1 h-12 border-2 focus:border-blue-500"
+                      class="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-600"
                     />
                     <Button
                       @click="searchProducts"
-                      class="h-12 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                      class="h-12 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md"
                     >
                       Search
                     </Button>
@@ -936,19 +934,19 @@ const completeSale = async () => {
                       v-for="product in searchResults"
                       :key="product.id"
                       @click="selectSearchResult(product)"
-                      class="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 transition-colors"
+                      class="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-all"
                     >
                       <div class="flex items-center justify-between">
                         <div class="flex-1">
-                          <div class="font-semibold text-lg text-slate-900">{{ product.name }}</div>
-                          <div class="text-sm text-slate-600 mt-1">
+                          <div class="font-semibold text-lg text-gray-900">{{ product.name }}</div>
+                          <div class="text-sm text-gray-600 mt-1">
                             <Badge variant="outline" class="mr-2">{{ product.sku }}</Badge>
                             <span v-if="product.barcode" class="text-xs">Barcode: {{ product.barcode }}</span>
                           </div>
                         </div>
                         <div class="text-right ml-4">
                           <div class="text-xl font-bold text-blue-600">{{ formatCurrency(product.selling_price) }}</div>
-                          <div class="text-xs text-slate-500">
+                          <div class="text-xs text-gray-500">
                             Stock: {{ product.quantity }}
                           </div>
                         </div>
@@ -968,35 +966,37 @@ const completeSale = async () => {
             </Card>
 
             <!-- Cart -->
-            <Card class="border-0 shadow-2xl bg-white">
-              <CardHeader class="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-                <CardTitle class="flex items-center gap-2 text-2xl">
-                  <div class="rounded-lg bg-blue-100 p-2">
-                    <ShoppingCart class="h-6 w-6 text-blue-600" />
-                  </div>
-                  Shopping Cart
-                  <Badge class="ml-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white">
-                    {{ cart.length }} items
+            <Card class="border-0 shadow-lg bg-white">
+              <CardHeader>
+                <CardTitle class="flex items-center justify-between text-xl font-bold">
+                  <span class="flex items-center gap-2">
+                    <ShoppingCart class="h-5 w-5 text-blue-600" />
+                    Shopping Cart
+                  </span>
+                  <Badge variant="secondary" class="text-base px-3 py-1">
+                    {{ cart.length }} {{ cart.length === 1 ? 'item' : 'items' }}
                   </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent class="pt-6">
-                <div v-if="cart.length === 0" class="py-12 text-center">
-                  <ShoppingCart class="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                  <p class="text-gray-500 text-lg">Cart is empty</p>
-                  <p class="text-gray-400 text-sm mt-2">Scan or search for products to add</p>
+              <CardContent>
+                <div v-if="cart.length === 0" class="py-16 text-center">
+                  <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
+                    <ShoppingCart class="h-10 w-10 text-gray-400" />
+                  </div>
+                  <p class="text-gray-600 font-medium text-lg">Cart is empty</p>
+                  <p class="text-sm text-gray-500 mt-1">Scan or search for products to add</p>
                 </div>
                 <div v-else class="space-y-3">
                   <div
                     v-for="(item, index) in cart"
                     :key="index"
-                    class="flex items-center justify-between rounded-xl border-2 border-blue-100 p-4 bg-gradient-to-r from-white to-blue-50 hover:border-blue-300 transition-all"
+                    class="flex items-center justify-between rounded-xl border-2 border-gray-200 p-4 hover:border-blue-300 hover:bg-blue-50/50 transition-all"
                   >
                     <div class="flex-1">
-                      <div class="font-semibold text-lg text-slate-900">{{ item.name }}</div>
-                      <div class="text-sm text-slate-600 mt-1">
-                        <Badge variant="outline" class="mr-2">{{ item.sku }}</Badge>
-                        {{ formatCurrency(item.unit_price) }} each
+                      <div class="font-semibold text-base text-gray-900">{{ item.name }}</div>
+                      <div class="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                        <Badge variant="outline" class="text-xs">{{ item.sku }}</Badge>
+                        <span>{{ formatCurrency(item.unit_price) }} each</span>
                       </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -1029,21 +1029,19 @@ const completeSale = async () => {
           </div>
 
           <!-- Order Summary & Payment -->
-          <div class="space-y-4">
+          <div class="space-y-6">
             <!-- Customer Selection -->
-            <Card class="border-0 shadow-xl bg-white">
-              <CardHeader class="bg-gradient-to-r from-purple-50 to-pink-50">
-                <CardTitle class="flex items-center gap-2">
-                  <div class="rounded-lg bg-purple-100 p-2">
-                    <Users class="h-5 w-5 text-purple-600" />
-                  </div>
+            <Card class="border-0 shadow-lg bg-white">
+              <CardHeader>
+                <CardTitle class="flex items-center gap-2 text-xl font-bold">
+                  <Users class="h-5 w-5 text-purple-600" />
                   Customer
                 </CardTitle>
               </CardHeader>
-              <CardContent class="pt-6">
+              <CardContent>
                 <Select v-model="selectedCustomer">
-                  <SelectTrigger class="h-12 border-2">
-                    <SelectValue placeholder="👤 Walk-in Customer" />
+                  <SelectTrigger class="h-12 border-2 border-gray-200">
+                    <SelectValue placeholder="Walk-in Customer" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem :value="null">Walk-in Customer</SelectItem>
@@ -1060,9 +1058,9 @@ const completeSale = async () => {
             </Card>
 
             <!-- Order Summary -->
-            <Card class="border-0 shadow-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+            <Card class="border-0 shadow-lg overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
               <CardHeader>
-                <CardTitle class="text-white text-xl">Order Summary</CardTitle>
+                <CardTitle class="text-white text-2xl font-bold">Order Summary</CardTitle>
               </CardHeader>
               <CardContent class="space-y-4">
                 <div class="flex justify-between text-lg">
@@ -1070,11 +1068,11 @@ const completeSale = async () => {
                   <span class="font-semibold">{{ formatCurrency(cartTotal) }}</span>
                 </div>
                 <div class="flex justify-between text-lg">
-                  <span class="text-blue-100">Tax:</span>
+                  <span class="text-blue-100">Tax (16%):</span>
                   <span class="font-semibold">{{ formatCurrency(cartTax) }}</span>
                 </div>
-                <Separator class="bg-white/20" />
-                <div class="flex justify-between text-2xl font-bold">
+                <Separator class="bg-white/30" />
+                <div class="flex justify-between text-3xl font-bold">
                   <span>Total:</span>
                   <span>{{ formatCurrency(grandTotal) }}</span>
                 </div>
@@ -1082,24 +1080,22 @@ const completeSale = async () => {
             </Card>
 
             <!-- Payment Methods -->
-            <Card class="border-0 shadow-xl bg-white">
-              <CardHeader class="bg-gradient-to-r from-green-50 to-emerald-50">
-                <CardTitle class="flex items-center gap-2">
-                  <div class="rounded-lg bg-green-100 p-2">
-                    <CreditCard class="h-5 w-5 text-green-600" />
-                  </div>
+            <Card class="border-0 shadow-lg bg-white">
+              <CardHeader>
+                <CardTitle class="flex items-center gap-2 text-xl font-bold">
+                  <CreditCard class="h-5 w-5 text-green-600" />
                   Payment Methods
                 </CardTitle>
               </CardHeader>
-              <CardContent class="pt-6 space-y-4">
+              <CardContent class="space-y-3">
                 <div class="grid grid-cols-2 gap-3">
                   <Button
                     @click="openPaymentModal('CASH')"
                     variant="outline"
-                    class="h-14 border-2 hover:bg-green-50 hover:border-green-500 flex flex-col items-center gap-1"
+                    class="h-16 border-2 border-gray-200 hover:bg-green-50 hover:border-green-500 flex flex-col items-center gap-2 transition-all"
                   >
                     <Banknote class="h-6 w-6 text-green-600" />
-                    <span class="text-xs font-semibold">Cash</span>
+                    <span class="text-sm font-semibold">Cash</span>
                   </Button>
                   <Button
                     @click="openPaymentModal('MPESA')"

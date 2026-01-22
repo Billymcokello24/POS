@@ -163,9 +163,9 @@ const refundSale = (saleId: number) => {
 <template>
   <Head title="Sales History" />
 
-  <AppLayout>
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-6">
-      <div class="mx-auto max-w-7xl space-y-6">
+  <AppLayout title="Sales">
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div class="mx-auto w-[90%] space-y-6">
         <!-- Header -->
         <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 p-8 text-white shadow-2xl">
           <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>

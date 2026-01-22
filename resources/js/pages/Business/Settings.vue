@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3'
+import { Head, router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,8 @@ const submit = () => {
   form.put('/business/settings', {
     preserveScroll: true,
     onSuccess: () => {
+      // Reload Inertia props so global values (like currency) are updated across pages
+      router.reload()
       alert('Business settings updated successfully!')
     },
     onError: (errors) => {
@@ -66,7 +68,7 @@ const submit = () => {
 
   <AppLayout>
     <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 p-6">
-      <div class="mx-auto max-w-4xl space-y-6">
+      <div class="mx-auto w-[90%] space-y-6">
         <!-- Header -->
         <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-700 via-gray-800 to-zinc-900 p-8 text-white shadow-2xl">
           <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>

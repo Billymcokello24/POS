@@ -326,7 +326,7 @@ const deleteProduct = (product: Product) => {
 
   <AppLayout title="Products">
     <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
-      <div class="mx-auto max-w-7xl space-y-6">
+      <div class="mx-auto w-[90%] space-y-6">
         <!-- Header -->
         <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl">
           <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>

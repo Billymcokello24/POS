@@ -2,25 +2,30 @@
 import { computed } from 'vue'
 import { Head, router, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
     ShoppingCart,
     Package,
     DollarSign,
     AlertTriangle,
     BarChart3,
-    Sparkles,
+    TrendingUp,
+    TrendingDown,
     ArrowUpRight,
-    ArrowDownRight,
-    Clock
+    Clock,
+    Users,
+    Activity,
+    ShoppingBag,
+    Zap
 } from 'lucide-vue-next'
 
 // Get currency from page props
 const page = usePage()
 const currency = computed(() => {
   const curr = page.props.currency
-  return typeof curr === 'function' ? curr() : curr || 'USD'
+  return typeof curr === 'function' ? curr() : curr || 'KES'
 })
 
 // Currency formatting function
@@ -77,130 +82,152 @@ const salesChangePercent = props.stats.yesterdaySales > 0
     : '0.0'
 
 const salesTrend = props.stats.todaySales >= props.stats.yesterdaySales ? 'up' : 'down'
+
+// Get current time greeting
+const getGreeting = () => {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good Morning'
+  if (hour < 18) return 'Good Afternoon'
+  return 'Good Evening'
+}
 </script>
 
 <template>
     <Head title="Dashboard" />
 
     <AppLayout>
-        <div class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 p-6">
-            <div class="mx-auto max-w-7xl space-y-6">
-                <!-- Hero Header -->
-                <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 p-8 text-white shadow-2xl">
-                    <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-                    <div class="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full -ml-48 -mb-48"></div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-2 mb-2">
-                            <Sparkles class="h-6 w-6" />
-                            <span class="text-sm font-semibold uppercase tracking-wider">Welcome Back!</span>
-                        </div>
-                        <h1 class="text-5xl font-bold mb-3">Dashboard Overview</h1>
-                        <p class="text-purple-100 text-lg mb-6">Here's what's happening with your business today</p>
-                        <div class="flex gap-3">
-                            <Button @click="router.visit('/sales/create')" class="bg-white text-purple-600 hover:bg-purple-50 gap-2">
-                                <ShoppingCart class="h-4 w-4" />
-                                New Sale
-                            </Button>
-                            <Button @click="router.visit('/reports')" variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
-                                <BarChart3 class="h-4 w-4" />
-                                View Reports
-                            </Button>
-                        </div>
+        <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+            <div class="mx-auto w-[90%] px-6 py-8 space-y-8">
+                <!-- Welcome Header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-4xl font-bold text-gray-900 mb-2">
+                            {{ getGreeting() }}! 👋
+                        </h1>
+                        <p class="text-lg text-gray-600">Here's what's happening with your business today</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <Button
+                            @click="router.visit('/sales/create')"
+                            class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all"
+                            size="lg"
+                        >
+                            <ShoppingCart class="mr-2 h-5 w-5" />
+                            New Sale
+                        </Button>
+                        <Button
+                            @click="router.visit('/reports')"
+                            variant="outline"
+                            size="lg"
+                            class="border-2"
+                        >
+                            <BarChart3 class="mr-2 h-5 w-5" />
+                            Reports
+                        </Button>
                     </div>
                 </div>
 
                 <!-- Stats Grid -->
                 <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                     <!-- Today's Sales -->
-                    <Card class="border-0 shadow-xl bg-white overflow-hidden relative group hover:shadow-2xl transition-all">
-                        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-                        <CardHeader class="relative z-10">
+                    <Card class="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group">
+                        <CardHeader class="pb-3">
                             <div class="flex items-center justify-between">
-                                <CardTitle class="text-sm font-medium text-slate-600">Today's Sales</CardTitle>
-                                <div class="rounded-lg bg-emerald-100 p-2">
-                                    <DollarSign class="h-5 w-5 text-emerald-600" />
+                                <CardTitle class="text-sm font-medium text-gray-600">Today's Revenue</CardTitle>
+                                <div class="rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 p-3 group-hover:scale-110 transition-transform">
+                                    <DollarSign class="h-5 w-5 text-white" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-slate-900">${{ props.stats.todaySales.toFixed(2) }}</div>
-                            <div class="mt-2 flex items-center gap-2">
-                                <div :class="[
-                                    'flex items-center text-sm font-medium',
-                                    salesTrend === 'up' ? 'text-emerald-600' : 'text-red-600'
-                                ]">
-                                    <ArrowUpRight v-if="salesTrend === 'up'" class="h-4 w-4" />
-                                    <ArrowDownRight v-else class="h-4 w-4" />
-                                    <span>{{ salesChangePercent }}%</span>
-                                </div>
-                                <span class="text-slate-500 text-sm">vs yesterday</span>
+                        <CardContent>
+                            <div class="text-3xl font-bold text-gray-900 mb-2">
+                                {{ formatCurrency(props.stats.todaySales) }}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <Badge
+                                    :variant="salesTrend === 'up' ? 'default' : 'destructive'"
+                                    class="flex items-center gap-1"
+                                >
+                                    <TrendingUp v-if="salesTrend === 'up'" class="h-3 w-3" />
+                                    <TrendingDown v-else class="h-3 w-3" />
+                                    {{ salesChangePercent }}%
+                                </Badge>
+                                <span class="text-sm text-gray-500">vs yesterday</span>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <!-- Orders -->
-                    <Card class="border-0 shadow-xl bg-white overflow-hidden relative group hover:shadow-2xl transition-all">
-                        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-                        <CardHeader class="relative z-10">
+                    <!-- Orders Today -->
+                    <Card class="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group">
+                        <CardHeader class="pb-3">
                             <div class="flex items-center justify-between">
-                                <CardTitle class="text-sm font-medium text-slate-600">Orders Today</CardTitle>
-                                <div class="rounded-lg bg-blue-100 p-2">
-                                    <ShoppingCart class="h-5 w-5 text-blue-600" />
+                                <CardTitle class="text-sm font-medium text-gray-600">Orders Today</CardTitle>
+                                <div class="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-3 group-hover:scale-110 transition-transform">
+                                    <ShoppingBag class="h-5 w-5 text-white" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-slate-900">{{ props.stats.todayOrders }}</div>
-                            <div class="mt-2 flex items-center gap-2">
-                                <div :class="[
-                                    'flex items-center text-sm font-medium',
-                                    props.stats.monthlyGrowth >= 0 ? 'text-blue-600' : 'text-red-600'
-                                ]">
-                                    <ArrowUpRight v-if="props.stats.monthlyGrowth >= 0" class="h-4 w-4" />
-                                    <ArrowDownRight v-else class="h-4 w-4" />
-                                    <span>{{ Math.abs(props.stats.monthlyGrowth).toFixed(1) }}%</span>
-                                </div>
-                                <span class="text-slate-500 text-sm">monthly growth</span>
+                        <CardContent>
+                            <div class="text-3xl font-bold text-gray-900 mb-2">
+                                {{ props.stats.todayOrders }}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <Badge
+                                    :variant="props.stats.monthlyGrowth >= 0 ? 'default' : 'destructive'"
+                                    class="flex items-center gap-1"
+                                >
+                                    <TrendingUp v-if="props.stats.monthlyGrowth >= 0" class="h-3 w-3" />
+                                    <TrendingDown v-else class="h-3 w-3" />
+                                    {{ Math.abs(props.stats.monthlyGrowth).toFixed(1) }}%
+                                </Badge>
+                                <span class="text-sm text-gray-500">monthly growth</span>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <!-- Products -->
-                    <Card class="border-0 shadow-xl bg-white overflow-hidden relative group hover:shadow-2xl transition-all">
-                        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-                        <CardHeader class="relative z-10">
+                    <!-- Total Products -->
+                    <Card class="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group">
+                        <CardHeader class="pb-3">
                             <div class="flex items-center justify-between">
-                                <CardTitle class="text-sm font-medium text-slate-600">Products</CardTitle>
-                                <div class="rounded-lg bg-purple-100 p-2">
-                                    <Package class="h-5 w-5 text-purple-600" />
+                                <CardTitle class="text-sm font-medium text-gray-600">Total Products</CardTitle>
+                                <div class="rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 p-3 group-hover:scale-110 transition-transform">
+                                    <Package class="h-5 w-5 text-white" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-slate-900">{{ props.stats.totalProducts }}</div>
-                            <div class="mt-2 flex items-center gap-2">
-                                <span class="text-purple-600 text-sm font-medium">Active</span>
-                                <span class="text-slate-500 text-sm">in inventory</span>
+                        <CardContent>
+                            <div class="text-3xl font-bold text-gray-900 mb-2">
+                                {{ props.stats.totalProducts }}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <Badge variant="secondary" class="flex items-center gap-1">
+                                    <Activity class="h-3 w-3" />
+                                    Active
+                                </Badge>
+                                <span class="text-sm text-gray-500">in inventory</span>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <!-- Low Stock -->
-                    <Card class="border-0 shadow-xl bg-white overflow-hidden relative group hover:shadow-2xl transition-all">
-                        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-100 to-red-200 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-                        <CardHeader class="relative z-10">
+                    <!-- Low Stock Alert -->
+                    <Card class="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group">
+                        <CardHeader class="pb-3">
                             <div class="flex items-center justify-between">
-                                <CardTitle class="text-sm font-medium text-slate-600">Low Stock</CardTitle>
-                                <div class="rounded-lg bg-red-100 p-2">
-                                    <AlertTriangle class="h-5 w-5 text-red-600" />
+                                <CardTitle class="text-sm font-medium text-gray-600">Low Stock Items</CardTitle>
+                                <div class="rounded-xl bg-gradient-to-br from-orange-500 to-red-600 p-3 group-hover:scale-110 transition-transform">
+                                    <AlertTriangle class="h-5 w-5 text-white" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent class="relative z-10">
-                            <div class="text-3xl font-bold text-red-600">{{ props.stats.lowStockItems }}</div>
-                            <div class="mt-2 flex items-center gap-2">
-                                <span class="text-red-600 text-sm font-medium">⚠️ Attention</span>
-                                <span class="text-slate-500 text-sm">needed</span>
+                        <CardContent>
+                            <div class="text-3xl font-bold text-red-600 mb-2">
+                                {{ props.stats.lowStockItems }}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <Badge variant="destructive" class="flex items-center gap-1">
+                                    <Zap class="h-3 w-3" />
+                                    Action Required
+                                </Badge>
                             </div>
                         </CardContent>
                     </Card>
@@ -208,127 +235,188 @@ const salesTrend = props.stats.todaySales >= props.stats.yesterdaySales ? 'up' :
 
                 <!-- Main Content Grid -->
                 <div class="grid gap-6 lg:grid-cols-3">
-                    <!-- Quick Actions -->
-                    <Card class="border-0 shadow-xl bg-white lg:col-span-1">
-                        <CardHeader>
-                            <CardTitle class="flex items-center gap-2">
-                                <Sparkles class="h-5 w-5 text-purple-600" />
-                                Quick Actions
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent class="space-y-3">
-                            <Button
-                                @click="router.visit('/sales/create')"
-                                class="w-full justify-start gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 h-auto py-4"
-                            >
-                                <ShoppingCart class="h-5 w-5" />
-                                <div class="text-left">
-                                    <div class="font-semibold">New Sale</div>
-                                    <div class="text-xs opacity-80">Open POS terminal</div>
-                                </div>
-                            </Button>
-                            <Button
-                                @click="router.visit('/products/create')"
-                                variant="outline"
-                                class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-slate-50"
-                            >
-                                <Package class="h-5 w-5" />
-                                <div class="text-left">
-                                    <div class="font-semibold">Add Product</div>
-                                    <div class="text-xs text-slate-600">New inventory item</div>
-                                </div>
-                            </Button>
-                            <Button
-                                @click="router.visit('/reports')"
-                                variant="outline"
-                                class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-slate-50"
-                            >
-                                <BarChart3 class="h-5 w-5" />
-                                <div class="text-left">
-                                    <div class="font-semibold">Analytics</div>
-                                    <div class="text-xs text-slate-600">View detailed reports</div>
-                                </div>
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    <!-- Recent Sales -->
-                    <Card class="border-0 shadow-xl bg-white lg:col-span-2">
+                    <!-- Recent Transactions -->
+                    <Card class="border-0 shadow-lg bg-white lg:col-span-2">
                         <CardHeader>
                             <div class="flex items-center justify-between">
-                                <CardTitle class="flex items-center gap-2">
-                                    <Clock class="h-5 w-5 text-blue-600" />
-                                    Recent Transactions
-                                </CardTitle>
-                                <Button variant="ghost" size="sm" @click="router.visit('/sales')">
+                                <div>
+                                    <CardTitle class="text-xl font-bold flex items-center gap-2">
+                                        <Clock class="h-5 w-5 text-blue-600" />
+                                        Recent Transactions
+                                    </CardTitle>
+                                    <CardDescription>Latest sales activity</CardDescription>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    @click="router.visit('/sales')"
+                                    class="text-blue-600 hover:text-blue-700"
+                                >
                                     View All
+                                    <ArrowUpRight class="ml-1 h-4 w-4" />
                                 </Button>
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div v-if="props.recentSales.length === 0" class="py-8 text-center text-slate-500">
-                                <Clock class="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                                <p>No sales yet today</p>
-                                <p class="text-sm mt-1">Start selling to see transactions here</p>
+                            <div v-if="props.recentSales.length === 0" class="py-12 text-center">
+                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                                    <ShoppingCart class="h-8 w-8 text-gray-400" />
+                                </div>
+                                <p class="text-gray-600 font-medium mb-1">No sales yet today</p>
+                                <p class="text-sm text-gray-500">Start selling to see transactions here</p>
+                                <Button
+                                    @click="router.visit('/sales/create')"
+                                    class="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600"
+                                >
+                                    <ShoppingCart class="mr-2 h-4 w-4" />
+                                    Create First Sale
+                                </Button>
                             </div>
-                            <div v-else class="space-y-3">
+                            <div v-else class="space-y-2">
                                 <div
                                     v-for="sale in props.recentSales"
                                     :key="sale.id"
-                                    class="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 transition-colors group"
+                                    class="flex items-center justify-between p-4 rounded-xl border-2 border-gray-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all cursor-pointer group"
                                 >
                                     <div class="flex items-center gap-4">
-                                        <div class="rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 p-3 text-white font-bold group-hover:scale-110 transition-transform">
-                                            {{ sale.items }}
+                                        <div class="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-3 text-white group-hover:scale-110 transition-transform">
+                                            <span class="text-lg font-bold">{{ sale.items }}</span>
                                         </div>
                                         <div>
-                                            <div class="font-semibold text-slate-900">{{ sale.id }}</div>
-                                            <div class="text-sm text-slate-600">{{ sale.customer }} • {{ sale.time }}</div>
+                                            <div class="font-semibold text-gray-900">{{ sale.id }}</div>
+                                            <div class="text-sm text-gray-600 flex items-center gap-2">
+                                                <Users class="h-3 w-3" />
+                                                {{ sale.customer }}
+                                                <span class="text-gray-400">•</span>
+                                                {{ sale.time }}
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="text-2xl font-bold text-slate-900">{{ formatCurrency(sale.amount) }}</div>
+                                        <div class="text-xl font-bold text-gray-900">
+                                            {{ formatCurrency(sale.amount) }}
+                                        </div>
+                                        <Badge variant="secondary" class="mt-1">
+                                            Completed
+                                        </Badge>
                                     </div>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    <!-- Quick Actions -->
+                    <Card class="border-0 shadow-lg bg-white">
+                        <CardHeader>
+                            <CardTitle class="text-xl font-bold flex items-center gap-2">
+                                <Zap class="h-5 w-5 text-purple-600" />
+                                Quick Actions
+                            </CardTitle>
+                            <CardDescription>Common tasks</CardDescription>
+                        </CardHeader>
+                        <CardContent class="space-y-3">
+                            <Button
+                                @click="router.visit('/sales/create')"
+                                class="w-full justify-start gap-3 h-auto py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all"
+                            >
+                                <ShoppingCart class="h-5 w-5" />
+                                <div class="text-left flex-1">
+                                    <div class="font-semibold">New Sale</div>
+                                    <div class="text-xs opacity-90">Open POS terminal</div>
+                                </div>
+                                <ArrowUpRight class="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                                @click="router.visit('/products')"
+                                variant="outline"
+                                class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
+                            >
+                                <Package class="h-5 w-5 text-purple-600" />
+                                <div class="text-left flex-1">
+                                    <div class="font-semibold text-gray-900">Manage Products</div>
+                                    <div class="text-xs text-gray-600">View inventory</div>
+                                </div>
+                                <ArrowUpRight class="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                                @click="router.visit('/reports')"
+                                variant="outline"
+                                class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
+                            >
+                                <BarChart3 class="h-5 w-5 text-blue-600" />
+                                <div class="text-left flex-1">
+                                    <div class="font-semibold text-gray-900">View Reports</div>
+                                    <div class="text-xs text-gray-600">Analytics & insights</div>
+                                </div>
+                                <ArrowUpRight class="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                                @click="router.visit('/inventory')"
+                                variant="outline"
+                                class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
+                            >
+                                <Activity class="h-5 w-5 text-green-600" />
+                                <div class="text-left flex-1">
+                                    <div class="font-semibold text-gray-900">Inventory</div>
+                                    <div class="text-xs text-gray-600">Stock management</div>
+                                </div>
+                                <ArrowUpRight class="h-4 w-4" />
+                            </Button>
                         </CardContent>
                     </Card>
                 </div>
 
                 <!-- Low Stock Alert -->
-                <Card v-if="props.lowStockProducts.length > 0" class="border-0 shadow-xl bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white">
+                <Card
+                    v-if="props.lowStockProducts.length > 0"
+                    class="border-0 shadow-lg overflow-hidden bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"
+                >
                     <CardHeader>
-                        <CardTitle class="text-white flex items-center gap-2 text-xl">
-                            <AlertTriangle class="h-6 w-6 animate-pulse" />
-                            🚨 Low Stock Alert
+                        <CardTitle class="text-white flex items-center gap-3 text-2xl">
+                            <AlertTriangle class="h-7 w-7 animate-pulse" />
+                            Low Stock Alert
                         </CardTitle>
+                        <CardDescription class="text-white/90 text-base">
+                            These items need restocking soon
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div class="grid gap-4 md:grid-cols-3">
                             <div
                                 v-for="product in props.lowStockProducts"
                                 :key="product.sku"
-                                class="bg-white/20 backdrop-blur rounded-xl p-4 hover:bg-white/30 transition-colors"
+                                class="bg-white/20 backdrop-blur-sm rounded-xl p-5 border-2 border-white/30 hover:bg-white/30 transition-all"
                             >
-                                <div class="font-bold text-lg">{{ product.name }}</div>
-                                <div class="text-sm text-white/80 mt-1">{{ product.sku }}</div>
-                                <div class="mt-3 flex items-center justify-between">
+                                <div class="flex items-start justify-between mb-3">
                                     <div>
-                                        <div class="text-3xl font-bold">{{ product.current }}</div>
-                                        <div class="text-xs text-white/70">Current</div>
+                                        <div class="font-bold text-lg text-white">{{ product.name }}</div>
+                                        <div class="text-sm text-white/80 mt-1">SKU: {{ product.sku }}</div>
+                                    </div>
+                                    <Badge variant="destructive" class="bg-white text-red-600">
+                                        ⚠️ Low
+                                    </Badge>
+                                </div>
+                                <div class="flex items-center justify-between mt-4 pt-4 border-t border-white/30">
+                                    <div>
+                                        <div class="text-3xl font-bold text-white">{{ product.current }}</div>
+                                        <div class="text-xs text-white/70">In Stock</div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="text-2xl font-semibold">{{ product.min }}</div>
-                                        <div class="text-xs text-white/70">Minimum</div>
+                                        <div class="text-2xl font-semibold text-white/90">{{ product.min }}</div>
+                                        <div class="text-xs text-white/70">Min Required</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <Button
                             @click="router.visit('/products?low_stock=1')"
-                            class="mt-6 bg-white text-red-600 hover:bg-red-50 w-full"
+                            class="mt-6 w-full bg-white text-red-600 hover:bg-gray-100 font-semibold text-lg py-6"
+                            size="lg"
                         >
                             View All Low Stock Items
+                            <ArrowUpRight class="ml-2 h-5 w-5" />
                         </Button>
                     </CardContent>
                 </Card>

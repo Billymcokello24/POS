@@ -52,9 +52,9 @@ const props = defineProps<{
 <template>
   <Head title="Reports" />
 
-  <AppLayout>
-    <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-6">
-      <div class="mx-auto max-w-7xl space-y-8">
+  <AppLayout title="Reports">
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div class="mx-auto w-[90%] space-y-8">
         <!-- Header with Gradient -->
         <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-10 text-white shadow-2xl">
           <div class="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -mr-48 -mt-48"></div>
@@ -301,4 +301,3 @@ const props = defineProps<{
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 </style>
-

@@ -93,8 +93,8 @@ const deleteCategory = (category: Category) => {
   <Head title="Categories" />
 
   <AppLayout>
-    <div class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 p-6">
-      <div class="mx-auto max-w-7xl space-y-6">
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div class="mx-auto w-[90%] space-y-6">
         <!-- Header -->
         <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 p-8 text-white shadow-2xl">
           <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>

@@ -101,9 +101,9 @@ const exportToExcel = () => {
 <template>
   <Head title="Inventory Reports" />
 
-  <AppLayout>
-    <div class="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-6">
-      <div class="mx-auto max-w-7xl space-y-6">
+  <AppLayout title="Inventory Reports">
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div class="mx-auto w-[90%] space-y-6">
         <!-- Header -->
         <div class="flex items-center justify-between">
           <div>
