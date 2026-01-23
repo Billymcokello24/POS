@@ -66,6 +66,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Business
     Route::get('business/settings', [BusinessController::class, 'settings'])->name('business.settings');
     Route::put('business/settings', [BusinessController::class, 'updateSettings'])->name('business.update-settings');
+    // Test MPESA credentials for current business (AJAX)
+    Route::post('business/mpesa/test', [BusinessController::class, 'testMpesa'])->name('business.test-mpesa');
 
     // Users (RBAC)
     Route::resource('users', UsersController::class);
@@ -87,3 +89,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+require __DIR__.'/admin.php';

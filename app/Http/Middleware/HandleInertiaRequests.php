@@ -42,10 +42,10 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
                 'business' => $request->user()?->currentBusiness,
                 'is_impersonating' => $request->session()->has('impersonating_from'),
-                'features' => $request->user()?->currentBusiness 
+                'features' => $request->user()?->currentBusiness
                     ? $request->user()->currentBusiness->getEnabledFeatureKeys()
                     : [],
-                'role_level' => $request->user() 
+                'role_level' => $request->user()
                     ? $request->user()->roles()
                         ->wherePivot('business_id', $request->user()->current_business_id)
                         ->first()?->level ?? ($request->user()->is_super_admin ? 1000 : 0)
@@ -65,6 +65,14 @@ class HandleInertiaRequests extends Middleware
                 'saleId' => fn () => $request->session()->get('saleId'),
             ],
             'currency' => fn () => $request->user()?->currentBusiness?->currency ?? 'USD',
-        ];
-    }
-}
+            'cms' => function () {
+                try {
+                    $page = \App\Models\Page::where('key', 'welcome')->first();
+                    return $page?->content ?? null;
+                } catch (\Throwable $e) {
+                    return null;
+                }
+            },
+         ];
+     }
+ }

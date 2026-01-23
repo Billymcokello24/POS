@@ -17,8 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 import AppLayout from '@/layouts/AppLayout.vue'
 
-// Get currency from page props
-const page = usePage()
+// Get currency from page props (use any to avoid TS prop inference errors)
+const page = usePage<any>()
+
 const currency = computed(() => {
   const curr = page.props.currency
   return typeof curr === 'function' ? curr() : curr || 'USD'
@@ -252,9 +253,25 @@ const editingProduct = ref<Product | null>(null)
 
 // New reactive state for import
 const showImportModal = ref(false)
-const importForm = useForm<{ file: File | null }>({ file: null })
+// import form now includes business_ids so backend knows which businesses to create products for
+const importForm = useForm<{ file: File | null; business_ids: number[] }>({ file: null, business_ids: [] })
 const importErrors = ref<string[]>([])
 const importResult = ref<string | null>(null)
+// selected businesses for import (defaults to current business)
+const selectedBusinessIds = ref<number[]>([])
+
+// populate default selected businesses from page props when available
+if (Array.isArray(page.props.businesses) && page.props.businesses.length > 0) {
+  // default to current business if available, otherwise select first
+  const current = page.props.auth?.user?.current_business_id
+  if (typeof current === 'number') {
+    selectedBusinessIds.value = [current]
+  } else {
+    selectedBusinessIds.value = [page.props.businesses[0].id]
+  }
+  // also set importForm.business_ids so upload uses it
+  importForm.business_ids = selectedBusinessIds.value
+}
 
 const form = useForm({
   name: '',
@@ -404,6 +421,8 @@ const submitImport = () => {
     return
   }
 
+  // ensure form has the currently selected business IDs
+  importForm.business_ids = selectedBusinessIds.value
   // The inertia useForm supports file uploads automatically when the file is set on the form state.
   importForm.post('/products/import', {
     preserveState: true,
@@ -998,6 +1017,17 @@ const flash: any = page.props.flash || {}
 
             <div class="p-4">
               <form @submit.prevent="submitImport" class="space-y-4">
+                <!-- Business selector -->
+                <div v-if="page.props.businesses && page.props.businesses.length" class="mb-3">
+                  <Label class="block text-base font-semibold mb-2">Import into Businesses</Label>
+                  <div class="space-y-2">
+                    <label v-for="b in page.props.businesses" :key="b.id" class="flex items-center gap-2">
+                      <input type="checkbox" class="h-4 w-4" :value="b.id" v-model="selectedBusinessIds" />
+                      <span class="text-sm">{{ b.name }}</span>
+                    </label>
+                  </div>
+                </div>
+
                 <div>
                   <Label for="file-upload" class="block text-base font-semibold mb-2">
                     Select File *

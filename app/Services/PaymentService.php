@@ -12,19 +12,30 @@ class PaymentService
      */
     public function initiateMpesaStkPush(array $data)
     {
+        // Optional per-business MPESA credentials
+        $mpesaCreds = $data['mpesa'] ?? null;
+
+        // Helper to fetch setting or fallback to config
+        $get = function ($key, $default = null) use ($mpesaCreds) {
+            if ($mpesaCreds && array_key_exists($key, $mpesaCreds) && !empty($mpesaCreds[$key])) {
+                return $mpesaCreds[$key];
+            }
+            return config('mpesa.' . $key, $default);
+        };
+
         $phoneNumber = $this->formatPhoneNumber($data['phone_number']);
         $amount = (int) $data['amount'];
         $accountReference = $data['account_reference'] ?? 'POS-SALE';
         $transactionDesc = $data['transaction_desc'] ?? 'Payment for goods';
 
-        // Get M-Pesa credentials from config
-        $consumerKey = config('mpesa.consumer_key');
-        $consumerSecret = config('mpesa.consumer_secret');
-        $shortcode = config('mpesa.shortcode');
-        $headOfficeShortcode = config('mpesa.head_office_shortcode');
-        $passkey = config('mpesa.passkey');
-        $callbackUrl = config('mpesa.callback_url');
-        $environment = config('mpesa.environment', 'production');
+        // Get M-Pesa credentials from per-business settings or config
+        $consumerKey = $get('consumer_key');
+        $consumerSecret = $get('consumer_secret');
+        $shortcode = $get('shortcode');
+        $headOfficeShortcode = $get('head_office_shortcode');
+        $passkey = $get('passkey');
+        $callbackUrl = $get('callback_url', config('mpesa.callback_url'));
+        $environment = $get('environment', config('mpesa.environment', 'production'));
 
         // Validate credentials
         if (empty($consumerKey) || empty($consumerSecret) || empty($shortcode) || empty($passkey)) {
@@ -64,76 +75,102 @@ class PaymentService
             $isTillNumber = strlen($shortcode) >= 6;
             $transactionType = $isTillNumber ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline';
 
-            // For STK Push, BusinessShortCode is ALWAYS the shortcode itself
-            // This applies to both Till Numbers and PayBill
-            $businessShortCode = $shortcode;
-            $partyB = $shortcode;
+            // Build mapping attempts: prefer head-office-as-business then store-as-business
+            $attempts = [];
+            if (!empty($headOfficeShortcode)) {
+                $attempts[] = ['label' => 'head_office_as_business', 'business_shortcode' => $headOfficeShortcode, 'party_b' => $shortcode];
+                $attempts[] = ['label' => 'store_as_business', 'business_shortcode' => $shortcode, 'party_b' => $headOfficeShortcode];
+            } else {
+                $attempts[] = ['label' => 'store_as_business', 'business_shortcode' => $shortcode, 'party_b' => $shortcode];
+            }
 
-            // Password is generated with the shortcode
-            $password = base64_encode($businessShortCode . $passkey . $timestamp);
+            $lastError = null;
+            foreach ($attempts as $attempt) {
+                $businessShortCode = $attempt['business_shortcode'];
+                $partyB = $attempt['party_b'];
+                $password = base64_encode($businessShortCode . $passkey . $timestamp);
 
-            // Log STK Push request details
-            Log::info('Initiating M-Pesa STK Push', [
-                'phone' => $phoneNumber,
-                'amount' => $amount,
-                'shortcode' => $shortcode,
-                'business_shortcode' => $businessShortCode,
-                'party_b' => $partyB,
-                'transaction_type' => $transactionType,
-                'is_till_number' => $isTillNumber,
-                'callback_url' => $callbackUrl,
-                'account_ref' => $accountReference,
-                'timestamp' => $timestamp
-            ]);
-
-            // Step 3: Initiate STK Push with 30 second timeout and retry
-            $stkResponse = Http::timeout(30)
-                ->retry(2, 100) // Retry twice with 100ms delay
-                ->withToken($accessToken)
-                ->post($urls['stk_push'], [
-                    'BusinessShortCode' => $businessShortCode,
-                    'Password' => $password,
-                    'Timestamp' => $timestamp,
-                    'TransactionType' => $transactionType,
-                    'Amount' => $amount,
-                    'PartyA' => $phoneNumber,
-                    'PartyB' => $partyB,
-                    'PhoneNumber' => $phoneNumber,
-                    'CallBackURL' => $callbackUrl,
-                    'AccountReference' => $accountReference,
-                    'TransactionDesc' => $transactionDesc,
+                Log::info('Initiating M-Pesa STK Push (attempt)', [
+                    'attempt' => $attempt['label'],
+                    'phone' => $phoneNumber,
+                    'amount' => $amount,
+                    'shortcode' => $shortcode,
+                    'business_shortcode' => $businessShortCode,
+                    'party_b' => $partyB,
+                    'transaction_type' => $transactionType,
+                    'is_till_number' => $isTillNumber,
+                    'callback_url' => $callbackUrl,
+                    'account_ref' => $accountReference,
+                    'timestamp' => $timestamp
                 ]);
 
-            if (!$stkResponse->successful()) {
-                Log::error('M-Pesa STK Push Failed', ['response' => $stkResponse->json()]);
-                return [
-                    'success' => false,
-                    'message' => 'Failed to initiate M-Pesa payment',
-                    'error' => $stkResponse->json()
-                ];
+                // Make the STK push request for this attempt
+                $stkResponse = Http::timeout(30)
+                    ->retry(2, 100)
+                    ->withToken($accessToken)
+                    ->post($urls['stk_push'], [
+                        'BusinessShortCode' => $businessShortCode,
+                        'Password' => $password,
+                        'Timestamp' => $timestamp,
+                        'TransactionType' => $transactionType,
+                        'Amount' => $amount,
+                        'PartyA' => $phoneNumber,
+                        'PartyB' => $partyB,
+                        'PhoneNumber' => $phoneNumber,
+                        'CallBackURL' => $callbackUrl,
+                        'AccountReference' => $accountReference,
+                        'TransactionDesc' => $transactionDesc,
+                    ]);
+
+                if ($stkResponse->successful()) {
+                    $responseData = $stkResponse->json();
+                    if (is_array($responseData) && isset($responseData['ResponseCode']) && $responseData['ResponseCode'] === '0') {
+                        // Success: return including which mapping succeeded
+                        return [
+                            'success' => true,
+                            'message' => 'STK Push sent successfully',
+                            'checkout_request_id' => $responseData['CheckoutRequestID'] ?? null,
+                            'merchant_request_id' => $responseData['MerchantRequestID'] ?? null,
+                            'response_code' => $responseData['ResponseCode'] ?? null,
+                            'response_description' => $responseData['ResponseDescription'] ?? null,
+                            'customer_message' => $responseData['CustomerMessage'] ?? 'Please check your phone to complete payment',
+                            'used_mapping' => $attempt['label'],
+                            'used_business_shortcode' => $businessShortCode,
+                            'used_party_b' => $partyB,
+                            'used_passkey' => $passkey,
+                        ];
+                    }
+                }
+
+                // capture error body for this attempt
+                try {
+                    $body = $stkResponse->json();
+                } catch (\Exception $e) {
+                    $body = ['status' => $stkResponse->status(), 'body' => $stkResponse->body()];
+                }
+
+                Log::warning('M-Pesa STK Push Attempt Failed', ['attempt' => $attempt['label'], 'status' => $stkResponse->status(), 'response' => $body]);
+                $lastError = $body;
             }
 
-            $responseData = $stkResponse->json();
-
-            // Check response code
-            if ($responseData['ResponseCode'] === '0') {
-                return [
-                    'success' => true,
-                    'message' => 'STK Push sent successfully',
-                    'checkout_request_id' => $responseData['CheckoutRequestID'],
-                    'merchant_request_id' => $responseData['MerchantRequestID'],
-                    'response_code' => $responseData['ResponseCode'],
-                    'response_description' => $responseData['ResponseDescription'],
-                    'customer_message' => $responseData['CustomerMessage'] ?? 'Please check your phone to complete payment',
-                ];
+            // If we got here, all attempts failed
+            $friendly = 'Failed to initiate M-Pesa payment';
+            if (is_array($lastError)) {
+                if (isset($lastError['errorCode']) || isset($lastError['errorMessage'])) {
+                    $code = $lastError['errorCode'] ?? 'unknown';
+                    $msg = $lastError['errorMessage'] ?? ($lastError['error'] ?? null);
+                    $friendly = "M-Pesa error ({$code}): " . ($msg ?? json_encode($lastError));
+                } elseif (isset($lastError['ResponseDescription'])) {
+                    $friendly = $lastError['ResponseDescription'];
+                }
             }
 
+            Log::error('M-Pesa STK Push All Attempts Failed', ['last_error' => $lastError]);
             return [
                 'success' => false,
-                'message' => $responseData['ResponseDescription'] ?? 'STK Push failed',
-                'error' => $responseData
+                'message' => $friendly,
+                'error' => $lastError
             ];
-
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::error('M-Pesa Connection Timeout', [
                 'message' => $e->getMessage(),
@@ -146,30 +183,69 @@ class PaymentService
                 'message' => 'Connection to M-Pesa timed out. Please check your internet connection and try again.',
                 'error' => 'Connection timeout'
             ];
-        } catch (\Exception $e) {
-            Log::error('M-Pesa STK Push Exception', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            // Try to extract response body if available
+            $body = null;
+            try {
+                if (method_exists($e, 'response') && $e->response) {
+                    $res = $e->response;
+                    // Attempt to decode JSON
+                    $body = json_decode($res->body(), true) ?: $res->body();
+                }
+            } catch (\Exception $inner) {
+                $body = $e->getMessage();
+            }
+
+            Log::error('M-Pesa STK Push RequestException', ['message' => $e->getMessage(), 'body' => $body]);
+
+            $friendly = 'An error occurred while processing M-Pesa payment';
+            if (is_array($body)) {
+                if (!empty($body['errorCode']) || !empty($body['errorMessage'])) {
+                    $friendly = 'M-Pesa error (' . ($body['errorCode'] ?? 'unknown') . '): ' . ($body['errorMessage'] ?? json_encode($body));
+                } elseif (!empty($body['CustomerMessage'])) {
+                    $friendly = $body['CustomerMessage'];
+                }
+            } elseif (is_string($body)) {
+                $friendly = $body;
+            }
 
             return [
                 'success' => false,
-                'message' => 'An error occurred while processing M-Pesa payment',
-                'error' => $e->getMessage()
+                'message' => $friendly,
+                'error' => $body
             ];
-        }
-    }
+         } catch (\Exception $e) {
+             Log::error('M-Pesa STK Push Exception', [
+                 'message' => $e->getMessage(),
+                 'trace' => $e->getTraceAsString()
+             ]);
+
+             return [
+                 'success' => false,
+                 'message' => 'An error occurred while processing M-Pesa payment',
+                 'error' => $e->getMessage()
+             ];
+         }
+     }
 
     /**
      * Query STK Push transaction status
      */
-    public function queryStkPushStatus($checkoutRequestId)
+    public function queryStkPushStatus($checkoutRequestId, array $credentials = null)
     {
-        $consumerKey = config('mpesa.consumer_key');
-        $consumerSecret = config('mpesa.consumer_secret');
-        $shortcode = config('mpesa.shortcode');
-        $passkey = config('mpesa.passkey');
-        $environment = config('mpesa.environment', 'production');
+        // Allow per-business credentials
+        $get = function ($key, $default = null) use ($credentials) {
+            if ($credentials && array_key_exists($key, $credentials) && !empty($credentials[$key])) {
+                return $credentials[$key];
+            }
+            return config('mpesa.' . $key, $default);
+        };
+
+        $consumerKey = $get('consumer_key');
+        $consumerSecret = $get('consumer_secret');
+        $shortcode = $get('shortcode');
+        $passkey = $get('passkey');
+        $environment = $get('environment', config('mpesa.environment', 'production'));
 
         $urls = config("mpesa.urls.{$environment}");
 

@@ -1,11 +1,5 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Store,
   Save,
@@ -16,6 +10,13 @@ import {
   DollarSign,
   Settings
 } from 'lucide-vue-next'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import AppLayout from '@/layouts/AppLayout.vue'
 
 // Accept props from controller
 const props = defineProps<{
@@ -30,6 +31,16 @@ const props = defineProps<{
     receipt_prefix: string
     currency: string
     timezone: string | null
+    settings: {
+      mpesa?: {
+        consumer_key: string
+        consumer_secret: string
+        shortcode: string
+        passkey: string
+        environment: string
+        callback_url: string
+      }
+    }
   }
   tax_configurations: Array<any>
 }>()
@@ -45,6 +56,13 @@ const form = useForm({
   receipt_prefix: props.business.receipt_prefix,
   currency: props.business.currency,
   timezone: props.business.timezone || '',
+  // MPESA fields (pre-fill from business.settings.mpesa if present)
+  mpesa_consumer_key: props.business.settings?.mpesa?.consumer_key ?? '',
+  mpesa_consumer_secret: props.business.settings?.mpesa?.consumer_secret ?? '',
+  mpesa_shortcode: props.business.settings?.mpesa?.shortcode ?? '',
+  mpesa_passkey: props.business.settings?.mpesa?.passkey ?? '',
+  mpesa_environment: props.business.settings?.mpesa?.environment ?? 'sandbox',
+  mpesa_callback_url: props.business.settings?.mpesa?.callback_url ?? window.location.origin + '/api/payments/mpesa/callback',
 })
 
 const submit = () => {
@@ -60,6 +78,34 @@ const submit = () => {
       alert('Failed to update settings. Please check the form.')
     },
   })
+}
+
+// CSRF token for POST requests
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+
+const testMpesa = async () => {
+  try {
+    const res = await fetch('/business/mpesa/test', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin'
+    })
+
+    const data = await res.json()
+    if (res.ok && data.success) {
+      alert('✅ MPESA Test Successful: ' + data.message)
+    } else {
+      alert('❌ MPESA Test Failed: ' + (data.message || res.statusText))
+    }
+  } catch (e: unknown) {
+    console.error('Test MPESA error', e)
+    const msg = e instanceof Error ? e.message : String(e)
+    alert('Error testing MPESA credentials: ' + msg)
+  }
 }
 </script>
 
@@ -224,6 +270,91 @@ const submit = () => {
                   />
                   <p class="text-xs text-slate-500">Default currency (e.g., USD, EUR)</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <!-- MPESA Settings -->
+          <Card class="border-0 shadow-xl">
+            <CardHeader>
+              <div class="flex items-center gap-3">
+                <div class="rounded-lg bg-yellow-100 p-2">
+                  <Settings class="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <CardTitle class="text-2xl">MPESA Configuration</CardTitle>
+                  <CardDescription>Mobile payment settings</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Label for="mpesa_consumer_key">MPESA Consumer Key</Label>
+                  <Input
+                    id="mpesa_consumer_key"
+                    v-model="form.mpesa_consumer_key"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_consumer_secret">MPESA Consumer Secret</Label>
+                  <Input
+                    id="mpesa_consumer_secret"
+                    v-model="form.mpesa_consumer_secret"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_shortcode">MPESA Shortcode</Label>
+                  <Input
+                    id="mpesa_shortcode"
+                    v-model="form.mpesa_shortcode"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_passkey">MPESA Passkey</Label>
+                  <Input
+                    id="mpesa_passkey"
+                    v-model="form.mpesa_passkey"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_environment">MPESA Environment</Label>
+                  <Input
+                    id="mpesa_environment"
+                    v-model="form.mpesa_environment"
+                    class="h-12"
+                  />
+                  <p class="text-xs text-slate-500">Set to "live" or "sandbox"</p>
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_callback_url">MPESA Callback URL</Label>
+                  <Input
+                    id="mpesa_callback_url"
+                    v-model="form.mpesa_callback_url"
+                    class="h-12"
+                  />
+                  <p class="text-xs text-slate-500">e.g., https://yourdomain.com/api/payments/mpesa/callback</p>
+                </div>
+              </div>
+
+              <!-- Test Credentials Button -->
+              <div class="flex justify-end">
+                <Button
+                  type="button"
+                  @click="testMpesa"
+                  class="h-12 px-6 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 gap-2"
+                >
+                  Test MPESA Credentials
+                </Button>
               </div>
             </CardContent>
           </Card>

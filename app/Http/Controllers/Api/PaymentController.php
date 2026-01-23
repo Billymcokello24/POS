@@ -49,18 +49,55 @@ class PaymentController extends Controller
             'transaction_desc' => 'Payment for goods',
         ];
 
+        // Attach per-business mpesa credentials if available
+        $business = auth()->user()->currentBusiness;
+        if ($business && isset($business->settings['mpesa'])) {
+            $stkData['mpesa'] = $business->settings['mpesa'];
+        }
+
+        // Validate callback URL (must be publicly reachable). Safaricom rejects localhost.
+        $mpesaSettings = $stkData['mpesa'] ?? null;
+        $callbackToCheck = $mpesaSettings['callback_url'] ?? config('mpesa.callback_url');
+        if ($callbackToCheck) {
+            $parsed = parse_url($callbackToCheck);
+            $host = $parsed['host'] ?? null;
+            $scheme = $parsed['scheme'] ?? null;
+
+            // Reject common local hosts that Safaricom cannot reach
+            if (in_array($host, ['127.0.0.1', 'localhost']) || str_starts_with($host ?? '', '127.')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid M-Pesa callback URL configured for this business. The callback must be publicly accessible (not localhost). Use an ngrok or public HTTPS URL and update Business Settings.'
+                ], 400);
+            }
+
+            // If environment is production enforce HTTPS
+            $env = $mpesaSettings['environment'] ?? config('mpesa.environment', 'production');
+            if ($env === 'production' && strtolower($scheme) !== 'https') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'MPESA callback URL must use HTTPS in production. Please update the business MPESA callback URL to an HTTPS endpoint.'
+                ], 400);
+            }
+        }
+
         $result = $this->paymentService->initiateMpesaStkPush($stkData);
 
         if ($result['success']) {
-            // Store pending payment record
+            // Store pending payment record with the mapping used so we can query status with same BusinessShortCode
             if (isset($validated['sale_id'])) {
+                $metadata = $result;
+                // ensure metadata includes mapping info
+                $metadata['used_mapping'] = $result['used_mapping'] ?? null;
+                $metadata['used_business_shortcode'] = $result['used_business_shortcode'] ?? null;
+
                 Payment::create([
                     'sale_id' => $validated['sale_id'],
                     'payment_method' => 'MPESA',
                     'amount' => $validated['amount'],
                     'status' => 'pending',
                     'reference_number' => $result['checkout_request_id'],
-                    'metadata' => $result,
+                    'metadata' => $metadata,
                 ]);
             }
 
@@ -70,6 +107,7 @@ class PaymentController extends Controller
                 'data' => [
                     'checkout_request_id' => $result['checkout_request_id'],
                     'merchant_request_id' => $result['merchant_request_id'],
+                    'used_mapping' => $result['used_mapping'] ?? null,
                 ]
             ]);
         }
@@ -90,7 +128,30 @@ class PaymentController extends Controller
             'checkout_request_id' => 'required|string',
         ]);
 
-        $result = $this->paymentService->queryStkPushStatus($validated['checkout_request_id']);
+        // Pass per-business credentials if available
+        $credentials = null;
+        $business = auth()->user()->currentBusiness;
+        if ($business && isset($business->settings['mpesa'])) {
+            $credentials = $business->settings['mpesa'];
+        }
+
+        // If there is a pending payment with mapping info, prefer that mapping for querying status
+        $payment = \App\Models\Payment::where('reference_number', $validated['checkout_request_id'])->first();
+        if ($payment && is_array($payment->metadata ?? [])) {
+            $meta = $payment->metadata;
+            if (!empty($meta['used_business_shortcode'])) {
+                // override shortcode to the one used when initiating STK push
+                $credentials = array_merge($credentials ?? [], ['shortcode' => $meta['used_business_shortcode']]);
+            }
+            if (!empty($meta['used_passkey'])) {
+                // override passkey to the one used when initiating STK push
+                $credentials = array_merge($credentials ?? [], ['passkey' => $meta['used_passkey']]);
+            } elseif (!empty($meta['used_mapping']) && $meta['used_mapping'] === 'store_as_business' && !empty($meta['used_business_shortcode'])) {
+                $credentials = array_merge($credentials ?? [], ['shortcode' => $meta['used_business_shortcode']]);
+            }
+        }
+
+        $result = $this->paymentService->queryStkPushStatus($validated['checkout_request_id'], $credentials);
 
         return response()->json($result);
     }

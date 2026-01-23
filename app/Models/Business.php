@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Crypt;
 
 class Business extends Model
 {
@@ -32,6 +33,65 @@ class Business extends Model
         'is_active' => 'boolean',
         'settings' => 'array',
     ];
+
+    /**
+     * Mutator to encrypt sensitive MPESA fields when saving settings.
+     * We encrypt consumer_secret and passkey if they are present and not already encrypted.
+     */
+    public function setSettingsAttribute($value)
+    {
+        // Ensure $value is an array
+        $settings = is_array($value) ? $value : (json_decode($value, true) ?? []);
+
+        if (isset($settings['mpesa']) && is_array($settings['mpesa'])) {
+            foreach (['consumer_secret', 'passkey'] as $key) {
+                if (array_key_exists($key, $settings['mpesa']) && $settings['mpesa'][$key] !== null) {
+                    $val = $settings['mpesa'][$key];
+                    // If the value is already encrypted (decryptable), skip encrypting again
+                    try {
+                        Crypt::decryptString($val);
+                        // decrypt succeeded -> it's already encrypted, leave as is
+                    } catch (\Exception $e) {
+                        // not encrypted -> encrypt
+                        try {
+                            $settings['mpesa'][$key] = Crypt::encryptString((string) $val);
+                        } catch (\Exception $inner) {
+                            // If encryption fails for any reason, fall back to storing plaintext (rare)
+                            // but log would be preferable; keep plaintext to avoid data loss
+                            $settings['mpesa'][$key] = (string) $val;
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->attributes['settings'] = json_encode($settings);
+    }
+
+    /**
+     * Accessor to decrypt sensitive MPESA fields when reading settings.
+     */
+    public function getSettingsAttribute($value)
+    {
+        $settings = is_array($value) ? $value : (json_decode($value, true) ?? []);
+
+        if (isset($settings['mpesa']) && is_array($settings['mpesa'])) {
+            foreach (['consumer_secret', 'passkey'] as $key) {
+                if (array_key_exists($key, $settings['mpesa']) && $settings['mpesa'][$key] !== null) {
+                    $val = $settings['mpesa'][$key];
+                    try {
+                        $decrypted = Crypt::decryptString($val);
+                        $settings['mpesa'][$key] = $decrypted;
+                    } catch (\Exception $e) {
+                        // If decrypt fails, keep the original value (it might be plaintext)
+                        $settings['mpesa'][$key] = $val;
+                    }
+                }
+            }
+        }
+
+        return $settings;
+    }
 
     public function plan()
     {
@@ -127,7 +187,7 @@ class Business extends Model
     public function activateSubscription(Subscription $subscription, ?string $receipt = null, array $metadata = []): void
     {
         $plan = $subscription->plan;
-        
+
         if (!$plan && $subscription->plan_name) {
             $plan = Plan::where('name', 'like', $subscription->plan_name)->first();
         }
