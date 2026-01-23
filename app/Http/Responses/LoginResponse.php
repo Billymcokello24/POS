@@ -16,9 +16,15 @@ class LoginResponse implements LoginResponseContract
      */
     public function toResponse($request): Response
     {
+        $isSuper = $request->user() && $request->user()->is_super_admin;
+        \Log::debug('LoginResponse: User ' . ($request->user()?->email ?? 'Guest') . ' - Is Super: ' . ($isSuper ? 'YES' : 'NO'));
+        
+        $home = $isSuper ? '/admin/dashboard' : config('fortify.home');
+        \Log::debug('LoginResponse: Redirecting to ' . $home);
+
         return $request->wantsJson()
             ? new JsonResponse('', 204)
-            : redirect()->intended(config('fortify.home'));
+            : redirect()->intended($home);
     }
 }
 

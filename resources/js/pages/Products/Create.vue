@@ -120,7 +120,55 @@ const submit = () => {
               </CardTitle>
             </CardHeader>
             <CardContent class="space-y-4 pt-6">
-              ...existing code...
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Label for="cost_price">Cost Price</Label>
+                  <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <Input
+                      id="cost_price"
+                      type="number"
+                      step="0.01"
+                      v-model="form.cost_price"
+                      class="pl-7"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <Label for="selling_price">Selling Price *</Label>
+                  <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <Input
+                      id="selling_price"
+                      type="number"
+                      step="0.01"
+                      v-model="form.selling_price"
+                      required
+                      class="pl-7"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div class="space-y-2">
+                <Label for="tax_configuration_id">Tax Configuration</Label>
+                <Select v-model="form.tax_configuration_id">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select tax rule (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="tax in taxConfigurations"
+                      :key="tax.id"
+                      :value="tax.id"
+                    >
+                      {{ tax.name }} ({{ tax.rate }}%)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 
@@ -132,7 +180,35 @@ const submit = () => {
               </CardTitle>
             </CardHeader>
             <CardContent class="space-y-4 pt-6">
-              ...existing code...
+              <div class="flex items-center justify-between pointer-events-none opacity-80">
+                 <!-- Track Inventory is forced to true in form default, but we can show it as checked disabled or allow toggle -->
+                 <div class="space-y-0.5">
+                   <Label>Track Inventory</Label>
+                   <p class="text-sm text-gray-500">Enable stock tracking for this product</p>
+                 </div>
+                 <Switch v-model:checked="form.track_inventory" />
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Label for="quantity">Initial Stock</Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    v-model="form.quantity"
+                    placeholder="0"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label for="reorder_level">Reorder Level</Label>
+                  <Input
+                    id="reorder_level"
+                    type="number"
+                    v-model="form.reorder_level"
+                    placeholder="10"
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -144,7 +220,40 @@ const submit = () => {
               </CardTitle>
             </CardHeader>
             <CardContent class="space-y-4 pt-6">
-              ...existing code...
+              <div class="space-y-2">
+                <Label for="sku">SKU (Stock Keeping Unit)</Label>
+                <Input
+                  id="sku"
+                  v-model="form.sku"
+                  placeholder="Leave empty to auto-generate"
+                />
+                <p class="text-xs text-gray-500">Unique code for the product</p>
+              </div>
+
+              <div class="grid grid-cols-3 gap-4">
+                <div class="col-span-2 space-y-2">
+                  <Label for="barcode">Barcode</Label>
+                  <Input
+                    id="barcode"
+                    v-model="form.barcode"
+                    placeholder="Scan or enter barcode"
+                  />
+                  <p class="text-xs text-gray-500">Enter manually or scan using a reader</p>
+                </div>
+                <div class="space-y-2">
+                  <Label for="barcode_type">Type</Label>
+                  <Select v-model="form.barcode_type">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CODE128">CODE128</SelectItem>
+                      <SelectItem value="EAN13">EAN13</SelectItem>
+                      <SelectItem value="UPCA">UPCA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

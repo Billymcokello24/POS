@@ -19,6 +19,10 @@ import {
   ShoppingCart
 } from 'lucide-vue-next'
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+// ... existing imports
+
 // Get currency from page props
 const page = usePage()
 const currency = computed(() => {
@@ -63,17 +67,20 @@ const props = defineProps<{
     status?: string
     date_from?: string
     date_to?: string
+    cashier_id?: string
   }
   stats?: {
     today_revenue: number
     total_sales: number
     avg_sale_value: number
   }
+  cashiers?: Array<{ id: number, name: string }>
 }>()
 
 const search = ref(props.filters?.search || '')
 const dateFrom = ref(props.filters?.date_from || '')
 const dateTo = ref(props.filters?.date_to || '')
+const selectedCashier = ref(props.filters?.cashier_id || 'ALL')
 
 // Calculate stats from actual sales data if not provided
 const todayRevenue = computed(() => {
@@ -115,6 +122,7 @@ const applyFilters = () => {
     search: search.value,
     date_from: dateFrom.value,
     date_to: dateTo.value,
+    cashier_id: selectedCashier.value !== 'ALL' ? selectedCashier.value : null,
   }, {
     preserveState: true,
     preserveScroll: true,
@@ -210,7 +218,6 @@ const refundSale = (saleId: number) => {
                   />
                 </div>
               </div>
-              <div class="flex gap-3">
                 <Input
                   v-model="dateFrom"
                   type="date"
@@ -223,12 +230,27 @@ const refundSale = (saleId: number) => {
                   class="h-12 border-2"
                   placeholder="To"
                 />
+                
+                <!-- Cashier Filter (Admin Only) -->
+                <div v-if="cashiers && cashiers.length > 0" class="min-w-[150px]">
+                  <Select v-model="selectedCashier">
+                    <SelectTrigger class="h-12 border-2 bg-white">
+                      <SelectValue placeholder="All Cashiers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Cashiers</SelectItem>
+                      <SelectItem v-for="c in cashiers" :key="c.id" :value="String(c.id)">
+                        {{ c.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Button @click="applyFilters" class="h-12 px-6 bg-gradient-to-r from-blue-600 to-cyan-600 gap-2">
                   <Filter class="h-5 w-5" />
                   Filter
                 </Button>
               </div>
-            </div>
           </CardContent>
         </Card>
 

@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         // Seed roles and permissions
         $this->call([
             RolePermissionSeeder::class,
+            AdminUserSeeder::class,
         ]);
 
         // Create demo business
@@ -55,33 +56,17 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // Create admin user
-        $adminUser = \App\Models\User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@demo.com',
-            'password' => bcrypt('password'),
-            'current_business_id' => $business->id,
-            'is_super_admin' => true,
-            'is_active' => true,
-            'email_verified_at' => now(),
-        ]);
+        // Get admin user created by seeder
+        $adminUser = \App\Models\User::where('email', 'admin@pos.com')->first();
+        $cashierUser = \App\Models\User::where('email', 'cashier@demo.com')->first();
 
-        // Assign admin role
-        $adminRole = \App\Models\Role::where('name', 'admin')->first();
-        $adminUser->roles()->attach($adminRole->id, ['business_id' => $business->id]);
-
-        // Create cashier user
-        $cashier = \App\Models\User::create([
-            'name' => 'Cashier User',
-            'email' => 'cashier@demo.com',
-            'password' => bcrypt('password'),
-            'current_business_id' => $business->id,
-            'is_active' => true,
-            'email_verified_at' => now(),
-        ]);
-
-        $cashierRole = \App\Models\Role::where('name', 'cashier')->first();
-        $cashier->roles()->attach($cashierRole->id, ['business_id' => $business->id]);
+        // Assign business to users
+        if ($adminUser) {
+            $adminUser->update(['current_business_id' => $business->id]);
+        }
+        if ($cashierUser) {
+            $cashierUser->update(['current_business_id' => $business->id]);
+        }
 
         // Create demo products
         $products = [
@@ -152,7 +137,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->command->info('Database seeded successfully!');
-        $this->command->info('Admin Login: admin@demo.com / password');
+        $this->command->info('Admin Login: admin@pos.com / admin123');
         $this->command->info('Cashier Login: cashier@demo.com / password');
     }
 }

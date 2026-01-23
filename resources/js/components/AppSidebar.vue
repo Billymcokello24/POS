@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import {
     LayoutGrid,
@@ -12,7 +13,8 @@ import {
     TrendingUp,
     AlertCircle,
     Sparkles,
-    ChevronRight
+    ChevronRight,
+    Crown
 } from 'lucide-vue-next'
 
 import NavUser from '@/components/NavUser.vue'
@@ -31,13 +33,14 @@ import {
 import { type NavItem } from '@/types'
 
 const page = usePage()
+const user = computed(() => page.props.auth?.user)
 
 const isActive = (href: any) => {
     const url = typeof href === 'string' ? href : href?.url || ''
     return page.url.startsWith(url)
 }
 
-// Main Navigation Items
+// Main Navigation Items - Available to all authenticated users
 const mainNavItems: NavItem[] = [
     {
         title: 'Dashboard',
@@ -45,67 +48,126 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
-        title: 'Point of Sale',
-        href: '/sales/create',
-        icon: ShoppingCart,
+        title: 'Subscription',
+        href: '/subscription',
+        icon: Crown,
     },
 ]
 
-// Sales & Orders
+const filteredMainNavItems = computed(() => {
+    return mainNavItems.filter(item => {
+        if (item.title === 'Subscription' && (page.props.auth as any).user.is_super_admin) {
+            return false;
+        }
+        return true;
+    });
+})
+
+// Sales & Orders - Permission gated
 const salesNavItems: NavItem[] = [
+    {
+        title: 'Point of Sale',
+        href: '/sales/create',
+        icon: ShoppingCart,
+        permission: 'create_sales',
+        feature: 'pos',
+    },
     {
         title: 'Sales History',
         href: '/sales',
         icon: TrendingUp,
+        permission: 'view_sales',
+        feature: 'pos',
     },
 ]
 
-// Inventory Management
+// Inventory Management - Permission gated
 const inventoryNavItems: NavItem[] = [
     {
         title: 'Products',
         href: '/products',
         icon: Package,
+        permission: 'view_products',
+        feature: 'products',
     },
     {
         title: 'Categories',
         href: '/categories',
         icon: Box,
+        permission: 'view_products', // Shared for now
+        feature: 'categories',
     },
     {
         title: 'Inventory',
         href: '/inventory',
         icon: AlertCircle,
+        permission: 'view_inventory',
+        feature: 'inventory',
     },
 ]
 
-// Reports & Analytics
+// Reports & Analytics - Permission gated
 const reportsNavItems: NavItem[] = [
     {
         title: 'All Reports',
         href: '/reports',
         icon: BarChart3,
+        permission: 'view_reports',
+        feature: 'reports',
     },
 ]
 
-// Settings
+// Settings - High level or specific permissions
 const settingsNavItems: NavItem[] = [
     {
         title: 'Business Settings',
         href: '/business/settings',
         icon: Store,
+        permission: 'edit_settings',
+        feature: 'business_settings',
     },
     {
         title: 'Users',
         href: '/users',
         icon: Users,
+        permission: 'view_users',
+        feature: 'users',
     },
     {
         title: 'System Settings',
         href: '/settings',
         icon: Settings,
+        permission: 'edit_settings',
     },
 ]
+
+// Helper function to check if user has access to a navigation item
+const hasAccess = (item: any) => {
+    // 1. Permission Check (Functional role)
+    if (item.permission) {
+        const userPermissions = (page.props.auth as any).permissions || [];
+        if (!userPermissions.includes(item.permission)) {
+            return false
+        }
+    }
+
+    // 2. Feature Check (Subscription Gate)
+    // Super Admins see everything for management, but Tenants are gated
+    if (!(page.props.auth as any).user.is_super_admin && item.feature) {
+        const enabledFeatures = (page.props.auth as any).features || [];
+        if (!enabledFeatures.includes(item.feature)) {
+            return false
+        }
+    }
+
+    return true
+}
+
+// Filter navigation items based on user permissions
+const filteredSalesNavItems = computed(() => salesNavItems.filter(hasAccess))
+const filteredInventoryNavItems = computed(() => inventoryNavItems.filter(hasAccess))
+const filteredReportsNavItems = computed(() => reportsNavItems.filter(hasAccess))
+const filteredSettingsNavItems = computed(() => settingsNavItems.filter(hasAccess))
 </script>
 
 <template>
@@ -137,7 +199,7 @@ const settingsNavItems: NavItem[] = [
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                     <SidebarMenu>
-                        <SidebarMenuItem v-for="item in mainNavItems" :key="item.title">
+                        <SidebarMenuItem v-for="item in filteredMainNavItems" :key="item.title">
                             <SidebarMenuButton
                                 as-child
                                 :class="[
@@ -182,7 +244,7 @@ const settingsNavItems: NavItem[] = [
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                     <SidebarMenu>
-                        <SidebarMenuItem v-for="item in salesNavItems" :key="item.title">
+                        <SidebarMenuItem v-for="item in filteredSalesNavItems" :key="item.title">
                             <SidebarMenuButton
                                 as-child
                                 :class="[
@@ -227,7 +289,7 @@ const settingsNavItems: NavItem[] = [
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                     <SidebarMenu>
-                        <SidebarMenuItem v-for="item in inventoryNavItems" :key="item.title">
+                        <SidebarMenuItem v-for="item in filteredInventoryNavItems" :key="item.title">
                             <SidebarMenuButton
                                 as-child
                                 :class="[
@@ -272,7 +334,7 @@ const settingsNavItems: NavItem[] = [
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                     <SidebarMenu>
-                        <SidebarMenuItem v-for="item in reportsNavItems" :key="item.title">
+                        <SidebarMenuItem v-for="item in filteredReportsNavItems" :key="item.title">
                             <SidebarMenuButton
                                 as-child
                                 :class="[
@@ -317,7 +379,7 @@ const settingsNavItems: NavItem[] = [
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                     <SidebarMenu>
-                        <SidebarMenuItem v-for="item in settingsNavItems" :key="item.title">
+                        <SidebarMenuItem v-for="item in filteredSettingsNavItems" :key="item.title">
                             <SidebarMenuButton
                                 as-child
                                 :class="[

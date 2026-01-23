@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Head, router, useForm } from '@inertiajs/vue3'
+import { Head, router, useForm, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,8 @@ interface Category {
 const props = defineProps<{
   categories?: Category[]
 }>()
+
+const page = usePage()
 
 const showModal = ref(false)
 const editingCategory = ref<Category | null>(null)
@@ -110,7 +112,11 @@ const deleteCategory = (category: Category) => {
                 </div>
               </div>
             </div>
-            <Button @click="openCreateModal" class="bg-white text-purple-600 hover:bg-purple-50 gap-2 h-12 px-6">
+            <Button
+              v-if="(page.props.auth as any).permissions?.includes('create_categories')"
+              @click="openCreateModal"
+              class="bg-white text-purple-600 hover:bg-purple-50 gap-2 h-12 px-6"
+            >
               <Plus class="h-5 w-5" />
               Add Category
             </Button>
@@ -197,6 +203,7 @@ const deleteCategory = (category: Category) => {
                   View Products
                 </Button>
                 <Button
+                  v-if="(page.props.auth as any).permissions?.includes('edit_categories')"
                   variant="ghost"
                   size="sm"
                   class="hover:bg-blue-100"
@@ -205,6 +212,7 @@ const deleteCategory = (category: Category) => {
                   <Edit class="h-4 w-4" />
                 </Button>
                 <Button
+                  v-if="(page.props.auth as any).permissions?.includes('delete_categories')"
                   variant="ghost"
                   size="sm"
                   class="hover:bg-red-100"
@@ -218,6 +226,7 @@ const deleteCategory = (category: Category) => {
 
           <!-- Add New Card -->
           <Card
+            v-if="(page.props.auth as any).permissions?.includes('create_categories')"
             @click="openCreateModal"
             class="border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 hover:border-purple-500 transition-all cursor-pointer group"
           >

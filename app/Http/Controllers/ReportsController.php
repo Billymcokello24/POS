@@ -19,8 +19,7 @@ class ReportsController extends Controller
         $user = auth()->user();
 
         // Get quick stats for the dashboard - apply RBAC filtering
-        $statsQuery = Sale::where('business_id', $businessId)
-            ->where('status', 'completed');
+        $statsQuery = Sale::where('status', 'completed');
 
         // RBAC: Cashiers can only see their own sales stats
         if ($user->isCashier()) {
@@ -31,12 +30,10 @@ class ReportsController extends Controller
         $todayOrders = (clone $statsQuery)->whereDate('created_at', today())->count();
 
         // Product stats are not filtered by user role (all users can see all products)
-        $totalProducts = Product::where('business_id', $businessId)
-            ->where('is_active', true)
+        $totalProducts = Product::where('is_active', true)
             ->count();
 
-        $lowStockItems = Product::where('business_id', $businessId)
-            ->where('track_inventory', true)
+        $lowStockItems = Product::where('track_inventory', true)
             ->whereColumn('quantity', '<=', 'reorder_level')
             ->count();
 
@@ -59,8 +56,7 @@ class ReportsController extends Controller
         $endDate = $request->input('end_date', now()->endOfMonth());
 
         // Sales summary with cost calculation - apply RBAC filtering
-        $salesQuery = Sale::where('business_id', $businessId)
-            ->whereBetween('created_at', [$startDate, $endDate])
+        $salesQuery = Sale::whereBetween('created_at', [$startDate, $endDate])
             ->where('status', 'completed');
 
         // RBAC: Cashiers can only see their own sales
@@ -147,8 +143,7 @@ class ReportsController extends Controller
 
         // Get individual sales for scatter plot (last 7 days) - apply RBAC filtering
         $last7DaysStart = now()->subDays(6)->startOfDay();
-        $individualSalesQuery = Sale::where('business_id', $businessId)
-            ->whereBetween('created_at', [$last7DaysStart, now()->endOfDay()])
+        $individualSalesQuery = Sale::whereBetween('created_at', [$last7DaysStart, now()->endOfDay()])
             ->where('status', 'completed');
 
         // RBAC: Cashiers can only see their own sales
@@ -194,8 +189,7 @@ class ReportsController extends Controller
         $businessId = auth()->user()->current_business_id;
 
         // Current inventory status
-        $inventoryStatus = Product::where('business_id', $businessId)
-            ->with('category')
+        $inventoryStatus = Product::with('category')
             ->select([
                 'id',
                 'name',
@@ -211,22 +205,19 @@ class ReportsController extends Controller
             ->get();
 
         // Low stock items
-        $lowStockItems = Product::where('business_id', $businessId)
-            ->where('track_inventory', true)
+        $lowStockItems = Product::where('track_inventory', true)
             ->whereColumn('quantity', '<=', 'reorder_level')
             ->with('category')
             ->get();
 
         // Inventory movements (last 30 days)
-        $movements = InventoryTransaction::where('business_id', $businessId)
-            ->where('created_at', '>=', now()->subDays(30))
+        $movements = InventoryTransaction::where('created_at', '>=', now()->subDays(30))
             ->with(['product', 'createdBy'])
             ->orderBy('created_at', 'desc')
             ->paginate(50);
 
         // Inventory value by category
-        $valueByCategory = Product::where('products.business_id', $businessId)
-            ->join('categories', 'products.category_id', '=', 'categories.id')
+        $valueByCategory = Product::join('categories', 'products.category_id', '=', 'categories.id')
             ->select([
                 'categories.name as category',
                 DB::raw('SUM(products.quantity * products.cost_price) as value'),

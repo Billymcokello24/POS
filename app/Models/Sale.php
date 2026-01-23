@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToBusiness;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sale extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, BelongsToBusiness;
 
     protected $fillable = [
         'business_id',
@@ -35,10 +36,6 @@ class Sale extends Model
 
     protected $appends = ['total_paid', 'change_amount'];
 
-    public function business(): BelongsTo
-    {
-        return $this->belongsTo(Business::class);
-    }
 
     public function cashier(): BelongsTo
     {

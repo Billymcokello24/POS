@@ -47,6 +47,12 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'view_settings', 'display_name' => 'View Settings', 'group' => 'settings'],
             ['name' => 'edit_settings', 'display_name' => 'Edit Settings', 'group' => 'settings'],
 
+            // Categories
+            ['name' => 'view_categories', 'display_name' => 'View Categories', 'group' => 'categories'],
+            ['name' => 'create_categories', 'display_name' => 'Create Categories', 'group' => 'categories'],
+            ['name' => 'edit_categories', 'display_name' => 'Edit Categories', 'group' => 'categories'],
+            ['name' => 'delete_categories', 'display_name' => 'Delete Categories', 'group' => 'categories'],
+
             // Users
             ['name' => 'view_users', 'display_name' => 'View Users', 'group' => 'users'],
             ['name' => 'create_users', 'display_name' => 'Create Users', 'group' => 'users'],
@@ -55,7 +61,7 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create($permission);
+            Permission::updateOrCreate(['name' => $permission['name']], $permission);
         }
 
         // Define roles
@@ -75,6 +81,7 @@ class RolePermissionSeeder extends Seeder
                 'permissions' => Permission::whereIn('name', [
                     'view_sales', 'create_sales', 'edit_sales',
                     'view_products', 'create_products', 'edit_products',
+                    'view_categories', 'create_categories', 'edit_categories',
                     'view_inventory', 'adjust_inventory', 'view_inventory_history',
                     'view_reports', 'export_reports',
                     'view_customers', 'create_customers', 'edit_customers',
@@ -89,6 +96,7 @@ class RolePermissionSeeder extends Seeder
                 'permissions' => Permission::whereIn('name', [
                     'view_sales', 'create_sales',
                     'view_products',
+                    'view_categories',
                     'view_customers', 'create_customers',
                 ])->pluck('id')->toArray(),
             ],
@@ -99,6 +107,7 @@ class RolePermissionSeeder extends Seeder
                 'level' => 40,
                 'permissions' => Permission::whereIn('name', [
                     'view_products', 'create_products', 'edit_products',
+                    'view_categories',
                     'view_inventory', 'adjust_inventory', 'view_inventory_history',
                 ])->pluck('id')->toArray(),
             ],
@@ -108,8 +117,8 @@ class RolePermissionSeeder extends Seeder
             $permissions = $roleData['permissions'];
             unset($roleData['permissions']);
 
-            $role = Role::create($roleData);
-            $role->permissions()->attach($permissions);
+            $role = Role::updateOrCreate(['name' => $roleData['name']], $roleData);
+            $role->permissions()->sync($permissions);
         }
     }
 }

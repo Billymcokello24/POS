@@ -16,20 +16,29 @@ class SalesController extends Controller
 {
     public function index(Request $request)
     {
+        if (!auth()->user()->hasPermission('view_sales')) {
+            abort(403, 'Unauthorized');
+        }
         $businessId = auth()->user()->current_business_id;
         $user = auth()->user();
 
-        $sales = Sale::with(['cashier', 'customer', 'payments'])
-            ->where('business_id', $businessId)
-            // RBAC: Cashiers can only see their own sales
-            ->when($user->isCashier(), function ($query) use ($user) {
-                $query->where('cashier_id', $user->id);
-            })
-            ->when($request->search, function ($query, $search) {
+        $query = Sale::with(['cashier', 'customer', 'payments'])
+            ->where('business_id', $businessId);
+
+        // RBAC: Cashiers can only see their own sales
+        if ($user->isCashier()) {
+            $query->where('cashier_id', $user->id);
+        }
+
+        // Apply filters
+        $sales = $query->when($request->search, function ($query, $search) {
                 $query->where('sale_number', 'like', "%{$search}%");
             })
             ->when($request->status, function ($query, $status) {
                 $query->where('status', $status);
+            })
+            ->when($request->cashier_id && !$user->isCashier(), function ($query, $cashierId) {
+                $query->where('cashier_id', $cashierId);
             })
             ->when($request->date_from, function ($query, $date) {
                 $query->whereDate('created_at', '>=', $date);
@@ -40,13 +49,27 @@ class SalesController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate($request->per_page ?? 15);
 
+        // Get cashiers list for filter (Admin/Manager only)
+        $cashiers = [];
+        if (!$user->isCashier()) {
+            $cashiers = \App\Models\User::where('current_business_id', $businessId)
+                ->where('role', 'cashier')
+                ->get(['id', 'name']);
+        }
+
         // Calculate stats with RBAC filtering
         $statsQuery = Sale::where('business_id', $businessId)
-            ->where('status', 'completed')
-            // RBAC: Cashiers can only see their own sales stats
-            ->when($user->isCashier(), function ($query) use ($user) {
-                $query->where('cashier_id', $user->id);
-            });
+            ->where('status', 'completed');
+
+        if ($user->isCashier()) {
+            $statsQuery->where('cashier_id', $user->id);
+        }
+
+        // Apply same filters to stats as main query (optional, but good for context)
+        // For now, let's keep stats global for the user's view context
+        if ($request->cashier_id && !$user->isCashier()) {
+            $statsQuery->where('cashier_id', $request->cashier_id);
+        }
 
         $todayRevenue = (clone $statsQuery)->whereDate('created_at', today())->sum('total');
         $totalSalesCount = (clone $statsQuery)->count();
@@ -54,7 +77,8 @@ class SalesController extends Controller
 
         return Inertia::render('Sales/Index', [
             'sales' => $sales,
-            'filters' => $request->only(['search', 'status', 'date_from', 'date_to']),
+            'cashiers' => $cashiers,
+            'filters' => $request->only(['search', 'status', 'date_from', 'date_to', 'cashier_id']),
             'stats' => [
                 'today_revenue' => (float) $todayRevenue,
                 'total_sales' => (int) $totalSalesCount,
@@ -141,6 +165,9 @@ class SalesController extends Controller
 
     public function create()
     {
+        if (!auth()->user()->hasPermission('create_sales')) {
+            abort(403, 'Unauthorized');
+        }
         $businessId = auth()->user()->current_business_id;
 
         $customers = Customer::where('business_id', $businessId)
@@ -159,6 +186,9 @@ class SalesController extends Controller
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasPermission('create_sales')) {
+            abort(403, 'Unauthorized');
+        }
         $validated = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
             'items' => 'required|array|min:1',
@@ -296,6 +326,9 @@ class SalesController extends Controller
 
     public function receipt(Sale $sale)
     {
+        if (!auth()->user()->hasPermission('view_sales')) {
+            abort(403, 'Unauthorized');
+        }
         // Check business ownership
         if ($sale->business_id !== auth()->user()->current_business_id) {
             abort(403, 'Unauthorized');
@@ -311,6 +344,9 @@ class SalesController extends Controller
 
     public function refund(Request $request, Sale $sale)
     {
+        if (!auth()->user()->hasPermission('refund_sales')) {
+            abort(403, 'Unauthorized');
+        }
         // Check business ownership
         if ($sale->business_id !== auth()->user()->current_business_id) {
             abort(403, 'Unauthorized');

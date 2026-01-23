@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -8,14 +9,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Users, Shield, Eye, ArrowLeft } from 'lucide-vue-next'
 
+const props = defineProps<{
+  roles: Array<{
+    id: number
+    name: string
+    display_name: string
+    description: string
+    level: number
+  }>
+}>()
+
 // Form for creating users
 const form = useForm({
   name: '',
   email: '',
   password: '',
   password_confirmation: '',
-  role: 'cashier',
+  role_id: props.roles?.[0]?.id || '',
   is_active: true,
+})
+
+const selectedRole = computed(() => {
+  return props.roles.find(r => r.id == form.role_id)
 })
 
 // Methods
@@ -147,35 +162,17 @@ const goBack = () => {
                 <div class="space-y-4">
                   <div class="space-y-2">
                     <Label for="user-role" class="text-base">Role *</Label>
-                    <Select v-model="form.role">
+                    <Select v-model="form.role_id">
                       <SelectTrigger class="h-12">
                         <SelectValue placeholder="Select user role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cashier">
-                          <div class="flex items-center gap-2 p-2">
-                            <Users class="h-4 w-4" />
-                            <div>
-                              <div class="font-medium">Cashier</div>
-                              <div class="text-xs text-slate-500">Can process sales, view own sales</div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="auditor">
-                          <div class="flex items-center gap-2 p-2">
-                            <Eye class="h-4 w-4" />
-                            <div>
-                              <div class="font-medium">Auditor</div>
-                              <div class="text-xs text-slate-500">Can view all sales and reports</div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="admin">
+                        <SelectItem v-for="role in props.roles" :key="role.id" :value="role.id">
                           <div class="flex items-center gap-2 p-2">
                             <Shield class="h-4 w-4" />
                             <div>
-                              <div class="font-medium">Admin</div>
-                              <div class="text-xs text-slate-500">Full access to all features</div>
+                              <div class="font-medium">{{ role.display_name }}</div>
+                              <div class="text-xs text-slate-500">Level {{ role.level }} Access</div>
                             </div>
                           </div>
                         </SelectItem>
@@ -184,20 +181,12 @@ const goBack = () => {
                   </div>
 
                   <!-- Role Description -->
-                  <div class="p-4 bg-white rounded border">
+                  <div v-if="selectedRole" class="p-4 bg-white rounded border">
                     <div class="text-sm">
-                      <strong>{{ form.role.charAt(0).toUpperCase() + form.role.slice(1) }} Permissions:</strong>
-                      <ul class="mt-2 ml-4 list-disc text-xs text-slate-600 space-y-1">
-                        <li v-if="form.role === 'admin'">
-                          <strong>Full System Access:</strong> Manage users, view all sales, edit business settings, access all reports
-                        </li>
-                        <li v-if="form.role === 'auditor'">
-                          <strong>Read-Only Access:</strong> View all sales, reports, and analytics (no editing permissions)
-                        </li>
-                        <li v-if="form.role === 'cashier'">
-                          <strong>Limited Access:</strong> Process sales, view own sales history, manage POS operations
-                        </li>
-                      </ul>
+                      <strong>{{ selectedRole.display_name }} Mandate & Scope:</strong>
+                      <p class="mt-2 text-xs text-slate-600 leading-relaxed italic">
+                        {{ selectedRole.description }}
+                      </p>
                     </div>
                   </div>
                 </div>

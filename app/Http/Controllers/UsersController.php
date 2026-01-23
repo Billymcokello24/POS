@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -17,7 +18,12 @@ class UsersController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $query = User::query();
+        $businessId = $request->user()->current_business_id;
+
+        // Only show users belonging to the current business
+        $query = User::whereHas('roles', function ($q) use ($businessId) {
+            $q->where('business_id', $businessId);
+        })->where('id', '!=', $request->user()->id);
 
         // Search functionality
         if ($request->has('search') && $request->search) {
@@ -42,12 +48,17 @@ class UsersController extends Controller
             }
         }
 
-        $users = $query->paginate(15)->through(function ($user) {
+        $users = $query->paginate(15)->through(function ($user) use ($businessId) {
+            $roleForBusiness = $user->roles()
+                ->wherePivot('business_id', $businessId)
+                ->first();
+
             return [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $user->role,
+                'role' => $roleForBusiness?->display_name ?? $user->role,
+                'role_id' => $roleForBusiness?->id,
                 'is_active' => $user->is_active,
                 'email_verified_at' => $user->email_verified_at,
                 'created_at' => $user->created_at,
@@ -58,6 +69,7 @@ class UsersController extends Controller
         return Inertia::render('Users/Index', [
             'users' => $users,
             'filters' => $request->only(['search', 'role', 'status']),
+            'availableRoles' => \App\Models\Role::orderBy('level', 'desc')->get(),
         ]);
     }
 
@@ -67,7 +79,9 @@ class UsersController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        return Inertia::render('Users/Create');
+        return Inertia::render('Users/Create', [
+            'roles' => \App\Models\Role::orderBy('level', 'desc')->get(),
+        ]);
     }
 
     public function store(Request $request)
@@ -80,19 +94,43 @@ class UsersController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'role' => ['required', Rule::in(['admin', 'cashier', 'auditor'])],
+            'role_id' => 'required|exists:roles,id',
             'is_active' => 'boolean',
         ]);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'is_active' => $validated['is_active'] ?? true,
-        ]);
+        $currentBusinessId = $request->user()->current_business_id;
+
+        // Plan Limit Check
+        $business = \App\Models\Business::find($currentBusinessId);
+        if ($business && !$business->withinPlanLimits('users')) {
+            return back()->with('error', 'Your current plan limit for employees (' . $business->plan->max_users . ') has been reached. Please upgrade to add more.');
+        }
+
+        DB::transaction(function () use ($validated, $currentBusinessId) {
+            $role = \App\Models\Role::findOrFail($validated['role_id']);
+
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role' => $role->name, // Keep for legacy/UI check
+                'is_active' => $validated['is_active'] ?? true,
+                'current_business_id' => $currentBusinessId,
+            ]);
+
+            $user->roles()->attach($role->id, ['business_id' => $currentBusinessId]);
+        });
 
         return redirect()->route('users.index')->with('success', 'User created successfully');
+    }
+
+    private function ensureUserBelongsToBusiness($user, $businessId)
+    {
+        // specific check: does this user have a role in this business?
+        $belongs = $user->roles()->wherePivot('business_id', $businessId)->exists();
+        if (!$belongs) {
+            abort(404); // Hide existence
+        }
     }
 
     public function show(Request $request, User $user)
@@ -100,6 +138,8 @@ class UsersController extends Controller
         if (!$request->user()->canManageUsers()) {
             abort(403, 'Unauthorized');
         }
+
+        $this->ensureUserBelongsToBusiness($user, $request->user()->current_business_id);
 
         return Inertia::render('Users/Show', [
             'user' => [
@@ -121,14 +161,17 @@ class UsersController extends Controller
             abort(403, 'Unauthorized');
         }
 
+        $this->ensureUserBelongsToBusiness($user, $request->user()->current_business_id);
+
         return Inertia::render('Users/Edit', [
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $user->role,
+                'role_id' => $user->roles()->wherePivot('business_id', $request->user()->current_business_id)->first()?->id,
                 'is_active' => $user->is_active,
             ],
+            'roles' => \App\Models\Role::orderBy('level', 'desc')->get(),
         ]);
     }
 
@@ -142,14 +185,18 @@ class UsersController extends Controller
             'name' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:8|confirmed',
-            'role' => ['required', Rule::in(['admin', 'cashier', 'auditor'])],
+            'role_id' => 'required|exists:roles,id',
             'is_active' => 'boolean',
         ]);
+
+        $this->ensureUserBelongsToBusiness($user, $request->user()->current_business_id);
+
+        $role = \App\Models\Role::findOrFail($validated['role_id']);
 
         $updateData = [
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'role' => $validated['role'],
+            'role' => $role->name,
             'is_active' => $validated['is_active'] ?? false,
         ];
 
@@ -158,6 +205,10 @@ class UsersController extends Controller
         }
 
         $user->update($updateData);
+
+        // Sync role for this business
+        $user->roles()->wherePivot('business_id', $request->user()->current_business_id)->detach();
+        $user->roles()->attach($role->id, ['business_id' => $request->user()->current_business_id]);
 
         return redirect()->route('users.index')->with('success', 'User updated successfully');
     }
@@ -173,6 +224,8 @@ class UsersController extends Controller
             return back()->withErrors(['error' => 'You cannot delete your own account']);
         }
 
+        $this->ensureUserBelongsToBusiness($user, $request->user()->current_business_id);
+
         $user->delete();
 
         return redirect()->route('users.index')->with('success', 'User deleted successfully');
@@ -183,6 +236,8 @@ class UsersController extends Controller
         if (!$request->user()->canManageUsers()) {
             abort(403, 'Unauthorized');
         }
+
+        $this->ensureUserBelongsToBusiness($user, $request->user()->current_business_id);
 
         $user->update(['is_active' => !$user->is_active]);
 

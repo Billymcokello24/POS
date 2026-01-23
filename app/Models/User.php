@@ -56,35 +56,39 @@ class User extends Authenticatable
         ];
     }
 
-    // Role-based access control helpers
+    // Role-based access control helpers (Dynamic)
     public function isAdmin(): bool
     {
-        return $this->role === 'admin' || $this->is_super_admin;
+        return $this->is_super_admin || $this->hasRole('admin');
     }
 
     public function isCashier(): bool
     {
-        return $this->role === 'cashier';
+        // A "Cashier" is anyone with level < 75 (Manager/Admin level)
+        // OR we can check for a specific permission they LACK
+        $role = $this->roles()->wherePivot('business_id', $this->current_business_id)->first();
+        return $role ? $role->level < 75 : true; 
     }
 
     public function isAuditor(): bool
     {
-        return $this->role === 'auditor';
+        // An "Auditor" is anyone with view_reports but maybe not edit_settings
+        return $this->hasPermission('view_reports') && !$this->hasPermission('edit_settings');
     }
 
     public function canManageUsers(): bool
     {
-        return $this->isAdmin();
+        return $this->hasPermission('create_users');
     }
 
     public function canViewAllSales(): bool
     {
-        return $this->isAdmin() || $this->isAuditor();
+        return $this->hasPermission('view_sales');
     }
 
     public function canViewOwnSales(): bool
     {
-        return $this->isCashier() || $this->isAdmin() || $this->isAuditor();
+        return $this->hasPermission('view_sales'); // Every role with view_sales can see their own
     }
 
     public function currentBusiness()

@@ -11,6 +11,9 @@ class CategoryController extends Controller
 {
     public function index()
     {
+        if (!auth()->user()->hasPermission('view_categories')) {
+            abort(403, 'Unauthorized');
+        }
         $businessId = auth()->user()->current_business_id;
 
         $categories = Category::where('business_id', $businessId)
@@ -27,6 +30,9 @@ class CategoryController extends Controller
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasPermission('create_categories')) {
+            abort(403, 'Unauthorized');
+        }
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -74,6 +80,9 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category)
     {
+        if (!auth()->user()->hasPermission('edit_categories')) {
+            abort(403, 'Unauthorized');
+        }
         // Check authorization
         if ($category->business_id !== auth()->user()->current_business_id) {
             abort(403, 'Unauthorized');
@@ -109,6 +118,9 @@ class CategoryController extends Controller
 
     public function destroy(Category $category)
     {
+        if (!auth()->user()->hasPermission('delete_categories')) {
+            abort(403, 'Unauthorized');
+        }
         // Check authorization
         if ($category->business_id !== auth()->user()->current_business_id) {
             abort(403, 'Unauthorized');

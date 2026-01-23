@@ -40,6 +40,23 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                'business' => $request->user()?->currentBusiness,
+                'is_impersonating' => $request->session()->has('impersonating_from'),
+                'features' => $request->user()?->currentBusiness 
+                    ? $request->user()->currentBusiness->getEnabledFeatureKeys()
+                    : [],
+                'role_level' => $request->user() 
+                    ? $request->user()->roles()
+                        ->wherePivot('business_id', $request->user()->current_business_id)
+                        ->first()?->level ?? ($request->user()->is_super_admin ? 1000 : 0)
+                    : 0,
+                'permissions' => $request->user()
+                    ? \App\Models\Permission::whereHas('roles', function($q) use ($request) {
+                        $q->whereIn('roles.id', $request->user()->roles()
+                            ->wherePivot('business_id', $request->user()->current_business_id)
+                            ->pluck('roles.id'));
+                    })->pluck('name')->unique()->values()
+                    : [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [

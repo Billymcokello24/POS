@@ -6,12 +6,18 @@ use App\Models\Sale;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
+        \Log::debug('Dashboard index reached. User: ' . auth()->user()->email . ' - Is Super: ' . (auth()->user()->is_super_admin ? 'YES' : 'NO'));
+        if (auth()->user()->is_super_admin) {
+            \Log::debug('Redirecting Super Admin to admin.dashboard');
+            return redirect()->route('admin.dashboard');
+        }
         $businessId = auth()->user()->current_business_id;
         $user = auth()->user();
 
@@ -36,8 +42,7 @@ class DashboardController extends Controller
         $startOfMonth = Carbon::now()->startOfMonth();
 
         // Sales queries with RBAC filtering
-        $salesQuery = Sale::where('business_id', $businessId)
-            ->where('status', 'completed');
+        $salesQuery = Sale::where('status', 'completed');
 
         // RBAC: Cashiers can only see their own sales
         if ($user->isCashier()) {
@@ -59,8 +64,7 @@ class DashboardController extends Controller
         $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
         $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
 
-        $lastMonthSalesQuery = Sale::where('business_id', $businessId)
-            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+        $lastMonthSalesQuery = Sale::whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
             ->where('status', 'completed');
 
         // RBAC: Cashiers can only see their own sales for growth calculation
@@ -75,8 +79,7 @@ class DashboardController extends Controller
             : 0;
 
         // Recent sales (last 10) - apply RBAC filtering
-        $recentSalesQuery = Sale::with(['customer', 'items'])
-            ->where('business_id', $businessId);
+        $recentSalesQuery = Sale::with(['customer', 'items']);
 
         // RBAC: Cashiers can only see their own recent sales
         if ($user->isCashier()) {
@@ -97,19 +100,16 @@ class DashboardController extends Controller
             });
 
         // Total active products (not filtered by user role)
-        $totalProducts = Product::where('business_id', $businessId)
-            ->where('is_active', true)
+        $totalProducts = Product::where('is_active', true)
             ->count();
 
         // Low stock items count (not filtered by user role)
-        $lowStockItems = Product::where('business_id', $businessId)
-            ->where('track_inventory', true)
+        $lowStockItems = Product::where('track_inventory', true)
             ->whereColumn('quantity', '<=', 'reorder_level')
             ->count();
 
         // Low stock products (not filtered by user role)
-        $lowStockProducts = Product::where('business_id', $businessId)
-            ->where('track_inventory', true)
+        $lowStockProducts = Product::where('track_inventory', true)
             ->whereColumn('quantity', '<=', 'reorder_level')
             ->orderBy('quantity', 'asc')
             ->limit(6)
@@ -123,6 +123,12 @@ class DashboardController extends Controller
                 ];
             });
 
+        // System Notifications
+        $systemNotifications = DB::table('system_notifications')
+            ->where('is_active', true)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return Inertia::render('Dashboard', [
             'stats' => [
                 'todaySales' => (float) $todaySales,
@@ -134,6 +140,7 @@ class DashboardController extends Controller
             ],
             'recentSales' => $recentSales,
             'lowStockProducts' => $lowStockProducts,
+            'systemNotifications' => $systemNotifications,
         ]);
     }
 }

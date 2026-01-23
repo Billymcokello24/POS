@@ -3,6 +3,35 @@
 <head>
     <meta charset="utf-8">
     <title>Receipt #{{ $sale->sale_number }}</title>
+    @php
+        // Get currency from business or default to KES
+        $currency = $sale->business->currency ?? 'KES';
+
+        // Currency symbols mapping
+        $currencySymbols = [
+            'USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥', 'CNY' => '¥',
+            'INR' => '₹', 'KES' => 'KSh', 'TZS' => 'TSh', 'UGX' => 'USh', 'ZAR' => 'R', 'NGN' => '₦',
+        ];
+
+        $currencySymbol = $currencySymbols[$currency] ?? $currency . ' ';
+
+        // VAT rate (could be from config or business settings)
+        $vatRate = 0.16; // 16% VAT
+
+        // Calculate VAT-inclusive breakdown
+        // Since prices are VAT-inclusive, we reverse-calculate:
+        // Total (VAT incl.) = Net + VAT
+        // Net = Total / (1 + VAT rate)
+        // VAT = Total - Net
+        $grossTotal = $sale->total;
+        $netAmount = $grossTotal / (1 + $vatRate);
+        $vatAmount = $grossTotal - $netAmount;
+
+        // Helper function for formatting
+        $formatCurrency = function($amount) use ($currencySymbol) {
+            return $currencySymbol . number_format($amount, 2);
+        };
+    @endphp
     <style>
         * {
             margin: 0;
@@ -127,6 +156,35 @@
             font-weight: bold;
         }
 
+        .vat-box {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #000;
+            background-color: #f9f9f9;
+        }
+
+        .vat-box-title {
+            font-size: 11px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-decoration: underline;
+        }
+
+        .vat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+            font-size: 11px;
+        }
+
+        .vat-row.total {
+            font-weight: bold;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+        }
+
         @media print {
             body {
                 padding: 0;
@@ -186,8 +244,8 @@
                     <tr>
                         <td class="item-name">{{ $item->product_name }}</td>
                         <td class="text-right">{{ $item->quantity }}</td>
-                        <td class="text-right">${{ number_format($item->unit_price, 2) }}</td>
-                        <td class="text-right">${{ number_format($item->total, 2) }}</td>
+                        <td class="text-right">{{ $formatCurrency($item->unit_price) }}</td>
+                        <td class="text-right">{{ $formatCurrency($item->total) }}</td>
                     </tr>
                     <tr>
                         <td colspan="4" style="font-size: 10px; color: #666;">
@@ -199,52 +257,34 @@
             </table>
         </div>
 
+        <!-- VAT Breakdown Box (VAT Inclusive) -->
+        <div class="vat-box">
+            <div class="vat-box-title">VAT BREAKDOWN ({{ $vatRate * 100 }}% INCLUSIVE)</div>
+            <div class="vat-row">
+                <span>Subtotal (excl. VAT):</span>
+                <span>{{ $formatCurrency($netAmount) }}</span>
+            </div>
+            <div class="vat-row">
+                <span>VAT ({{ $vatRate * 100 }}%):</span>
+                <span>{{ $formatCurrency($vatAmount) }}</span>
+            </div>
+            <div class="vat-row total">
+                <span>TOTAL (incl. VAT):</span>
+                <span>{{ $formatCurrency($grossTotal) }}</span>
+            </div>
+        </div>
+
         <!-- Totals -->
         <div class="totals">
-            <div class="total-row">
-                <span>Subtotal:</span>
-                <span>${{ number_format($sale->subtotal, 2) }}</span>
-            </div>
-            @php
-                // Ensure we have VAT calculation
-                $vatAmount = $sale->tax_amount > 0 ? $sale->tax_amount : ($sale->subtotal * 0.16);
-                $subtotalBeforeVAT = $sale->subtotal / 1.16; // Base price before VAT
-                $actualVAT = $sale->subtotal - $subtotalBeforeVAT;
-            @endphp
-            <div class="total-row">
-                <span>VAT (16%):</span>
-                <span>${{ number_format($vatAmount, 2) }}</span>
-            </div>
             @if($sale->discount_amount > 0)
             <div class="total-row">
                 <span>Discount:</span>
-                <span>-${{ number_format($sale->discount_amount, 2) }}</span>
+                <span>-{{ $formatCurrency($sale->discount_amount) }}</span>
             </div>
             @endif
             <div class="total-row grand-total">
                 <span>TOTAL:</span>
-                <span>${{ number_format($sale->total, 2) }}</span>
-            </div>
-        </div>
-
-        <!-- VAT Breakdown -->
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
-            <div style="font-size: 10px; text-align: center; color: #666;">
-                <strong>VAT BREAKDOWN (16%)</strong>
-            </div>
-            <div style="font-size: 10px; margin-top: 5px;">
-                <div style="display: flex; justify-content: space-between; margin: 3px 0;">
-                    <span>Net Amount (excl. VAT):</span>
-                    <span>${{ number_format($subtotalBeforeVAT, 2) }}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin: 3px 0;">
-                    <span>VAT Amount (16%):</span>
-                    <span>${{ number_format($actualVAT, 2) }}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin: 3px 0; font-weight: bold;">
-                    <span>Gross Amount (incl. VAT):</span>
-                    <span>${{ number_format($sale->subtotal, 2) }}</span>
-                </div>
+                <span>{{ $formatCurrency($sale->total) }}</span>
             </div>
         </div>
 
@@ -254,7 +294,7 @@
             @foreach($sale->payments as $payment)
             <div class="payment-row">
                 <span>{{ ucfirst($payment->payment_method) }}:</span>
-                <span>${{ number_format($payment->amount, 2) }}</span>
+                <span>{{ $formatCurrency($payment->amount) }}</span>
             </div>
             @if($payment->reference_number)
             <div class="payment-row" style="font-size: 10px;">
@@ -272,7 +312,7 @@
             @if($change > 0)
             <div class="payment-row" style="font-weight: bold; margin-top: 10px;">
                 <span>Change:</span>
-                <span>${{ number_format($change, 2) }}</span>
+                <span>{{ $formatCurrency($change) }}</span>
             </div>
             @endif
         </div>
@@ -295,4 +335,3 @@
     </div>
 </body>
 </html>
-

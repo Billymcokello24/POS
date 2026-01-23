@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { usePage, Link } from '@inertiajs/vue3';
 import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import FlashMessage from '@/components/FlashMessage.vue';
 import type { BreadcrumbItemType } from '@/types';
+import { ShieldAlert, LogOut } from 'lucide-vue-next';
 
 interface Props {
     breadcrumbs?: BreadcrumbItemType[];
@@ -16,8 +19,25 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <AppShell variant="sidebar">
+        <FlashMessage />
+        <!-- Impersonation Banner -->
+        <div v-if="$page.props.auth && $page.props.auth.is_impersonating" 
+             class="fixed top-0 left-0 right-0 z-[100] bg-indigo-600 text-white py-2 px-4 shadow-lg flex items-center justify-center gap-4 animate-in slide-in-from-top duration-300">
+            <ShieldAlert class="h-4 w-4" />
+            <span class="text-sm font-bold">MODE: IMPERSONATING TENANT ({{ $page.props.auth.user.name }})</span>
+            <Link 
+                href="/admin/businesses/stop-impersonating" 
+                method="post" 
+                as="button"
+                class="bg-white/20 hover:bg-white/30 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded border border-white/30 transition-colors flex items-center gap-2"
+            >
+                <LogOut class="h-3 w-3" />
+                Return to Admin
+            </Link>
+        </div>
+
         <AppSidebar />
-        <AppContent variant="sidebar" class="overflow-x-hidden">
+        <AppContent variant="sidebar" :class="'overflow-x-hidden ' + ($page.props.auth?.is_impersonating ? 'pt-10' : '')">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <slot />
         </AppContent>

@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+/* eslint-disable */
+import { Plus, Package, AlertTriangle, Edit, Trash2, Search, Filter, X, DollarSign, Barcode, Sparkles, ArrowUp, Download } from 'lucide-vue-next'
+import { ref, computed, watch } from 'vue'
 import { Head, router, useForm, usePage } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
+
+// UI components (internal)
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Package, AlertTriangle, Edit, Trash2, Search, Filter, X, DollarSign, Barcode, Sparkles } from 'lucide-vue-next'
+
+import AppLayout from '@/layouts/AppLayout.vue'
 
 // Get currency from page props
 const page = usePage()
@@ -185,10 +189,72 @@ if (productsData.value?.data) {
 
 const categoriesData = ref(props.categories || mockCategories)
 
+// Multi-select state for bulk actions
+const selectedIds = ref<number[]>([])
+
+const isSelected = (id: number) => selectedIds.value.includes(id)
+
+const toggleSelect = (id: number) => {
+  if (isSelected(id)) {
+    selectedIds.value = selectedIds.value.filter(i => i !== id)
+  } else {
+    selectedIds.value = [...selectedIds.value, id]
+  }
+}
+
+// Computed flag - true when all visible products are selected, with a setter so v-model works
+const allSelected = computed<boolean>({
+  get() {
+    return !!(productsData.value && productsData.value.data && productsData.value.data.length > 0 && selectedIds.value.length === productsData.value.data.length)
+  },
+  set(value: boolean) {
+    if (!productsData.value?.data) return
+    if (value) {
+      // select all
+      selectedIds.value = productsData.value.data.map(p => p.id)
+    } else {
+      // clear selection
+      selectedIds.value = []
+    }
+  }
+})
+
+const selectedCount = computed(() => selectedIds.value.length)
+
+// Bulk delete - uses the existing delete endpoint per product to avoid adding new backend routes
+const bulkDelete = async () => {
+  if (selectedIds.value.length === 0) return
+  if (!confirm(`Delete ${selectedIds.value.length} selected product(s)? This cannot be undone.`)) return
+
+  try {
+    // delete in parallel
+    await Promise.all(selectedIds.value.map(id =>
+      router.delete(`/products/${id}`, { preserveState: true })
+    ))
+    // clear selection and reload
+    selectedIds.value = []
+    router.reload()
+  } catch (e) {
+    console.error('Bulk delete failed', e)
+    alert('Failed to delete selected products. Check console for details.')
+  }
+}
+
+// reset selection when products data changes (e.g., after filtering/pagination)
+watch(() => productsData.value && productsData.value.data.map(p => p.id).join(','), () => {
+  selectedIds.value = []
+})
+
 const search = ref(props.filters?.search || '')
 const showLowStock = ref(props.filters?.low_stock || false)
 const showModal = ref(false)
 const editingProduct = ref<Product | null>(null)
+
+// New reactive state for import
+const showImportModal = ref(false)
+const importForm = useForm<{ file: File | null }>({ file: null })
+const importErrors = ref<string[]>([])
+const importResult = ref<string | null>(null)
 
 const form = useForm({
   name: '',
@@ -216,10 +282,6 @@ const generateBarcode = () => {
   return barcode
 }
 
-const calculatePriceWithVAT = (basePrice: number) => {
-  return basePrice * (1 + VAT_RATE)
-}
-
 const calculateVATAmount = (basePrice: number) => {
   return basePrice * VAT_RATE
 }
@@ -228,11 +290,9 @@ const calculateBasePrice = (priceWithVAT: number) => {
   return priceWithVAT / (1 + VAT_RATE)
 }
 
-// Watch for price changes to auto-generate barcode
+// Watch for price changes to auto-generate barcode (REMOVED)
 const onSellingPriceChange = () => {
-  if (form.selling_price > 0 && !form.barcode && !editingProduct.value) {
-    form.barcode = generateBarcode()
-  }
+  // Manual entry only
 }
 
 const applyFilters = () => {
@@ -327,6 +387,48 @@ const deleteProduct = (product: Product) => {
     })
   }
 }
+
+// New method for file input change
+const onFileChange = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    importForm.file = target.files[0]
+  }
+}
+
+const submitImport = () => {
+  importErrors.value = []
+  importResult.value = null
+  if (!importForm.file) {
+    alert('Please select a file to import')
+    return
+  }
+
+  // The inertia useForm supports file uploads automatically when the file is set on the form state.
+  importForm.post('/products/import', {
+    preserveState: true,
+    onStart: () => {
+      importResult.value = 'Uploading...'
+    },
+    onSuccess: () => {
+      // success handled via flash from server; close modal and reload
+      showImportModal.value = false
+      importResult.value = null
+      router.reload()
+    },
+    onError: (errors) => {
+      console.error('Import failed:', errors)
+      importResult.value = null
+      // If server returns validation errors for file, show them
+      if (errors && errors.file) {
+        importErrors.value = Array.isArray(errors.file) ? errors.file : [errors.file]
+      }
+    }
+  })
+}
+
+// Access flash from page props (typed any to avoid TS property errors)
+const flash: any = page.props.flash || {}
 </script>
 
 <template>
@@ -350,11 +452,52 @@ const deleteProduct = (product: Product) => {
                 </div>
               </div>
             </div>
-            <Button @click="openCreateModal" class="bg-white text-blue-600 hover:bg-blue-50 gap-2 h-12 px-6">
-              <Plus class="h-5 w-5" />
-              Add Product
-            </Button>
+            <div class="flex gap-2">
+              <Button
+                v-if="(page.props.auth as any).permissions?.includes('create_products')"
+                @click="openCreateModal"
+                class="bg-white text-blue-600 hover:bg-blue-50 gap-2 h-12 px-6"
+              >
+                <Plus class="h-5 w-5" />
+                Add Product
+              </Button>
+              <Button
+                @click="showImportModal = true"
+                class="bg-white text-blue-600 hover:bg-blue-50 gap-2 h-12 px-6"
+              >
+                <ArrowUp class="h-5 w-5" />
+                Import Products
+              </Button>
+              <a
+                href="/products/import/template"
+                download
+                data-inertia="false"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-2 px-4 h-12 rounded bg-white text-green-600 hover:bg-green-50"
+              >
+                <Download class="h-5 w-5" />
+                Download Template
+              </a>
+            </div>
           </div>
+        </div>
+
+        <!-- Flash Messages -->
+        <div v-if="flash.success" class="p-4 rounded-lg bg-green-50 border border-green-200 text-green-800">
+          {{ flash.success }}
+        </div>
+        <div v-if="flash.import_errors && flash.import_errors.length" class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800">
+          <div class="font-semibold mb-2">Import Errors:</div>
+          <ul class="list-disc list-inside">
+            <li v-for="(error, index) in flash.import_errors" :key="index">{{ error }}</li>
+          </ul>
+        </div>
+        <div v-if="flash.import_warnings && flash.import_warnings.length" class="p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800">
+          <div class="font-semibold mb-2">Import Warnings:</div>
+          <ul class="list-disc list-inside">
+            <li v-for="(warning, index) in flash.import_warnings" :key="index">{{ warning }}</li>
+          </ul>
         </div>
 
         <!-- Filters -->
@@ -406,6 +549,16 @@ const deleteProduct = (product: Product) => {
             <Table>
               <TableHeader>
                 <TableRow class="bg-slate-50/50">
+                  <TableHead class="font-semibold w-4">
+                    <!-- Select All Checkbox -->
+                    <div class="flex items-center">
+                      <input
+                        type="checkbox"
+                        v-model="allSelected"
+                        class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead class="font-semibold">Product</TableHead>
                   <TableHead class="font-semibold">SKU / Barcode</TableHead>
                   <TableHead class="font-semibold">Category</TableHead>
@@ -421,6 +574,18 @@ const deleteProduct = (product: Product) => {
                   :key="product.id"
                   class="hover:bg-blue-50/50 transition-colors"
                 >
+                  <TableCell>
+                    <!-- Individual Select Checkbox -->
+                    <div class="flex items-center">
+                      <input
+                        type="checkbox"
+                        :value="product.id"
+                        :checked="isSelected(product.id)"
+                        @change="toggleSelect(product.id)"
+                        class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div class="font-semibold text-slate-900">{{ product.name }}</div>
                   </TableCell>
@@ -469,7 +634,8 @@ const deleteProduct = (product: Product) => {
                   </TableCell>
                   <TableCell class="text-right">
                     <div class="flex justify-end gap-2">
-                      <Button
+                       <Button
+                        v-if="(page.props.auth as any).permissions?.includes('edit_products')"
                         variant="ghost"
                         size="sm"
                         @click="openEditModal(product)"
@@ -478,6 +644,7 @@ const deleteProduct = (product: Product) => {
                         <Edit class="h-4 w-4" />
                       </Button>
                       <Button
+                        v-if="(page.props.auth as any).permissions?.includes('delete_products')"
                         variant="ghost"
                         size="sm"
                         @click="deleteProduct(product)"
@@ -503,6 +670,25 @@ const deleteProduct = (product: Product) => {
               >
                 {{ page }}
               </Button>
+            </div>
+
+            <!-- Bulk Actions -->
+            <div v-if="selectedCount > 0" class="p-4 border-t bg-slate-50">
+              <div class="flex items-center justify-between">
+                <div class="text-sm text-slate-600">
+                  Selected <span class="font-semibold text-slate-900">{{ selectedCount }}</span> item(s)
+                </div>
+                <div class="flex gap-2">
+                  <Button
+                    v-if="(page.props.auth as any).permissions?.includes('delete_products')"
+                    @click="bulkDelete"
+                    class="h-12 px-6 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700"
+                  >
+                    <Trash2 class="h-5 w-5 mr-2" />
+                    Delete Selected
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -571,27 +757,26 @@ const deleteProduct = (product: Product) => {
                 <div class="space-y-2">
                   <Label for="barcode" class="text-base flex items-center gap-2">
                     <Barcode class="h-4 w-4" />
-                    Barcode (Auto-generated)
+                    Barcode
                   </Label>
                   <div class="flex gap-2">
                     <Input
                       id="barcode"
                       v-model="form.barcode"
-                      placeholder="Generated after price"
+                      placeholder="Scan or enter manually"
                       class="h-11 font-mono"
-                      readonly
                     />
                     <Button
                       type="button"
                       variant="outline"
                       @click="form.barcode = generateBarcode()"
                       class="h-11 px-3"
-                      title="Generate new barcode"
+                      title="Generate random barcode"
                     >
                       🔄
                     </Button>
                   </div>
-                  <p class="text-xs text-slate-500">✨ Auto-generated when you enter selling price</p>
+                  <p class="text-xs text-slate-500">Enter manually, scan, or click refresh to generate</p>
                 </div>
 
                 <div class="space-y-2">
@@ -795,6 +980,70 @@ const deleteProduct = (product: Product) => {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        <!-- Import Products Modal -->
+        <Dialog v-model:open="showImportModal">
+          <DialogContent class="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle class="text-xl font-semibold">
+                <Package class="h-6 w-6 text-blue-600" />
+                Import Products
+              </DialogTitle>
+              <DialogDescription class="text-sm text-slate-500">
+                Upload a CSV or XLSX file to import products. Ensure the file is formatted correctly.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div class="p-4">
+              <form @submit.prevent="submitImport" class="space-y-4">
+                <div>
+                  <Label for="file-upload" class="block text-base font-semibold mb-2">
+                    Select File *
+                  </Label>
+                  <!-- Use native input for file uploads to avoid wrapper limitations -->
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept=".csv, .xlsx, .xls"
+                    @change="onFileChange"
+                    class="h-12 w-full rounded border px-3"
+                  />
+                  <p v-if="importForm.errors.file" class="text-sm text-red-600 mt-1">{{ importForm.errors.file }}</p>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    @click="showImportModal = false"
+                    class="h-12 px-6"
+                  >
+                    <X class="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    class="h-12 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    <Plus class="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                </div>
+              </form>
+
+              <!-- Import Results -->
+              <div v-if="importResult" class="mt-4 p-3 bg-green-50 rounded-lg border-2 border-green-200 text-sm text-green-800">
+                {{ importResult }}
+              </div>
+              <div v-if="importErrors.length > 0" class="mt-4 p-3 bg-red-50 rounded-lg border-2 border-red-200 text-sm text-red-800">
+                <div class="font-semibold mb-2">Errors:</div>
+                <ul class="list-disc list-inside">
+                  <li v-for="(error, index) in importErrors" :key="index">{{ error }}</li>
+                </ul>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

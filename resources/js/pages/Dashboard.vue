@@ -74,6 +74,13 @@ const props = defineProps<{
         current: number
         min: number
     }>
+    systemNotifications: Array<{
+        id: number
+        title: string
+        message: string
+        type: 'info' | 'warning' | 'danger'
+        created_at: string
+    }>
 }>()
 
 // Calculate percentage change
@@ -90,6 +97,12 @@ const getGreeting = () => {
   if (hour < 18) return 'Good Afternoon'
   return 'Good Evening'
 }
+
+// Feature access helper
+const hasFeature = (feature: string) => {
+  const enabledFeatures = (page.props.auth as any).features || [];
+  return enabledFeatures.includes(feature);
+}
 </script>
 
 <template>
@@ -98,16 +111,37 @@ const getGreeting = () => {
     <AppLayout>
         <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <div class="mx-auto w-[90%] px-6 py-8 space-y-8">
+                <!-- System Notifications -->
+                <div v-if="props.systemNotifications && props.systemNotifications.length > 0" class="space-y-4">
+                    <div v-for="note in props.systemNotifications" :key="note.id" 
+                        :class="{
+                            'bg-blue-600': note.type === 'info',
+                            'bg-amber-500': note.type === 'warning',
+                            'bg-red-600': note.type === 'danger'
+                        }"
+                        class="p-4 rounded-lg shadow-lg text-white flex items-start gap-4"
+                    >
+                        <Zap class="shrink-0 h-6 w-6 mt-0.5" />
+                        <div>
+                            <h3 class="font-bold text-lg">{{ note.title }}</h3>
+                            <p class="text-white/90">{{ note.message }}</p>
+                            <p class="text-xs text-white/70 mt-2">{{ new Date(note.created_at).toLocaleDateString() }}</p>
+                        </div>
+                    </div>
+                </div>
                 <!-- Welcome Header -->
                 <div class="flex items-center justify-between">
                     <div>
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
-                            {{ getGreeting() }}! 👋
+                            {{ getGreeting() }}, {{ page.props.auth.user.name }}! 👋
                         </h1>
-                        <p class="text-lg text-gray-600">Here's what's happening with your business today</p>
+                        <p class="text-lg text-gray-600">
+                            {{ (page.props.auth as any).role_level >= 75 ? "Here's your business diagnostic at a glance" : "Welcome to your operations terminal" }}
+                        </p>
                     </div>
                     <div class="flex gap-3">
                         <Button
+                            v-if="(page.props.auth as any).permissions?.includes('create_sales') && hasFeature('pos')"
                             @click="router.visit('/sales/create')"
                             class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all"
                             size="lg"
@@ -116,6 +150,7 @@ const getGreeting = () => {
                             New Sale
                         </Button>
                         <Button
+                            v-if="(page.props.auth as any).role_level >= 75 && hasFeature('reports')"
                             @click="router.visit('/reports')"
                             variant="outline"
                             size="lg"
@@ -128,7 +163,7 @@ const getGreeting = () => {
                 </div>
 
                 <!-- Stats Grid -->
-                <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div v-if="(page.props.auth as any).role_level >= 75" class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                     <!-- Today's Sales -->
                     <Card class="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group">
                         <CardHeader class="pb-3">
@@ -234,9 +269,9 @@ const getGreeting = () => {
                 </div>
 
                 <!-- Main Content Grid -->
-                <div class="grid gap-6 lg:grid-cols-3">
+                <div class="grid gap-6" :class="(page.props.auth as any).role_level >= 50 ? 'lg:grid-cols-3' : 'grid-cols-1'">
                     <!-- Recent Transactions -->
-                    <Card class="border-0 shadow-lg bg-white lg:col-span-2">
+                    <Card v-if="(page.props.auth as any).role_level >= 50" class="border-0 shadow-lg bg-white lg:col-span-2">
                         <CardHeader>
                             <div class="flex items-center justify-between">
                                 <div>
@@ -315,6 +350,7 @@ const getGreeting = () => {
                         </CardHeader>
                         <CardContent class="space-y-3">
                             <Button
+                                v-if="hasFeature('pos')"
                                 @click="router.visit('/sales/create')"
                                 class="w-full justify-start gap-3 h-auto py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all"
                             >
@@ -327,6 +363,7 @@ const getGreeting = () => {
                             </Button>
 
                             <Button
+                                v-if="hasFeature('products')"
                                 @click="router.visit('/products')"
                                 variant="outline"
                                 class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
@@ -339,7 +376,8 @@ const getGreeting = () => {
                                 <ArrowUpRight class="h-4 w-4" />
                             </Button>
 
-                            <Button
+                             <Button
+                                v-if="(page.props.auth as any).permissions?.includes('view_reports') && hasFeature('reports')"
                                 @click="router.visit('/reports')"
                                 variant="outline"
                                 class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
@@ -353,6 +391,7 @@ const getGreeting = () => {
                             </Button>
 
                             <Button
+                                v-if="(page.props.auth as any).permissions?.includes('view_inventory') && hasFeature('inventory')"
                                 @click="router.visit('/inventory')"
                                 variant="outline"
                                 class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"

@@ -36,6 +36,12 @@ const props = defineProps<{
     role?: string
     status?: string
   }
+  availableRoles: Array<{
+    id: number
+    name: string
+    display_name: string
+    level: number
+  }>
 }>()
 
 // Reactive data
@@ -96,7 +102,7 @@ const form = useForm({
   email: '',
   password: '',
   password_confirmation: '',
-  role: 'cashier',
+  role_id: props.availableRoles?.[0]?.id || '',
   is_active: true,
 })
 
@@ -114,10 +120,14 @@ const roleIcon = (role: string) => {
   switch (role) {
     case 'admin': return Shield
     case 'auditor': return Eye
-    case 'cashier': return Users
+    case 'cashier': return UserCheck
     default: return Users
   }
 }
+
+const selectedRole = computed(() => {
+  return props.availableRoles.find(r => r.id == form.role_id)
+})
 
 // Methods
 const applyFilters = () => {
@@ -134,7 +144,7 @@ const applyFilters = () => {
 const openCreateModal = () => {
   editingUser.value = null
   form.reset()
-  form.role = 'cashier'
+  form.role_id = props.availableRoles?.[0]?.id || ''
   form.is_active = true
   showModal.value = true
 }
@@ -145,7 +155,7 @@ const openEditModal = (user: any) => {
   form.email = user.email
   form.password = ''
   form.password_confirmation = ''
-  form.role = user.role
+  form.role_id = user.role_id
   form.is_active = user.is_active
   showModal.value = true
 }
@@ -271,9 +281,9 @@ const closeUserModal = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All Roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="cashier">Cashier</SelectItem>
-                  <SelectItem value="auditor">Auditor</SelectItem>
+                  <SelectItem v-for="role in availableRoles" :key="role.id" :value="role.name">
+                    {{ role.display_name }}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select v-model="statusFilter">
@@ -337,8 +347,8 @@ const closeUserModal = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge :variant="roleBadgeVariant(user.role)" class="flex items-center gap-1">
-                      <component :is="roleIcon(user.role)" class="h-3 w-3" />
+                    <Badge variant="outline" class="flex items-center gap-1 w-fit bg-slate-50">
+                      <Shield class="h-3 w-3 text-indigo-600" />
                       {{ user.role.charAt(0).toUpperCase() + user.role.slice(1) }}
                     </Badge>
                   </TableCell>
@@ -499,36 +509,18 @@ const closeUserModal = () => {
                 </h3>
                 <div class="space-y-3">
                   <div class="space-y-2">
-                    <Label for="user-role" class="text-base">Role *</Label>
-                    <Select v-model="form.role">
+                    <Label for="user-role" class="text-base">Structural Role *</Label>
+                    <Select v-model="form.role_id">
                       <SelectTrigger class="h-12">
-                        <SelectValue placeholder="Select user role" />
+                        <SelectValue placeholder="Select platform role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cashier">
-                          <div class="flex items-center gap-2">
-                            <Users class="h-4 w-4" />
-                            <div>
-                              <div class="font-medium">Cashier</div>
-                              <div class="text-xs text-slate-500">Can process sales, view own sales</div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="auditor">
-                          <div class="flex items-center gap-2">
-                            <Eye class="h-4 w-4" />
-                            <div>
-                              <div class="font-medium">Auditor</div>
-                              <div class="text-xs text-slate-500">Can view all sales and reports</div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="admin">
-                          <div class="flex items-center gap-2">
+                        <SelectItem v-for="role in availableRoles" :key="role.id" :value="role.id">
+                           <div class="flex items-center gap-2">
                             <Shield class="h-4 w-4" />
                             <div>
-                              <div class="font-medium">Admin</div>
-                              <div class="text-xs text-slate-500">Full access to all features</div>
+                              <div class="font-medium">{{ role.display_name }}</div>
+                              <div class="text-xs text-slate-500">Level {{ role.level }} Rank</div>
                             </div>
                           </div>
                         </SelectItem>
@@ -537,14 +529,12 @@ const closeUserModal = () => {
                   </div>
 
                   <!-- Role Description -->
-                  <div class="p-3 bg-white rounded border">
+                  <div v-if="selectedRole" class="p-3 bg-white rounded border">
                     <div class="text-sm">
-                      <strong>{{ form.role.charAt(0).toUpperCase() + form.role.slice(1) }} Permissions:</strong>
-                      <ul class="mt-1 ml-4 list-disc text-xs text-slate-600">
-                        <li v-if="form.role === 'admin'">Manage users, view all sales, full system access</li>
-                        <li v-if="form.role === 'auditor'">View all sales and reports, no editing permissions</li>
-                        <li v-if="form.role === 'cashier'">Process sales, view own sales only</li>
-                      </ul>
+                      <strong>{{ selectedRole.display_name }} Structural Mandate:</strong>
+                      <p class="mt-1 text-xs text-slate-600 italic leading-relaxed">
+                        {{ selectedRole.description || "Refer to platform configuration for detailed capabilities." }}
+                      </p>
                     </div>
                   </div>
                 </div>

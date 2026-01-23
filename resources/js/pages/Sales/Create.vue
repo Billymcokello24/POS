@@ -75,24 +75,30 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
+// VAT rate (16%)
+const vatRate = 0.16
+
+// Cart total (prices are VAT-inclusive)
 const cartTotal = computed(() => {
   return cart.value.reduce((total, item) => {
     return total + (item.quantity * item.unit_price)
   }, 0)
 })
 
-const cartTax = computed(() => {
-  return cart.value.reduce((total, item) => {
-    if (item.tax_rate) {
-      const itemTotal = item.quantity * item.unit_price
-      return total + (itemTotal * (item.tax_rate / 100))
-    }
-    return total
-  }, 0)
+// Since prices are VAT-inclusive, reverse-calculate:
+// Net Amount = Total / (1 + VAT rate)
+// VAT Amount = Total - Net Amount
+const netAmount = computed(() => {
+  return cartTotal.value / (1 + vatRate)
 })
 
+const vatAmount = computed(() => {
+  return cartTotal.value - netAmount.value
+})
+
+// Grand total equals cart total (VAT already included)
 const grandTotal = computed(() => {
-  return cartTotal.value + cartTax.value
+  return cartTotal.value
 })
 
 const totalPaid = computed(() => {
@@ -967,35 +973,35 @@ const completeSale = async () => {
 
             <!-- Cart -->
             <Card class="border-0 shadow-lg bg-white">
-              <CardHeader>
-                <CardTitle class="flex items-center justify-between text-xl font-bold">
+              <CardHeader class="py-3">
+                <CardTitle class="flex items-center justify-between text-lg font-bold">
                   <span class="flex items-center gap-2">
-                    <ShoppingCart class="h-5 w-5 text-blue-600" />
+                    <ShoppingCart class="h-4 w-4 text-blue-600" />
                     Shopping Cart
                   </span>
-                  <Badge variant="secondary" class="text-base px-3 py-1">
+                  <Badge variant="secondary" class="text-sm px-2 py-0.5">
                     {{ cart.length }} {{ cart.length === 1 ? 'item' : 'items' }}
                   </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div v-if="cart.length === 0" class="py-16 text-center">
-                  <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
-                    <ShoppingCart class="h-10 w-10 text-gray-400" />
+              <CardContent class="py-2">
+                <div v-if="cart.length === 0" class="py-10 text-center">
+                  <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 mb-3">
+                    <ShoppingCart class="h-7 w-7 text-gray-400" />
                   </div>
-                  <p class="text-gray-600 font-medium text-lg">Cart is empty</p>
-                  <p class="text-sm text-gray-500 mt-1">Scan or search for products to add</p>
+                  <p class="text-gray-600 font-medium text-base">Cart is empty</p>
+                  <p class="text-xs text-gray-500 mt-1">Scan or search for products to add</p>
                 </div>
-                <div v-else class="space-y-3">
+                <div v-else class="space-y-2">
                   <div
                     v-for="(item, index) in cart"
                     :key="index"
-                    class="flex items-center justify-between rounded-xl border-2 border-gray-200 p-4 hover:border-blue-300 hover:bg-blue-50/50 transition-all"
+                    class="flex items-center justify-between rounded-lg border border-gray-200 p-2 hover:border-blue-300 hover:bg-blue-50/50 transition-all"
                   >
                     <div class="flex-1">
-                      <div class="font-semibold text-base text-gray-900">{{ item.name }}</div>
-                      <div class="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                        <Badge variant="outline" class="text-xs">{{ item.sku }}</Badge>
+                      <div class="font-semibold text-sm text-gray-900">{{ item.name }}</div>
+                      <div class="text-xs text-gray-600 mt-0.5 flex items-center gap-1">
+                        <Badge variant="outline" class="text-xs px-1 py-0">{{ item.sku }}</Badge>
                         <span>{{ formatCurrency(item.unit_price) }} each</span>
                       </div>
                     </div>
@@ -1006,20 +1012,20 @@ const completeSale = async () => {
                         @update:model-value="(val) => updateQuantity(index, Number(val))"
                         :max="item.available_quantity"
                         min="1"
-                        class="w-20 h-10 border-2 text-center font-bold"
+                        class="w-14 h-8 border text-center text-sm font-bold rounded"
                       />
-                      <div class="w-28 text-right">
-                        <div class="text-2xl font-bold text-blue-600">
+                      <div class="min-w-[80px] text-right">
+                        <div class="text-base font-bold text-blue-600">
                           {{ formatCurrency(item.quantity * item.unit_price) }}
                         </div>
                       </div>
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        size="sm"
                         @click="removeFromCart(index)"
-                        class="hover:bg-red-100 hover:text-red-600"
+                        class="h-8 w-8 p-0 border-red-200 text-red-500 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
                       >
-                        <Trash2 class="h-5 w-5" />
+                        <Trash2 class="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -1059,21 +1065,25 @@ const completeSale = async () => {
 
             <!-- Order Summary -->
             <Card class="border-0 shadow-lg overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
-              <CardHeader>
-                <CardTitle class="text-white text-2xl font-bold">Order Summary</CardTitle>
+              <CardHeader class="py-3">
+                <CardTitle class="text-white text-lg font-bold">Order Summary</CardTitle>
               </CardHeader>
-              <CardContent class="space-y-4">
-                <div class="flex justify-between text-lg">
-                  <span class="text-blue-100">Subtotal:</span>
-                  <span class="font-semibold">{{ formatCurrency(cartTotal) }}</span>
-                </div>
-                <div class="flex justify-between text-lg">
-                  <span class="text-blue-100">Tax (16%):</span>
-                  <span class="font-semibold">{{ formatCurrency(cartTax) }}</span>
+              <CardContent class="space-y-3 py-3">
+                <!-- VAT Inclusive Breakdown -->
+                <div class="bg-white/10 rounded-lg p-2 space-y-1">
+                  <div class="text-xs text-blue-200 text-center font-semibold uppercase tracking-wide">VAT Breakdown (16% Inclusive)</div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-blue-100">Subtotal (excl. VAT):</span>
+                    <span class="font-semibold">{{ formatCurrency(netAmount) }}</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-blue-100">VAT (16%):</span>
+                    <span class="font-semibold">{{ formatCurrency(vatAmount) }}</span>
+                  </div>
                 </div>
                 <Separator class="bg-white/30" />
-                <div class="flex justify-between text-3xl font-bold">
-                  <span>Total:</span>
+                <div class="flex justify-between text-xl font-bold">
+                  <span>Total (incl. VAT):</span>
                   <span>{{ formatCurrency(grandTotal) }}</span>
                 </div>
               </CardContent>

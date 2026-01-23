@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { ChevronsUpDown, User } from 'lucide-vue-next';
 
@@ -11,15 +12,17 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-    useSidebar,
 } from '@/components/ui/sidebar';
 import UserInfo from '@/components/UserInfo.vue';
 
 import UserMenuContent from './UserMenuContent.vue';
 
 const page = usePage();
-const user = page.props.auth.user;
-const { isMobile, state } = useSidebar();
+const user = page.props.auth?.user;
+
+// Use default values - component won't render without user anyway
+const isMobile = ref(false);
+const state = ref<'expanded' | 'collapsed'>('expanded');
 </script>
 
 <template>

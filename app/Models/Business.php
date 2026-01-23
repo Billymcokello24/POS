@@ -23,6 +23,8 @@ class Business extends Model
         'currency',
         'timezone',
         'is_active',
+        'plan_id',
+        'suspension_reason',
         'settings',
     ];
 
@@ -30,6 +32,11 @@ class Business extends Model
         'is_active' => 'boolean',
         'settings' => 'array',
     ];
+
+    public function plan()
+    {
+        return $this->belongsTo(Plan::class);
+    }
 
     public function users(): BelongsToMany
     {
@@ -66,6 +73,122 @@ class Business extends Model
     public function inventoryTransactions(): HasMany
     {
         return $this->hasMany(InventoryTransaction::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function activeSubscription()
+    {
+        return $this->hasOne(Subscription::class)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('ends_at')
+                    ->orWhere('ends_at', '>', now());
+            })
+            ->latest();
+    }
+
+    public function features(): BelongsToMany
+    {
+        return $this->belongsToMany(Feature::class, 'business_feature')
+            ->withPivot('is_enabled')
+            ->withTimestamps();
+    }
+
+    public function hasFeature(string $featureKey): bool
+    {
+        return in_array($featureKey, $this->getEnabledFeatureKeys());
+    }
+
+    public function getEnabledFeatureKeys(): array
+    {
+        // Must have an active subscription to access ANY protected feature
+        if (!$this->activeSubscription()->exists()) {
+            return [];
+        }
+
+        return \App\Models\Feature::where(function ($query) {
+            $query->whereHas('businesses', function ($q) {
+                $q->where('businesses.id', $this->id)
+                    ->where('business_feature.is_enabled', true);
+            });
+
+            if ($this->plan_id) {
+                $query->orWhereHas('plans', function ($q) {
+                    $q->where('plans.id', $this->plan_id);
+                });
+            }
+        })->pluck('key')->unique()->values()->toArray();
+    }
+
+    public function activateSubscription(Subscription $subscription, ?string $receipt = null, array $metadata = []): void
+    {
+        $plan = $subscription->plan;
+        
+        if (!$plan && $subscription->plan_name) {
+            $plan = Plan::where('name', 'like', $subscription->plan_name)->first();
+        }
+
+        if (!$plan) {
+            throw new \Exception("Activation failed: Plan '{$subscription->plan_name}' not found for business '{$this->name}'.");
+        }
+
+        $billingCycle = $subscription->payment_details['billing_cycle'] ?? 'monthly';
+        $duration = $billingCycle === 'yearly' ? 365 : 30;
+
+        // Update subscription
+        $subscription->update([
+            'status' => 'active',
+            'transaction_id' => $receipt ?? $subscription->transaction_id,
+            'starts_at' => now(),
+            'ends_at' => now()->addDays($duration),
+            'payment_details' => array_merge($subscription->payment_details ?? [], $metadata, [
+                'activated_at' => now()->toDateTimeString()
+            ])
+        ]);
+
+        // Update business plan
+        $this->update(['plan_id' => $plan->id]);
+
+        // Auto-toggle features
+        $featureIds = $plan->features()->pluck('id')->toArray();
+        $this->features()->syncWithPivotValues($featureIds, ['is_enabled' => true]);
+    }
+
+    /**
+     * Check if the business is within its plan limits for a resource.
+     * $resource: 'products' or 'users'
+     */
+    public function withinPlanLimits(string $resource): bool
+    {
+        if (!$this->plan) return true; // Default to allowing if no plan (trial/manual)
+
+        if ($resource === 'products') {
+            $limit = $this->plan->max_products;
+            if ($limit === 0) return true; // Unlimited
+            return $this->products()->count() < $limit;
+        }
+
+        if ($resource === 'users') {
+            $limit = $this->plan->max_users;
+            if ($limit === 0) return true; // Unlimited
+            return $this->users()->count() < $limit;
+        }
+
+        if ($resource === 'employees') {
+            $limit = $this->plan->max_employees;
+            if ($limit === 0) return true; // Unlimited
+            // Assuming business has employees() relation. Let me check.
+            if (method_exists($this, 'employees')) {
+                return $this->employees()->count() < $limit;
+            }
+            return true;
+        }
+
+        return true;
     }
 
     public function generateSaleNumber(): string

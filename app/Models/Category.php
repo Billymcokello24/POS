@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToBusiness;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
+    use BelongsToBusiness;
+
     protected $fillable = [
         'business_id',
         'name',
@@ -23,10 +26,7 @@ class Category extends Model
         'sort_order' => 'integer',
     ];
 
-    public function business(): BelongsTo
-    {
-        return $this->belongsTo(Business::class);
-    }
+
 
     public function parent(): BelongsTo
     {
