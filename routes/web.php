@@ -86,6 +86,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/bank-transfer', [\App\Http\Controllers\Api\PaymentController::class, 'recordBankTransfer']);
         Route::post('/cash', [\App\Http\Controllers\Api\PaymentController::class, 'recordCashPayment']);
     });
+
+    // AI Agent internal API (requires auth)
+    Route::prefix('api/ai')->group(function () {
+        Route::post('/search', [\App\Http\Controllers\Api\AIAgentController::class, 'searchInventory']);
+        Route::post('/report', [\App\Http\Controllers\Api\AIAgentController::class, 'generateReport']);
+        Route::get('/slow-moving', [\App\Http\Controllers\Api\AIAgentController::class, 'slowMovingProducts']);
+        Route::get('/availability', [\App\Http\Controllers\Api\AIAgentController::class, 'productAvailability']);
+        Route::post('/chat', [\App\Http\Controllers\Api\AIAgentController::class, 'chat']);
+    });
+
+    // AI UI page
+    Route::get('/ai', function () {
+        return Inertia::render('AI/Index');
+    })->name('ai.index');
+
+    // AI Chat page
+    Route::get('/ai/chat', function () {
+        return Inertia::render('AI/Chat');
+    })->name('ai.chat');
+
 });
 
 require __DIR__.'/settings.php';

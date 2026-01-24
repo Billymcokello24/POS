@@ -40,11 +40,15 @@ class Business extends Model
      */
     public function setSettingsAttribute($value)
     {
-        // Ensure $value is an array
-        $settings = is_array($value) ? $value : (json_decode($value, true) ?? []);
+        // Ensure $value is an array; avoid json_decode(null)
+        if ($value === null) {
+            $settings = [];
+        } else {
+            $settings = is_array($value) ? $value : (json_decode($value, true) ?? []);
+        }
 
         if (isset($settings['mpesa']) && is_array($settings['mpesa'])) {
-            foreach (['consumer_secret', 'passkey'] as $key) {
+            foreach (['consumer_secret', 'passkey', 'head_office_passkey', 'initiator_password', 'security_credential'] as $key) {
                 if (array_key_exists($key, $settings['mpesa']) && $settings['mpesa'][$key] !== null) {
                     $val = $settings['mpesa'][$key];
                     // If the value is already encrypted (decryptable), skip encrypting again
@@ -76,7 +80,7 @@ class Business extends Model
         $settings = is_array($value) ? $value : (json_decode($value, true) ?? []);
 
         if (isset($settings['mpesa']) && is_array($settings['mpesa'])) {
-            foreach (['consumer_secret', 'passkey'] as $key) {
+            foreach (['consumer_secret', 'passkey', 'head_office_passkey', 'initiator_password', 'security_credential'] as $key) {
                 if (array_key_exists($key, $settings['mpesa']) && $settings['mpesa'][$key] !== null) {
                     $val = $settings['mpesa'][$key];
                     try {
@@ -91,6 +95,14 @@ class Business extends Model
         }
 
         return $settings;
+    }
+
+    /**
+     * Return MPESA settings array or null
+     */
+    public function mpesa()
+    {
+        return $this->settings['mpesa'] ?? null;
     }
 
     public function plan()

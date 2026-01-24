@@ -71,6 +71,12 @@ return [
     |
     */
     'callback_url' => env('MPESA_CALLBACK_URL', env('APP_URL') . '/api/payments/mpesa/callback'),
+    'result_url' => env('MPESA_RESULT_URL', env('MPESA_CALLBACK_URL', env('APP_URL') . '/api/payments/mpesa/callback')),
+
+    // Top-level convenience URLs compatible with template constants; fall back to urls[...] entries below
+    'auth_url' => env('MPESA_AUTH_URL', null),
+    'stk_push_url' => env('MPESA_STK_PUSH_URL', null),
+    'stk_query_url' => env('MPESA_STK_QUERY_URL', null),
 
     /*
     |--------------------------------------------------------------------------
@@ -107,6 +113,20 @@ return [
         ],
     ],
 
+    // Timeout (seconds) for MPESA HTTP requests
+    'timeout' => env('MPESA_TIMEOUT', 60),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Local development helpers
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, STK push requests will be simulated locally without calling
+    | Safaricom. Useful for development on localhost or CI environments.
+    |
+    */
+    'simulate' => env('MPESA_SIMULATE', false),
+
     /*
     |--------------------------------------------------------------------------
     | M-Pesa Initiator Credentials
@@ -118,5 +138,18 @@ return [
     'initiator_name' => env('MPESA_INITIATOR_NAME'),
     'initiator_password' => env('MPESA_INITIATOR_PASSWORD'),
     'security_credential' => env('MPESA_SECURITY_CREDENTIAL'),
-];
 
+    /*
+    |--------------------------------------------------------------------------
+    | Error messages
+    |--------------------------------------------------------------------------
+    |
+    | Customizable error messages for common MPesa errors
+    |
+    */
+    'errors' => [
+        'generic' => env('MPESA_ERROR_GENERIC', 'An error occurred. Please try again.'),
+        'network' => env('MPESA_ERROR_NETWORK', 'Network error. Please check your connection.'),
+        'invalid_phone' => env('MPESA_ERROR_INVALID_PHONE', 'Invalid phone number format.'),
+    ],
+];

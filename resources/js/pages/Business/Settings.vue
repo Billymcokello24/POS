@@ -39,6 +39,13 @@ const props = defineProps<{
         passkey: string
         environment: string
         callback_url: string
+        head_office_shortcode?: string
+        head_office_passkey?: string
+        result_url?: string
+        initiator_name?: string
+        initiator_password?: string
+        security_credential?: string
+        simulate?: boolean
       }
     }
   }
@@ -63,6 +70,15 @@ const form = useForm({
   mpesa_passkey: props.business.settings?.mpesa?.passkey ?? '',
   mpesa_environment: props.business.settings?.mpesa?.environment ?? 'sandbox',
   mpesa_callback_url: props.business.settings?.mpesa?.callback_url ?? window.location.origin + '/api/payments/mpesa/callback',
+  // Additional MPESA fields
+  mpesa_head_office_shortcode: props.business.settings?.mpesa?.head_office_shortcode ?? props.business.settings?.mpesa?.shortcode ?? '',
+  mpesa_head_office_passkey: props.business.settings?.mpesa?.head_office_passkey ?? '',
+  mpesa_result_url: props.business.settings?.mpesa?.result_url ?? props.business.settings?.mpesa?.callback_url ?? window.location.origin + '/api/payments/mpesa/callback',
+  mpesa_initiator_name: props.business.settings?.mpesa?.initiator_name ?? '',
+  mpesa_initiator_password: props.business.settings?.mpesa?.initiator_password ?? '',
+  mpesa_security_credential: props.business.settings?.mpesa?.security_credential ?? '',
+  // Use numeric values 1/0 for the simulate flag so TypeScript treats it as number
+  mpesa_simulate: props.business.settings?.mpesa?.simulate ? 1 : 0,
 })
 
 const submit = () => {
@@ -106,6 +122,13 @@ const testMpesa = async () => {
     const msg = e instanceof Error ? e.message : String(e)
     alert('Error testing MPESA credentials: ' + msg)
   }
+}
+
+// Toggle handler for simulate checkbox (typed to avoid template TS errors)
+const toggleSimulate = (e: Event) => {
+  const t = e.target as HTMLInputElement | null
+  if (!t) return
+  form.mpesa_simulate = t.checked ? 1 : 0
 }
 </script>
 
@@ -343,6 +366,75 @@ const testMpesa = async () => {
                     class="h-12"
                   />
                   <p class="text-xs text-slate-500">e.g., https://yourdomain.com/api/payments/mpesa/callback</p>
+                </div>
+
+                <!-- New MPESA Fields -->
+                <div class="space-y-2">
+                  <Label for="mpesa_head_office_shortcode">Head Office Shortcode</Label>
+                  <Input
+                    id="mpesa_head_office_shortcode"
+                    v-model="form.mpesa_head_office_shortcode"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_head_office_passkey">Head Office Passkey</Label>
+                  <Input
+                    id="mpesa_head_office_passkey"
+                    v-model="form.mpesa_head_office_passkey"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_result_url">Result URL</Label>
+                  <Input
+                    id="mpesa_result_url"
+                    v-model="form.mpesa_result_url"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_initiator_name">Initiator Name</Label>
+                  <Input
+                    id="mpesa_initiator_name"
+                    v-model="form.mpesa_initiator_name"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_initiator_password">Initiator Password</Label>
+                  <Input
+                    id="mpesa_initiator_password"
+                    v-model="form.mpesa_initiator_password"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_security_credential">Security Credential</Label>
+                  <Input
+                    id="mpesa_security_credential"
+                    v-model="form.mpesa_security_credential"
+                    class="h-12"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="mpesa_simulate" class="flex items-center gap-2">
+                    <input
+                      id="mpesa_simulate"
+                      type="checkbox"
+                      :checked="form.mpesa_simulate == 1"
+                      @change="toggleSimulate"
+                      class="h-4 w-4"
+                    />
+                    Simulate Mode
+                  </Label>
+                  <p class="text-xs text-slate-500">Enable to test transactions without real payments</p>
                 </div>
               </div>
 

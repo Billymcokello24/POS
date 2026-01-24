@@ -3,56 +3,29 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Services\PaymentService;
 
 class TestMpesaConfig extends Command
 {
-    protected $signature = 'mpesa:test-config';
-    protected $description = 'Test M-Pesa configuration';
+    protected $signature = 'mpesa:test-stk {phone?} {amount?}';
+    protected $description = 'Simulate an STK push using PaymentService (honors mpesa.simulate)';
 
-    public function handle()
+    public function handle(PaymentService $paymentService)
     {
-        $this->info('Testing M-Pesa Configuration...');
-        $this->newLine();
+        $phone = $this->argument('phone') ?? '0712345678';
+        $amount = $this->argument('amount') ?? 10;
 
-        $consumerKey = config('mpesa.consumer_key');
-        $consumerSecret = config('mpesa.consumer_secret');
-        $shortcode = config('mpesa.shortcode');
-        $passkey = config('mpesa.passkey');
-        $environment = config('mpesa.environment');
-        $callbackUrl = config('mpesa.callback_url');
+        $this->info("Testing STK push to {$phone} for amount {$amount}");
 
-        $this->table(
-            ['Setting', 'Status', 'Value'],
-            [
-                ['Environment', $environment ? '✓' : '✗', $environment ?: 'NOT SET'],
-                ['Consumer Key', $consumerKey ? '✓' : '✗', $consumerKey ? substr($consumerKey, 0, 10) . '...' : 'NOT SET'],
-                ['Consumer Secret', $consumerSecret ? '✓' : '✗', $consumerSecret ? substr($consumerSecret, 0, 10) . '...' : 'NOT SET'],
-                ['Shortcode', $shortcode ? '✓' : '✗', $shortcode ?: 'NOT SET'],
-                ['Passkey', $passkey ? '✓' : '✗', $passkey ? substr($passkey, 0, 15) . '...' : 'NOT SET'],
-                ['Callback URL', $callbackUrl ? '✓' : '✗', $callbackUrl ?: 'NOT SET'],
-            ]
-        );
+        $result = $paymentService->initiateMpesaStkPush([
+            'phone_number' => $phone,
+            'amount' => $amount,
+            'account_reference' => 'CLI-TEST',
+        ]);
 
-        $this->newLine();
+        $this->line('Result: ' . json_encode($result));
 
-        if ($consumerKey && $consumerSecret && $shortcode && $passkey) {
-            $this->info('✓ All M-Pesa credentials are configured!');
-            $this->info('✓ Ready to process payments.');
-            return 0;
-        } else {
-            $this->error('✗ Some M-Pesa credentials are missing!');
-            $this->warn('Please add the missing credentials to your .env file:');
-            $this->newLine();
-
-            if (!$consumerKey) $this->line('  MPESA_CONSUMER_KEY=your_key_here');
-            if (!$consumerSecret) $this->line('  MPESA_CONSUMER_SECRET=your_secret_here');
-            if (!$shortcode) $this->line('  MPESA_SHORTCODE=your_shortcode_here');
-            if (!$passkey) $this->line('  MPESA_PASSKEY=your_passkey_here');
-
-            $this->newLine();
-            $this->line('Then run: php artisan config:cache');
-            return 1;
-        }
+        return 0;
     }
 }
 

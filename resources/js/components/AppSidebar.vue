@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import {
     LayoutGrid,
@@ -14,8 +13,10 @@ import {
     AlertCircle,
     Sparkles,
     ChevronRight,
-    Crown
+    Crown,
+    MessageCircle
 } from 'lucide-vue-next'
+import { computed } from 'vue'
 
 import NavUser from '@/components/NavUser.vue'
 import {
@@ -33,7 +34,6 @@ import {
 import { type NavItem } from '@/types'
 
 const page = usePage()
-const user = computed(() => page.props.auth?.user)
 
 const isActive = (href: any) => {
     const url = typeof href === 'string' ? href : href?.url || ''
@@ -112,6 +112,20 @@ const reportsNavItems: NavItem[] = [
         title: 'All Reports',
         href: '/reports',
         icon: BarChart3,
+        permission: 'view_reports',
+        feature: 'reports',
+    },
+    {
+        title: 'AI Agent',
+        href: '/ai',
+        icon: Sparkles,
+        permission: 'view_reports',
+        feature: 'reports',
+    },
+    {
+        title: 'AI Chat',
+        href: '/ai/chat',
+        icon: MessageCircle,
         permission: 'view_reports',
         feature: 'reports',
     },

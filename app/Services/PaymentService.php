@@ -28,6 +28,40 @@ class PaymentService
         $accountReference = $data['account_reference'] ?? 'POS-SALE';
         $transactionDesc = $data['transaction_desc'] ?? 'Payment for goods';
 
+        // Allow simulation mode for local development or per-business override
+        $simulateGlobal = config('mpesa.simulate', false);
+        $simulateBusiness = $get('simulate', false);
+        if ($simulateGlobal || $simulateBusiness) {
+            $simulated = [
+                'ResponseCode' => '0',
+                'ResponseDescription' => 'Success. Request accepted for processing',
+                'MerchantRequestID' => 'SIM-MERCHANT-' . strtoupper(uniqid()),
+                'CheckoutRequestID' => 'SIM-CHECKOUT-' . strtoupper(uniqid()),
+                'CustomerMessage' => 'Success. Please check your phone to complete payment'
+            ];
+
+            Log::info('M-Pesa STK Push (simulated)', ['phone' => $phoneNumber, 'amount' => $amount, 'response' => $simulated]);
+
+            return [
+                'success' => true,
+                'message' => $simulated['CustomerMessage'],
+                'checkout_request_id' => $simulated['CheckoutRequestID'],
+                'merchant_request_id' => $simulated['MerchantRequestID'],
+                'response_code' => $simulated['ResponseCode'],
+                'response_description' => $simulated['ResponseDescription'],
+                'customer_message' => $simulated['CustomerMessage'],
+                'used_mapping' => 'simulated',
+                'used_business_shortcode' => $get('shortcode'),
+                'used_party_b' => $get('shortcode'),
+                'used_passkey' => $get('passkey'),
+            ];
+        }
+
+        $phoneNumber = $this->formatPhoneNumber($data['phone_number']);
+        $amount = (int) $data['amount'];
+        $accountReference = $data['account_reference'] ?? 'POS-SALE';
+        $transactionDesc = $data['transaction_desc'] ?? 'Payment for goods';
+
         // Get M-Pesa credentials from per-business settings or config
         $consumerKey = $get('consumer_key');
         $consumerSecret = $get('consumer_secret');
@@ -36,6 +70,15 @@ class PaymentService
         $passkey = $get('passkey');
         $callbackUrl = $get('callback_url', config('mpesa.callback_url'));
         $environment = $get('environment', config('mpesa.environment', 'production'));
+
+        // Resolve per-environment urls and prefer top-level config values (MPESA_AUTH_URL etc)
+        $urls = config("mpesa.urls.{$environment}");
+        $authUrl = config('mpesa.auth_url') ?: ($urls['oauth'] ?? null);
+        $stkPushUrl = config('mpesa.stk_push_url') ?: ($urls['stk_push'] ?? null);
+        $stkQueryUrl = config('mpesa.stk_query_url') ?: ($urls['stk_query'] ?? null);
+
+        // HTTP timeout
+        $timeout = config('mpesa.timeout', 60);
 
         // Validate credentials
         if (empty($consumerKey) || empty($consumerSecret) || empty($shortcode) || empty($passkey)) {
@@ -46,15 +89,16 @@ class PaymentService
             ];
         }
 
-        // Get URLs based on environment
-        $urls = config("mpesa.urls.{$environment}");
-
         try {
             // Step 1: Get Access Token with 30 second timeout and retry
-            $authResponse = Http::timeout(30)
+            $tokenUrl = $authUrl ?? ($urls['oauth'] ?? null);
+            if (!$tokenUrl) {
+                throw new \Exception('M-Pesa auth URL misconfigured');
+            }
+            $authResponse = Http::timeout($timeout)
                 ->retry(2, 100) // Retry twice with 100ms delay
                 ->withBasicAuth($consumerKey, $consumerSecret)
-                ->get($urls['oauth'] . '?grant_type=client_credentials');
+                ->get($tokenUrl . (str_contains($tokenUrl, '?') ? '&' : '?') . 'grant_type=client_credentials');
 
             if (!$authResponse->successful()) {
                 Log::error('M-Pesa Auth Failed', ['response' => $authResponse->json()]);
@@ -75,11 +119,12 @@ class PaymentService
             $isTillNumber = strlen($shortcode) >= 6;
             $transactionType = $isTillNumber ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline';
 
-            // Build mapping attempts: prefer head-office-as-business then store-as-business
+            // Build mapping attempts: prefer store-as-business first (use store shortcode as BusinessShortCode),
+            // then try head-office-as-business as a fallback. This reduces the chance of Agent/Store mismatch from provider.
             $attempts = [];
             if (!empty($headOfficeShortcode)) {
-                $attempts[] = ['label' => 'head_office_as_business', 'business_shortcode' => $headOfficeShortcode, 'party_b' => $shortcode];
                 $attempts[] = ['label' => 'store_as_business', 'business_shortcode' => $shortcode, 'party_b' => $headOfficeShortcode];
+                $attempts[] = ['label' => 'head_office_as_business', 'business_shortcode' => $headOfficeShortcode, 'party_b' => $shortcode];
             } else {
                 $attempts[] = ['label' => 'store_as_business', 'business_shortcode' => $shortcode, 'party_b' => $shortcode];
             }
@@ -88,7 +133,11 @@ class PaymentService
             foreach ($attempts as $attempt) {
                 $businessShortCode = $attempt['business_shortcode'];
                 $partyB = $attempt['party_b'];
-                $password = base64_encode($businessShortCode . $passkey . $timestamp);
+                // If a head office passkey is configured and we are using the head office shortcode for this attempt,
+                // prefer the head office passkey. Otherwise use the store passkey.
+                $headOfficePasskey = $get('head_office_passkey', null);
+                $usedPasskey = ($headOfficePasskey && $businessShortCode === $headOfficeShortcode) ? $headOfficePasskey : $passkey;
+                $password = base64_encode($businessShortCode . $usedPasskey . $timestamp);
 
                 Log::info('Initiating M-Pesa STK Push (attempt)', [
                     'attempt' => $attempt['label'],
@@ -105,10 +154,10 @@ class PaymentService
                 ]);
 
                 // Make the STK push request for this attempt
-                $stkResponse = Http::timeout(30)
+                $stkResponse = Http::timeout($timeout)
                     ->retry(2, 100)
                     ->withToken($accessToken)
-                    ->post($urls['stk_push'], [
+                    ->post($stkPushUrl ?? ($urls['stk_push'] ?? null), [
                         'BusinessShortCode' => $businessShortCode,
                         'Password' => $password,
                         'Timestamp' => $timestamp,
@@ -137,7 +186,7 @@ class PaymentService
                             'used_mapping' => $attempt['label'],
                             'used_business_shortcode' => $businessShortCode,
                             'used_party_b' => $partyB,
-                            'used_passkey' => $passkey,
+                            'used_passkey' => $usedPasskey,
                         ];
                     }
                 }
@@ -248,12 +297,19 @@ class PaymentService
         $environment = $get('environment', config('mpesa.environment', 'production'));
 
         $urls = config("mpesa.urls.{$environment}");
+        $authUrl = config('mpesa.auth_url') ?: ($urls['oauth'] ?? null);
+        $stkQueryUrl = config('mpesa.stk_query_url') ?: ($urls['stk_query'] ?? null);
+        $timeout = config('mpesa.timeout', 60);
 
         try {
-            // Get Access Token with 10 second timeout
-            $authResponse = Http::timeout(10)
+            // Get Access Token with configured timeout
+            if (!$authUrl) {
+                Log::warning('M-Pesa auth URL missing for query');
+                return ['success' => false, 'message' => 'M-Pesa auth URL not configured'];
+            }
+            $authResponse = Http::timeout($timeout)
                 ->withBasicAuth($consumerKey, $consumerSecret)
-                ->get($urls['oauth'] . '?grant_type=client_credentials');
+                ->get($authUrl . (str_contains($authUrl, '?') ? '&' : '?') . 'grant_type=client_credentials');
 
             if (!$authResponse->successful()) {
                 Log::warning('M-Pesa Auth Failed for Query', [
@@ -268,9 +324,14 @@ class PaymentService
             $password = base64_encode($shortcode . $passkey . $timestamp);
 
             // Query STK Push status with 10 second timeout
-            $queryResponse = Http::timeout(10)
+            $queryEndpoint = $stkQueryUrl ?? ($urls['stk_query'] ?? null);
+            if (!$queryEndpoint) {
+                Log::warning('M-Pesa stk query URL missing');
+                return ['success' => false, 'message' => 'M-Pesa query URL not configured'];
+            }
+            $queryResponse = Http::timeout($timeout)
                 ->withToken($accessToken)
-                ->post($urls['stk_query'], [
+                ->post($queryEndpoint, [
                     'BusinessShortCode' => $shortcode,
                     'Password' => $password,
                     'Timestamp' => $timestamp,
