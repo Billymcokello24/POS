@@ -49,6 +49,12 @@ class ProcessMpesaCallback implements ShouldQueue
             }
         }
 
+        // Check if this is a subscription payment (independent from sales)
+        $subscription = null;
+        if ($checkoutId) {
+            $subscription = \App\Models\Subscription::where('transaction_id', $checkoutId)->where('status', 'pending')->first();
+        }
+
         // If still not found and checkout id exists, create a record
         if (!$payment && $checkoutId) {
             $payment = MpesaPayment::create([
@@ -69,6 +75,10 @@ class ProcessMpesaCallback implements ShouldQueue
             if ($payment) {
                 $payment->update(['status' => 'failed', 'raw_response' => $this->callback]);
             }
+            // Also fail subscription if found
+            if ($subscription) {
+                $subscription->update(['status' => 'failed', 'payment_details' => array_merge($subscription->payment_details ?? [], ['failure_reason' => $stk['ResultDesc'] ?? null])]);
+            }
             return;
         }
 
@@ -82,6 +92,56 @@ class ProcessMpesaCallback implements ShouldQueue
                 'amount' => $items['Amount'] ?? null,
                 'status' => 'success',
                 'raw_response' => $this->callback,
+            ]);
+        }
+
+        // Handle subscription if found
+        if ($subscription) {
+            $mpesaReceipt = $items['MpesaReceiptNumber'] ?? null;
+            $amount = $items['Amount'] ?? null;
+            $phone = $items['PhoneNumber'] ?? null;
+            $transactionDate = $items['TransactionDate'] ?? null;
+
+            // Update or create SubscriptionPayment
+            $subPayment = \App\Models\SubscriptionPayment::where('checkout_request_id', $checkoutId)
+                ->orWhere('mpesa_receipt', $mpesaReceipt)
+                ->first();
+
+            if ($subPayment) {
+                $subPayment->update([
+                    'mpesa_receipt' => $mpesaReceipt ?? $subPayment->mpesa_receipt,
+                    'phone' => $phone ?? $subPayment->phone,
+                    'amount' => $amount ?? $subPayment->amount,
+                    'status' => 'completed',
+                    'raw_response' => $this->callback,
+                    'metadata' => array_merge($subPayment->metadata ?? [], ['transaction_date' => $transactionDate, 'callback' => $stk]),
+                ]);
+            } else {
+                \App\Models\SubscriptionPayment::create([
+                    'subscription_id' => $subscription->id,
+                    'business_id' => $subscription->business_id,
+                    'checkout_request_id' => $checkoutId,
+                    'merchant_request_id' => $stk['MerchantRequestID'] ?? null,
+                    'mpesa_receipt' => $mpesaReceipt,
+                    'phone' => $phone,
+                    'amount' => $amount,
+                    'status' => 'completed',
+                    'metadata' => ['transaction_date' => $transactionDate, 'callback' => $stk],
+                    'raw_response' => $this->callback,
+                ]);
+            }
+
+            // Update subscription
+            $subscription->update([
+                'transaction_id' => $mpesaReceipt ?? $checkoutId,
+                'status' => 'pending_verification',
+                'payment_details' => array_merge($subscription->payment_details ?? [], [
+                    'mpesa_receipt' => $mpesaReceipt,
+                    'phone' => $phone,
+                    'amount' => $amount,
+                    'transaction_date' => $transactionDate,
+                    'raw_callback' => $stk,
+                ]),
             ]);
         }
     }

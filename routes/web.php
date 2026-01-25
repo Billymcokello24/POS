@@ -95,6 +95,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('subscription', [\App\Http\Controllers\Business\SubscriptionController::class, 'initiatePayment'])->name('subscription.store.force');
     Route::post('subscription/pay', [\App\Http\Controllers\Business\SubscriptionController::class, 'initiatePayment'])->name('subscription.pay.force');
 
+    // API-like endpoint for subscription STK that uses session auth (CSRF protected)
+    Route::post('subscription/api/pay', [\App\Http\Controllers\Api\SubscriptionPaymentController::class, 'initiate'])->name('subscription.api.pay');
+
     // Fallback route: accept GET and POST and forward POST to the subscription initiatePayment method.
     Route::middleware(['auth', 'verified'])->match(['get', 'post'], 'subscription', function (Request $request) {
         if ($request->isMethod('post')) {
@@ -162,6 +165,11 @@ Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
     })->name('admin.features.toggle.redirect');
 
     Route::post('/features/toggle', [\App\Http\Controllers\Admin\FeatureController::class, 'toggle'])->name('admin.features.toggle');
+
+    // Quick admin JSON view for subscription payments (last 50 records). Protected by admin group middleware.
+    Route::get('/subscription-payments', function () {
+        return response()->json(\App\Models\SubscriptionPayment::orderBy('id', 'desc')->take(50)->get());
+    })->name('admin.subscription-payments');
 
     // Admin businesses routes
     Route::get('/businesses', [\App\Http\Controllers\Admin\BusinessController::class, 'index'])->name('admin.businesses.index');

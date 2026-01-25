@@ -20,7 +20,8 @@ import {
     Sparkles,
     ShieldAlert,
     ArrowUpRight,
-    Store
+    Store,
+    DollarSign
 } from 'lucide-vue-next'
 
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
@@ -29,7 +30,6 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import axios from 'axios'
 
 const props = defineProps<{
     plans: Array<any>
@@ -49,6 +49,15 @@ const form = useForm<{
     billing_cycle: string
     payment_method: string
     transaction_code: string
+    card_number: string
+    expiry_month: string
+    expiry_year: string
+    cvv: string
+    cardholder_name: string
+    reference_number: string
+    bank_name: string
+    account_number: string
+    received_amount: number
     mpesa_receipt?: string
 }>({
     plan_id: '',
@@ -56,6 +65,15 @@ const form = useForm<{
     billing_cycle: 'monthly',
     payment_method: 'stk',
     transaction_code: '',
+    card_number: '',
+    expiry_month: '',
+    expiry_year: '',
+    cvv: '',
+    cardholder_name: '',
+    reference_number: '',
+    bank_name: '',
+    account_number: '',
+    received_amount: 0,
     mpesa_receipt: undefined
 })
 
@@ -95,6 +113,12 @@ const openPaymentModal = (plan: any) => {
     paymentSuccess.value = false
     processingMpesa.value = false
     showPaymentModal.value = true
+
+    // Pre-fill received_amount for cash
+    const amount = billingCycle.value === 'monthly' ? Number(plan.price_monthly) : Number(plan.price_yearly)
+    if (form.payment_method === 'cash') {
+        form.received_amount = amount
+    }
 }
 
 // helper to close modal and reload page (not used directly in this file)
@@ -108,7 +132,8 @@ const resetProcessing = () => {
     paymentSuccessData.value = null
 }
 
-// Initiate STK Push using Inertia's router for proper CSRF handling
+// Initiate STK Push: open a popup synchronously, POST to /subscription/pay with CSRF token (expects JSON),
+// then poll /api/payments/mpesa/check-status for the result. Mirrors the Sales STK flow to avoid 419s.
 const initiateStkPush = async () => {
     paymentError.value = null
     paymentSuccess.value = false
@@ -135,53 +160,155 @@ const initiateStkPush = async () => {
 
     processingMpesa.value = true
 
-    // Use axios to POST and receive plain JSON (avoid X-Inertia header which expects Inertia responses)
+    // Open popup synchronously to avoid blockers (used later for receipts or messages)
+    let popup: Window | null = null
     try {
-        const resp = await axios.post('/subscription/pay', {
-            plan_id: selectedPlan.value?.id,
-            phone_number: phone,
-            billing_cycle: billingCycle.value,
-            payment_method: 'stk'
-        }, { withCredentials: true, headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '' } })
+        popup = window.open('', '_blank')
+        if (popup) {
+            try { popup.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Payment...</title></head><body><p style="font-family: sans-serif; padding:24px;">Sending M-Pesa prompt, please check your phone...</p></body></html>') } catch { /* ignore cross-origin write errors */ }
+        }
+    } catch {
+        popup = null
+    }
 
-        const data = resp.data || {}
-        const checkoutId = data.checkout_request_id || data.data?.checkout_request_id || data.data?.CheckoutRequestID || data.CheckoutRequestID || data.checkoutId || data.checkoutID
-        const sseToken = data.data?.sse_token || data.sse_token || null
+    try {
+        const resp = await fetch('/subscription/api/pay', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({
+                plan_id: selectedPlan.value.id,
+                billing_cycle: billingCycle.value,
+                phone_number: phone,
+                amount: amount,
+                payment_method: 'stk'
+            })
+        })
 
+        if (!resp.ok) {
+            const text = await resp.text()
+            throw new Error(`HTTP ${resp.status}: ${text}`)
+        }
+
+        const data = await resp.json()
+
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to initiate STK')
+        }
+
+        // The backend should return a checkout id for polling
+        const checkoutId = data.data?.checkout_request_id || data.data?.checkoutRequestID || data.checkout_request_id
         if (!checkoutId) {
-            console.error('No checkout ID found in response:', data)
-            paymentError.value = 'Failed to obtain checkout request ID from server response.'
-            processingMpesa.value = false
-            return
+            throw new Error('Missing checkout ID from server')
         }
 
-        // We got a checkout ID from the server — STK push was initiated.
-        // Stop the busy spinner (prompt will appear on user's phone). Polling/SSE will continue in background.
+        // start polling for status
+        pollMpesaStatus(checkoutId, popup, amount)
+
+    } catch (err: any) {
+        console.error('STK push error', err)
+        paymentError.value = err?.message || 'STK push failed'
         processingMpesa.value = false
-        startPaymentMonitoring(checkoutId, amount, sseToken)
-    } catch (err: unknown) {
-        console.error('STK push error (axios):', err)
-        let msg = 'Failed to initiate STK push.'
-        if (err && typeof err === 'object') {
-            // @ts-expect-error - narrowing axios error object for message extraction
-            msg = err?.response?.data?.message || err?.response?.data?.error || (err as any)?.message || msg
-        } else if (typeof err === 'string') {
-            msg = err
+        if (popup && !popup.closed) {
+            try { popup.close() } catch { /* ignore */ }
         }
-        paymentError.value = String(msg)
-        processingMpesa.value = false
     }
 }
 
-const startPaymentMonitoring = (checkoutRequestId: string, amount: number, sseToken: string | null = null) => {
-    if (processedCheckouts.has(checkoutRequestId) || activeMonitorings.has(checkoutRequestId)) {
-        return
-    }
+// Polling helper for M-Pesa status
+const pollMpesaStatus = (checkoutRequestId: string, popup: Window | null, amount: number) => {
+    let attempts = 0
+    const maxAttempts = 40 // ~2 minutes
 
-    activeMonitorings.add(checkoutRequestId)
-    startSSEConnection(checkoutRequestId, amount, sseToken)
-    startPolling(checkoutRequestId, amount, sseToken)
+    const interval = setInterval(async () => {
+        attempts++
+        try {
+            const r = await fetch('/api/payments/mpesa/check-status', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({ checkout_request_id: checkoutRequestId })
+            })
+
+            if (!r.ok) {
+                console.warn('Status check HTTP error', r.status)
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval)
+                    processingMpesa.value = false
+                    paymentError.value = 'Payment verification timed out.'
+                    if (popup && !popup.closed) try { popup.close() } catch(e){}
+                }
+                return
+            }
+
+            const res = await r.json()
+            if (!res.success) {
+                console.warn('Status API returned success=false', res.message)
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval)
+                    processingMpesa.value = false
+                    paymentError.value = res.message || 'Could not verify payment'
+                    if (popup && !popup.closed) try { popup.close() } catch(e){}
+                }
+                return
+            }
+
+            const resultCode = res.data?.ResultCode
+            if (resultCode === '0') {
+                clearInterval(interval)
+                processingMpesa.value = false
+                paymentSuccess.value = true
+                paymentSuccessData.value = { receipt: res.data?.MpesaReceiptNumber || checkoutRequestId, amount }
+
+                // Optionally navigate popup to a confirmation/receipt page for subscriptions
+                if (popup && !popup.closed) {
+                    try {
+                        // If backend created subscription ID, open subscription page
+                        const subId = res.data?.subscription_id || null
+                        if (subId) {
+                            popup.location.href = `/subscription/${subId}`
+                        } else {
+                            popup.document.body.innerHTML = '<p style="font-family:sans-serif;padding:16px;">Payment received. You can close this window.</p>'
+                        }
+                    } catch { /* ignore */ }
+                }
+            } else if (resultCode && ['1037','4999'].includes(resultCode.toString())) {
+                // still processing; keep polling
+                console.log('Payment pending:', resultCode)
+            } else if (resultCode) {
+                clearInterval(interval)
+                processingMpesa.value = false
+                paymentError.value = res.data?.ResultDesc || 'Payment failed'
+                if (popup && !popup.closed) try { popup.close() } catch(e){}
+            }
+
+            if (attempts >= maxAttempts) {
+                clearInterval(interval)
+                processingMpesa.value = false
+                paymentError.value = 'Payment verification timed out.'
+                if (popup && !popup.closed) try { popup.close() } catch(e){}
+            }
+
+        } catch (err) {
+            console.error('Status check error', err)
+            if (attempts >= maxAttempts) {
+                clearInterval(interval)
+                processingMpesa.value = false
+                paymentError.value = 'Network error during verification.'
+                if (popup && !popup.closed) try { popup.close() } catch(e){}
+            }
+        }
+    }, 3000)
 }
+
 
 const startSSEConnection = (checkoutRequestId: string, amount: number, sseToken: string | null = null) => {
     try {
@@ -198,7 +325,7 @@ const startSSEConnection = (checkoutRequestId: string, amount: number, sseToken:
             try {
                 const payload = JSON.parse(ev.data)
                 handlePaymentUpdate(payload, checkoutRequestId, amount)
-            } catch (e) {
+            } catch {
                 console.error('Error parsing SSE data:', e)
             }
         }
@@ -223,7 +350,7 @@ const startSSEConnection = (checkoutRequestId: string, amount: number, sseToken:
             }
         }, 300000) // 5 minutes
 
-    } catch (e) {
+    } catch {
         console.error('Failed to open SSE connection:', e)
     }
 }
@@ -430,7 +557,6 @@ const submitPayment = () => {
         return
     }
 
-    // For till payments, use Inertia form submission
     form.submit('post', '/subscription/pay', {
         preserveScroll: true,
         preserveState: true,
@@ -790,6 +916,39 @@ const isCurrentPlan = (planId: number) => {
                                     <Store class="size-3.5" />
                                     Till Number
                                 </button>
+                                <button
+                                    type="button"
+                                    @click="form.payment_method = 'card'"
+                                    :class="[
+                                        'flex-1 flex items-center justify-center gap-2 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300',
+                                        form.payment_method === 'card' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/50' : 'text-slate-400 hover:text-slate-600'
+                                    ]"
+                                >
+                                    <CreditCard class="size-3.5" />
+                                    Card Payment
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="form.payment_method = 'bank_transfer'"
+                                    :class="[
+                                        'flex-1 flex items-center justify-center gap-2 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300',
+                                        form.payment_method === 'bank_transfer' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/50' : 'text-slate-400 hover:text-slate-600'
+                                    ]"
+                                >
+                                    <Building2 class="size-3.5" />
+                                    Bank Transfer
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="form.payment_method = 'cash'"
+                                    :class="[
+                                        'flex-1 flex items-center justify-center gap-2 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300',
+                                        form.payment_method === 'cash' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/50' : 'text-slate-400 hover:text-slate-600'
+                                    ]"
+                                >
+                                    <DollarSign class="size-3.5" />
+                                    Cash Payment
+                                </button>
                             </div>
 
                             <!-- Dynamic Content Panes -->
@@ -869,6 +1028,145 @@ const isCurrentPlan = (planId: number) => {
                                             </div>
                                             <p class="text-[10px] text-slate-400 font-medium italic text-center px-4">Submit the 10-character code from your M-PESA payment confirmation.</p>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card Payment Content -->
+                                <div v-if="form.payment_method === 'card'" class="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div class="space-y-3">
+                                        <Label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Card Details</Label>
+                                        <div class="grid grid-cols-1 gap-4">
+                                            <div class="grid grid-cols-2 gap-4">
+                                                <Input
+                                                    v-model="form.card_number"
+                                                    placeholder="Card Number"
+                                                    class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium col-span-2"
+                                                />
+                                                <div class="grid grid-cols-2 gap-4">
+                                                    <Input
+                                                        v-model="form.expiry_month"
+                                                        placeholder="MM"
+                                                        class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium"
+                                                    />
+                                                    <Input
+                                                        v-model="form.expiry_year"
+                                                        placeholder="YY"
+                                                        class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium"
+                                                    />
+                                                </div>
+                                                <Input
+                                                    v-model="form.cvv"
+                                                    placeholder="CVV"
+                                                    class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div class="space-y-3">
+                                            <Label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Cardholder Name</Label>
+                                            <Input
+                                                v-model="form.cardholder_name"
+                                                placeholder="John Doe"
+                                                class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-4">
+                                        <div class="bg-indigo-50/40 p-5 rounded-[1.5rem] border border-indigo-100/50 space-y-3">
+                                            <div class="flex items-center gap-2 text-indigo-700">
+                                                <div class="p-1 bg-indigo-100 rounded-lg">
+                                                    <Info class="size-3.5" />
+                                                </div>
+                                                <span class="text-[10px] font-black uppercase tracking-widest">Secure Payment Processing</span>
+                                            </div>
+                                            <p class="text-[11px] text-slate-600 font-medium leading-relaxed">
+                                                Your card details are securely transmitted and processed. We do not store your card information.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Bank Transfer Content -->
+                                <div v-if="form.payment_method === 'bank_transfer'" class="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div class="space-y-3">
+                                        <Label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bank Transfer Details</Label>
+                                        <div class="grid grid-cols-1 gap-4">
+                                            <Input
+                                                v-model="form.bank_name"
+                                                placeholder="Bank Name"
+                                                class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium"
+                                            />
+                                            <Input
+                                                v-model="form.account_number"
+                                                placeholder="Account Number"
+                                                class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium"
+                                            />
+                                            <Input
+                                                v-model="form.reference_number"
+                                                placeholder="Reference Number"
+                                                class="h-14 rounded-xl border-slate-200 focus-visible:ring-indigo-600 bg-slate-50/50 font-black text-slate-900 text-lg placeholder:font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-4">
+                                        <div class="bg-indigo-50/40 p-5 rounded-[1.5rem] border border-indigo-100/50 space-y-3">
+                                            <div class="flex items-center gap-2 text-indigo-700">
+                                                <div class="p-1 bg-indigo-100 rounded-lg">
+                                                    <Info class="size-3.5" />
+                                                </div>
+                                                <span class="text-[10px] font-black uppercase tracking-widest">Payment Instructions</span>
+                                            </div>
+                                            <p class="text-[11px] text-slate-600 font-medium leading-relaxed">
+                                                Please transfer the exact amount to the provided bank account. Use your phone number as the reference.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Cash Payment Content -->
+                                <div v-if="form.payment_method === 'cash'" class="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div class="space-y-3">
+                                        <Label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Cash Payment Instructions</Label>
+                                        <div class="p-4 bg-emerald-50 rounded-[1.5rem] border-2 border-emerald-100 flex flex-col items-center text-center space-y-4 relative overflow-hidden shadow-sm">
+                                            <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-100/40 rounded-full -mr-16 -mt-16"></div>
+                                            <div class="absolute bottom-0 left-0 w-24 h-24 bg-emerald-100/30 rounded-full -ml-12 -mb-12"></div>
+
+                                            <div class="flex flex-col items-center space-y-1 relative z-10">
+                                                <span class="text-[10px] font-black uppercase text-emerald-600/70 block tracking-[0.3em]">Exact Amount to Pay</span>
+                                                <div class="text-4xl font-black text-emerald-900 tracking-tight">
+                                                    <span class="text-sm mr-1">KES</span>
+                                                    {{ billingCycle === 'monthly' ? Number(selectedPlan?.price_monthly).toLocaleString() : Number(selectedPlan?.price_yearly).toLocaleString() }}
+                                                </div>
+                                            </div>
+
+                                            <div class="w-full h-px bg-emerald-200/50 relative z-10"></div>
+
+                                            <div class="space-y-1 relative z-10">
+                                                <span class="text-[10px] font-black uppercase text-emerald-600/70 block tracking-[0.3em]">Payment Location</span>
+                                                <div class="flex flex-col">
+                                                    <span class="text-lg font-black text-emerald-700 tracking-tight">Vocal Hub Office</span>
+                                                    <span class="text-xs font-bold text-emerald-600/60 uppercase tracking-widest mt-1">Nairobi, Kenya</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="pt-2 relative z-10">
+                                                <Badge variant="outline" class="bg-white text-emerald-700 border-emerald-100 px-4 py-1.5 font-black uppercase text-[9px] tracking-[0.2em] rounded-full shadow-sm">
+                                                    Verified Payment Location
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-2.5 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                                        <Label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Amount Received</Label>
+                                        <Input
+                                            v-model.number="form.received_amount"
+                                            type="number"
+                                            step="0.01"
+                                            class="h-14 rounded-xl border-slate-200 focus-visible:ring-emerald-500 bg-slate-50/30 font-black text-slate-900 text-lg"
+                                        />
                                     </div>
                                 </div>
                             </div>
