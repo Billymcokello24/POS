@@ -310,6 +310,113 @@ class SalesController extends Controller
         }
     }
 
+    public function quickStore(Request $request)
+    {
+        // Quick API endpoint used by POS UI to create sale and return a base64 PDF for immediate printing.
+        if (!auth()->user()->hasPermission('create_sales')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'customer_id' => 'nullable|exists:customers,id',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|numeric|min:0',
+            'payments' => 'required|array|min:1',
+            'payments.*.payment_method' => 'required|in:CASH,CARD,MPESA,BANK_TRANSFER',
+            'payments.*.amount' => 'required|numeric|min:0',
+        ]);
+
+        $businessId = auth()->user()->current_business_id;
+
+        try {
+            DB::beginTransaction();
+
+            $subtotal = 0;
+            $taxAmount = 0;
+
+            foreach ($validated['items'] as $item) {
+                $product = Product::findOrFail($item['product_id']);
+                $itemSubtotal = $item['quantity'] * $item['unit_price'];
+                $subtotal += $itemSubtotal;
+                if ($product->taxConfiguration) {
+                    $taxAmount += $product->taxConfiguration->calculateTax($itemSubtotal);
+                }
+            }
+
+            $total = $subtotal + $taxAmount - ($validated['discount_amount'] ?? 0);
+
+            $sale = Sale::create([
+                'business_id' => $businessId,
+                'cashier_id' => auth()->id(),
+                'customer_id' => $validated['customer_id'] ?? null,
+                'subtotal' => $subtotal,
+                'tax_amount' => $taxAmount,
+                'discount_amount' => $validated['discount_amount'] ?? 0,
+                'total' => $total,
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
+
+            foreach ($validated['items'] as $item) {
+                $product = Product::findOrFail($item['product_id']);
+                $itemSubtotal = $item['quantity'] * $item['unit_price'];
+                $itemTax = $product->taxConfiguration ? $product->taxConfiguration->calculateTax($itemSubtotal) : 0;
+                $itemTotal = $itemSubtotal + $itemTax;
+
+
+                \App\Models\SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'product_sku' => $product->sku,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'tax_rate' => $product->taxConfiguration?->rate ?? 0,
+                    'tax_amount' => $itemTax,
+                    'discount_amount' => 0,
+                    'subtotal' => $itemSubtotal,
+                    'total' => $itemTotal,
+                ]);
+
+                // Reduce stock if appropriate
+                try {
+                    $product->decreaseStock($item['quantity'], 'SALE', $sale, auth()->id());
+                } catch (\Throwable $e) {
+                    // log and continue
+                    logger()->warning('Stock decrease failed in quickStore: ' . $e->getMessage());
+                }
+            }
+
+            foreach ($validated['payments'] as $payment) {
+                Payment::create([
+                    'sale_id' => $sale->id,
+                    'payment_method' => $payment['payment_method'],
+                    'amount' => $payment['amount'],
+                    'reference_number' => $payment['reference_number'] ?? null,
+                    'status' => 'completed',
+                ]);
+            }
+
+            DB::commit();
+
+            $sale->load(['items.product', 'payments', 'cashier', 'customer', 'business']);
+
+            // Generate PDF and return base64
+            $pdf = Pdf::loadView('receipts.sale', ['sale' => $sale]);
+            $binary = $pdf->output();
+            $base64 = base64_encode($binary);
+
+            return response()->json(['success' => true, 'sale_id' => $sale->id, 'pdf_base64' => $base64]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            logger()->error('quickStore failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to create sale: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function show(Sale $sale)
     {
         // Check business ownership
@@ -335,6 +442,12 @@ class SalesController extends Controller
         }
 
         $sale->load(['items.product', 'payments', 'cashier', 'customer', 'business']);
+
+        // If the request asks for HTML (useful for opening a printable page in the browser), render the blade
+        // view directly so the frontend can call window.print(). Otherwise return the PDF stream as before.
+        if (request()->query('format') === 'html') {
+            return view('receipts.sale', ['sale' => $sale]);
+        }
 
         $pdf = Pdf::loadView('receipts.sale', ['sale' => $sale]);
 

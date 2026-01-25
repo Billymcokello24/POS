@@ -1,19 +1,16 @@
 <script setup lang="ts">
-import { useForm, usePage } from '@inertiajs/vue3'
-
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-
+import { useForm, usePage } from '@inertiajs/vue3'
 import { ShoppingCart, Scan, Trash2, CreditCard, Users, Smartphone, Banknote, Building2, Wallet, CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-
 import AppLayout from '@/layouts/AppLayout.vue'
 
 // Get currency from page props
@@ -67,6 +64,9 @@ const saleSubmitting = ref(false)
 const saleHandled = ref(false)
 // Payment checkout id for polling
 const paymentCheckoutId = ref('')
+
+// New: keep a synchronous window reference so popups are not blocked
+const receiptWindowRef = ref<Window | null>(null)
 
 // Close search results when clicking outside
 const handleClickOutside = (event: MouseEvent) => {
@@ -788,91 +788,94 @@ const completeSale = async () => {
         return
     }
 
-    const form = useForm({
+    // For instant printing we call the quick API which returns a base64 PDF.
+    const payload = {
         customer_id: selectedCustomer.value,
         items: cart.value.map(item => ({
             product_id: item.product_id,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            discount_amount: 0,
         })),
         payments: payments.value.map(p => ({
             payment_method: p.method,
             amount: p.amount,
             reference_number: p.reference || null,
         })),
-        discount_amount: 0,
-    })
+    }
 
-    form.post('/sales', {
-        preserveScroll: true,
-        onSuccess: (page: any) => {
-            if (saleHandled.value) {
-                console.log('Sale already handled, ignoring duplicate onSuccess')
-                saleSubmitting.value = false
-                return
-            }
-            saleHandled.value = true
-            saleSubmitting.value = false
+    try {
+        // Open popup synchronously BEFORE the async request to avoid popup blockers
+        const popup = receiptWindowRef.value && !receiptWindowRef.value.closed ? receiptWindowRef.value : window.open('', '_blank')
+        if (popup) {
+            try { popup.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Printing...</title></head><body><p style="font-family: sans-serif; padding:24px;">Preparing receipt...</p></body></html>') } catch(e){ console.debug(e) }
+        }
 
-            console.log('Full page response:', page)
-            console.log('Page props:', page.props)
-            console.log('Flash data:', page.props?.flash)
+        const resp = await fetch('/api/sales/quick', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken.value,
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload),
+        })
 
-            // Get sale ID from flash data - handle both function and value
-            let saleId = page.props?.flash?.saleId
+        if (!resp.ok) {
+            const t = await resp.text()
+            throw new Error(`HTTP ${resp.status}: ${t}`)
+        }
 
-            // If saleId is a function, call it
-            if (typeof saleId === 'function') {
-                saleId = saleId()
-            }
+        const data = await resp.json()
+        if (!data.success || !data.pdf_base64) {
+            throw new Error(data.message || 'No PDF returned')
+        }
 
-            console.log('Extracted sale ID:', saleId)
+        // Convert base64 to blob URL and navigate popup to it so browser shows PDF immediately
+        const binary = atob(data.pdf_base64)
+        const len = binary.length
+        const bytes = new Uint8Array(len)
+        for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+        const blob = new Blob([bytes], { type: 'application/pdf' })
+        const url = URL.createObjectURL(blob)
 
-            // Clear the cart and reset form
-            cart.value = []
-            payments.value = []
-            selectedCustomer.value = null
-            showPaymentModal.value = false
+        if (popup && !popup.closed) {
+            popup.location.href = url
 
-            // Open receipt if sale ID is available
-            if (saleId) {
-                const receiptUrl = `/sales/${saleId}/receipt`
-                console.log('Opening receipt at:', receiptUrl)
-
-                // Open in new window
-                const receiptWindow = window.open(receiptUrl, '_blank')
-
-                if (receiptWindow) {
-                    console.log('Receipt window opened successfully')
-                } else {
-                    console.error('Failed to open receipt window - popup might be blocked')
-                    alert('Receipt window blocked! Please allow popups and try again.')
-                }
-
-                // Also show success message
-                setTimeout(() => {
-                    alert('Sale completed successfully! Receipt opened in new tab.')
-                }, 500)
-            } else {
-                console.error('No sale ID received in flash data')
-                alert('Sale completed but receipt could not be generated. Sale ID missing.')
+            // Try to trigger print in the popup when it's loaded
+            const tryPrint = () => {
+                try {
+                    if (popup.document && popup.document.readyState === 'complete') {
+                        popup.focus()
+                        setTimeout(() => {
+                            try { popup.print() } catch (e) { console.error('Print in popup failed', e) }
+                        }, 150)
+                        return true
+                    }
+                } catch (err) { console.debug(err) }
+                return false
             }
 
-            // Focus back on barcode input for next sale
-            setTimeout(() => {
-                const inputElement = barcodeInput.value as HTMLInputElement | null
-                if (inputElement && typeof inputElement.focus === 'function') {
-                    inputElement.focus()
-                }
-            }, 1000)
-        },
-        onError: (errors: any) => {
-            console.error('Sale failed:', errors)
-            saleSubmitting.value = false
-            alert('Failed to complete sale: ' + JSON.stringify(errors))
-        },
-    })
+            const interval = setInterval(() => { if (tryPrint()) clearInterval(interval) }, 250)
+            setTimeout(() => clearInterval(interval), 12000)
+        } else {
+            // Fallback: open in new tab
+            const w = window.open(url, '_blank')
+            if (!w) alert('Popup blocked: please allow popups to print the receipt')
+        }
+
+        // Clear cart and reset UI
+        cart.value = []
+        payments.value = []
+        selectedCustomer.value = null
+        showPaymentModal.value = false
+        saleSubmitting.value = false
+
+    } catch (error: any) {
+        console.error('Quick sale error:', error)
+        saleSubmitting.value = false
+        alert('Failed to complete sale: ' + (error?.message || String(error)))
+    }
 }
 </script>
 

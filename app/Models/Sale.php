@@ -47,6 +47,12 @@ class Sale extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    // Relation to owning business (needed for sale number generation)
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(SaleItem::class);
@@ -76,7 +82,38 @@ class Sale extends Model
 
         static::creating(function ($sale) {
             if (!$sale->sale_number) {
-                $sale->sale_number = $sale->business->generateSaleNumber();
+                // Prefer explicit relationship if set
+                $business = null;
+
+                // 1) Prefer explicit business_id attribute (most reliable during create)
+                if (!empty($sale->business_id)) {
+                    try {
+                        $business = \App\Models\Business::find($sale->business_id);
+                    } catch (\Throwable $e) {
+                        $business = null;
+                    }
+                }
+
+                // 2) If still null, try the relation (may not be set for new models)
+                if (! $business) {
+                    try {
+                        $business = $sale->business;
+                    } catch (\Throwable $e) {
+                        $business = null;
+                    }
+                }
+
+                // Fall back to authenticated user's current business
+                if (! $business && auth()->check()) {
+                    $business = \App\Models\Business::find(auth()->user()->current_business_id);
+                }
+
+                if ($business) {
+                    $sale->sale_number = $business->generateSaleNumber();
+                } else {
+                    // Ultimate fallback to a unique identifier to avoid error
+                    $sale->sale_number = 'POS-' . strtoupper(uniqid());
+                }
             }
         });
     }
