@@ -11,6 +11,7 @@ use App\Http\Controllers\UsersController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
+use Illuminate\Http\Request;
 
 Route::get('/', function (\App\Services\CmsService $cmsService) {
     return Inertia::render('Welcome', [
@@ -23,8 +24,17 @@ Route::get('/', function (\App\Services\CmsService $cmsService) {
 Route::get('/register-business', [\App\Http\Controllers\BusinessAuthController::class, 'create'])->name('business.register');
 Route::post('/register-business', [\App\Http\Controllers\BusinessAuthController::class, 'store']);
 
+Route::get('/register', function () {
+    return Inertia::render('auth/Register');
+})->name('register');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Admin dashboard for super admins (use Admin\DashboardController)
+    Route::get('/admin/dashboard', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])
+        ->name('admin.dashboard')
+        ->middleware('super_admin');
 
     // Core Business Features
     Route::middleware(['feature:pos'])->group(function () {
@@ -75,7 +85,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Subscription
     Route::get('subscription', [\App\Http\Controllers\Business\SubscriptionController::class, 'index'])->name('subscription.index');
-    Route::post('subscription/pay', [\App\Http\Controllers\Business\SubscriptionController::class, 'initiatePayment'])->name('subscription.pay');
+
+    // Ensure POST endpoints for subscription exist (guarded by auth and verified).
+    // Some frontend bundles or proxies may still POST to /subscription — register these explicitly.
+    Route::post('subscription', [\App\Http\Controllers\Business\SubscriptionController::class, 'initiatePayment'])->name('subscription.store.force');
+    Route::post('subscription/pay', [\App\Http\Controllers\Business\SubscriptionController::class, 'initiatePayment'])->name('subscription.pay.force');
+
+    // Fallback route: accept GET and POST and forward POST to the subscription initiatePayment method.
+    Route::middleware(['auth', 'verified'])->match(['get', 'post'], 'subscription', function (Request $request) {
+        if ($request->isMethod('post')) {
+            return app(\App\Http\Controllers\Business\SubscriptionController::class)->initiatePayment($request);
+        }
+
+        return app(\App\Http\Controllers\Business\SubscriptionController::class)->index();
+    })->name('subscription.fallback');
 
     // Payment API Routes (internal, require auth)
     Route::prefix('api/payments')->group(function () {
@@ -109,4 +132,47 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
-require __DIR__.'/admin.php';
+
+Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
+    Route::get('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'index'])->name('admin.cms.index');
+    Route::put('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'update'])->name('admin.cms.update');
+
+    // Admin subscriptions routes
+    Route::get('/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'index'])->name('admin.subscriptions.index');
+    Route::post('/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'store'])->name('admin.subscriptions.store');
+    Route::post('/subscriptions/{subscription}/approve', [\App\Http\Controllers\Admin\SubscriptionController::class, 'approve'])->name('admin.subscriptions.approve');
+    Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\Admin\SubscriptionController::class, 'cancel'])->name('admin.subscriptions.cancel');
+
+    // Admin features routes
+    // Features index (render UI)
+    Route::get('/features', [\App\Http\Controllers\Admin\FeatureController::class, 'index'])->name('admin.features.index');
+
+    // Provide a safe GET redirect so visiting /admin/features/toggle in a browser doesn't raise MethodNotAllowed
+    Route::get('/features/toggle', function () {
+        return redirect()->route('admin.features.index');
+    })->name('admin.features.toggle.redirect');
+
+    Route::post('/features/toggle', [\App\Http\Controllers\Admin\FeatureController::class, 'toggle'])->name('admin.features.toggle');
+
+    // Admin businesses routes
+    Route::get('/businesses', [\App\Http\Controllers\Admin\BusinessController::class, 'index'])->name('admin.businesses.index');
+    Route::post('/businesses/{business}/toggle-status', [\App\Http\Controllers\Admin\BusinessController::class, 'toggleStatus'])->name('admin.businesses.toggle-status');
+    Route::post('/businesses/{business}/reset-admin-password', [\App\Http\Controllers\Admin\BusinessController::class, 'resetAdminPassword'])->name('admin.businesses.reset-password');
+    Route::post('/businesses/{business}/impersonate', [\App\Http\Controllers\Admin\BusinessController::class, 'impersonate'])->name('admin.businesses.impersonate');
+    Route::post('/businesses/stop-impersonating', [\App\Http\Controllers\Admin\BusinessController::class, 'stopImpersonating'])->name('admin.businesses.stop-impersonating');
+
+    // Admin plans routes
+    Route::get('/plans', [\App\Http\Controllers\Admin\PlanController::class, 'index'])->name('admin.plans.index');
+    Route::post('/plans', [\App\Http\Controllers\Admin\PlanController::class, 'store'])->name('admin.plans.store');
+    Route::put('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'update'])->name('admin.plans.update');
+    Route::delete('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'destroy'])->name('admin.plans.destroy');
+
+    // Admin roles routes
+    Route::get('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('admin.roles.index');
+    Route::post('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('admin.roles.store');
+    Route::put('/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'update'])->name('admin.roles.update');
+    Route::delete('/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'destroy'])->name('admin.roles.destroy');
+
+    // Admin audit logs
+    Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditController::class, 'index'])->name('admin.audit.index');
+});

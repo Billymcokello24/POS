@@ -113,7 +113,7 @@ const hasFeature = (feature: string) => {
             <div class="mx-auto w-[90%] px-6 py-8 space-y-8">
                 <!-- System Notifications -->
                 <div v-if="props.systemNotifications && props.systemNotifications.length > 0" class="space-y-4">
-                    <div v-for="note in props.systemNotifications" :key="note.id" 
+                    <div v-for="note in props.systemNotifications" :key="note.id"
                         :class="{
                             'bg-blue-600': note.type === 'info',
                             'bg-amber-500': note.type === 'warning',

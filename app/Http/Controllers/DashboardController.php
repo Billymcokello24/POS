@@ -14,7 +14,7 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         \Log::debug('Dashboard index reached. User: ' . auth()->user()->email . ' - Is Super: ' . (auth()->user()->is_super_admin ? 'YES' : 'NO'));
-        if (auth()->user()->is_super_admin) {
+        if (auth()->user()->is_super_admin && $request->route()->getName() !== 'admin.dashboard') {
             \Log::debug('Redirecting Super Admin to admin.dashboard');
             return redirect()->route('admin.dashboard');
         }
@@ -22,7 +22,8 @@ class DashboardController extends Controller
         $user = auth()->user();
 
         if (!$businessId) {
-            return Inertia::render('Dashboard', [
+            $view = $request->route()->getName() === 'admin.dashboard' ? 'Admin/Dashboard' : 'Dashboard';
+            return Inertia::render($view, [
                 'stats' => [
                     'todaySales' => 0,
                     'totalProducts' => 0,
@@ -129,7 +130,9 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return Inertia::render('Dashboard', [
+        $view = $request->route()->getName() === 'admin.dashboard' ? 'Admin/Dashboard' : 'Dashboard';
+
+        return Inertia::render($view, [
             'stats' => [
                 'todaySales' => (float) $todaySales,
                 'totalProducts' => (int) $totalProducts,
