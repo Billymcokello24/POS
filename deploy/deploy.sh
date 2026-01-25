@@ -43,13 +43,23 @@ mkdir -p /var/www/pos
 chown -R www-data:www-data /var/www/pos
 
 # Assuming the code is uploaded to /tmp/pos or cloned
-# If using git: git clone <repo> /var/www/pos
+# If using git: git clone <your-repo-url> /var/www/pos
 # Else, copy from uploaded files
 # cp -r /path/to/uploaded/pos/* /var/www/pos/
 
 # For now, assume code is in /tmp/pos
 # Uncomment and adjust:
 # cp -r /tmp/pos/* /var/www/pos/
+
+# Or if cloning from git:
+echo "Enter your git repository URL (e.g., https://github.com/user/pos.git):"
+read REPO_URL
+if [ -n "$REPO_URL" ]; then
+    git clone $REPO_URL /var/www/pos
+else
+    echo "No repo URL provided. Assuming code is uploaded to /tmp/pos"
+    cp -r /tmp/pos/* /var/www/pos/
+fi
 
 # Install PHP dependencies
 cd /var/www/pos
