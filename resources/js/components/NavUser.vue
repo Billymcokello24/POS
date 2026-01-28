@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { ChevronsUpDown, User } from 'lucide-vue-next';
+import { ref } from 'vue';
 
 import {
     DropdownMenu,

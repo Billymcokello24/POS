@@ -143,8 +143,15 @@ return [
     */
 
     'redis' => [
-
-        'client' => env('REDIS_CLIENT', 'phpredis'),
+        // Prefer the configured client, but if phpredis is requested and the extension
+        // isn't installed, fallback to predis (pure-PHP) so the app can still connect.
+        'client' => (function () {
+            $client = env('REDIS_CLIENT', 'phpredis');
+            if ($client === 'phpredis' && ! extension_loaded('redis')) {
+                return 'predis';
+            }
+            return $client;
+        })(),
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),

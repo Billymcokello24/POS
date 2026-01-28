@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable import/order */
 import { Head, router, useForm } from '@inertiajs/vue3'
 import {
   Store,
@@ -10,6 +11,7 @@ import {
   DollarSign,
   Settings
 } from 'lucide-vue-next'
+import { postJsonWithSanctum } from '@/lib/sanctum'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -96,20 +98,10 @@ const submit = () => {
   })
 }
 
-// CSRF token for POST requests
-const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-
+// Test MPESA credentials
 const testMpesa = async () => {
   try {
-    const res = await fetch('/business/mpesa/test', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'Accept': 'application/json'
-      },
-      credentials: 'same-origin'
-    })
+    const res = await postJsonWithSanctum('/business/mpesa/test', {})
 
     const data = await res.json()
     if (res.ok && data.success) {

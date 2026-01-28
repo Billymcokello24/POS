@@ -184,4 +184,40 @@ class CmsController extends Controller
 
         return back()->with('success', 'Welcome page updated. Platform MPESA defaults saved.');
     }
+
+    /**
+     * Test the platform-level MPESA credentials stored in the CMS welcome page.
+     * Returns JSON { success: bool, status: int|null, body_snippet: string|null }
+     */
+    public function testPlatformMpesa(Request $request)
+    {
+        try {
+            $cms = app(\App\Services\CmsService::class);
+            $mp = $cms->getMpesaConfig();
+            if (! $mp) {
+                return response()->json(['success' => false, 'message' => 'No MPESA configuration found in CMS'], 400);
+            }
+
+            $env = $mp['environment'] ?? config('mpesa.environment', 'production');
+            $urls = config("mpesa.urls.{$env}");
+            $authUrl = config('mpesa.auth_url') ?: ($urls['oauth'] ?? null);
+            if (! $authUrl) return response()->json(['success' => false, 'message' => 'Auth URL not configured'], 500);
+
+            $response = \Illuminate\Support\Facades\Http::withBasicAuth($mp['consumer_key'], $mp['consumer_secret'])
+                ->timeout(15)
+                ->get($authUrl . (str_contains($authUrl, '?') ? '&' : '?') . 'grant_type=client_credentials');
+
+            $status = method_exists($response, 'status') ? $response->status() : null;
+            $body = null;
+            try { $body = substr($response->body() ?? '', 0, 1000); } catch (\Throwable $_) { $body = null; }
+
+            if (! $response->successful()) {
+                return response()->json(['success' => false, 'status' => $status, 'body_snippet' => $body], 400);
+            }
+
+            return response()->json(['success' => true, 'status' => $status, 'body_snippet' => $body]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
 }

@@ -11,10 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['admin', 'cashier', 'auditor'])->default('cashier')->after('email');
-            $table->boolean('is_active')->default(true)->after('role');
-        });
+        // Add `role` if it doesn't exist, then add `is_active` if missing.
+        if (!Schema::hasColumn('users', 'role')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->enum('role', ['admin', 'cashier', 'auditor'])->default('cashier')->after('email');
+            });
+        }
+
+        if (!Schema::hasColumn('users', 'is_active')) {
+            // Ensure `role` column exists before adding `is_active` with an AFTER position
+            Schema::table('users', function (Blueprint $table) {
+                $table->boolean('is_active')->default(true)->after('role');
+            });
+        }
     }
 
     /**
@@ -22,9 +31,18 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['role', 'is_active']);
-        });
+        // Drop columns only if they exist
+        if (Schema::hasColumn('users', 'is_active')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('is_active');
+            });
+        }
+
+        if (Schema::hasColumn('users', 'role')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('role');
+            });
+        }
     }
 };
 

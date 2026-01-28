@@ -9,11 +9,13 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
         \App\Console\Commands\TestMpesaConfig::class,
+        \App\Console\Commands\MonitorSubscriptions::class,
     ];
 
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Run subscription monitor every minute to enforce expiry
+        $schedule->command('subscriptions:monitor')->everyMinute();
     }
 
     protected function commands()
@@ -21,4 +23,3 @@ class Kernel extends ConsoleKernel
         $this->load(__DIR__ . '/Commands');
     }
 }
-

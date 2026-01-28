@@ -24,4 +24,16 @@ export default defineConfig({
             },
         }),
     ],
+    // Dev server config to support Vite HMR and cross-origin requests from the frontend
+    server: {
+        hmr: {
+            host: 'localhost',
+        },
+        host: '0.0.0.0',
+        port: 5173,
+        cors: true,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+        },
+    },
 });

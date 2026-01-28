@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useForm, usePage } from '@inertiajs/vue3'
+/* eslint-disable import/order */
+import { usePage } from '@inertiajs/vue3'
 import { ShoppingCart, Scan, Trash2, CreditCard, Users, Smartphone, Banknote, Building2, Wallet, CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
-
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { postJsonWithSanctum } from '@/lib/sanctum'
+import axios from '@/axios'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Separator } from '@/components/ui/separator'
 import AppLayout from '@/layouts/AppLayout.vue'
 
 // Get currency from page props
@@ -20,10 +22,9 @@ const currency = computed(() => {
     return typeof curr === 'function' ? curr() : curr || 'KES'  // Default to KES (Kenyan Shilling)
 })
 
-// Get CSRF token
-const csrfToken = computed(() => {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-})
+// CSRF helpers are available via resources/js/lib/sanctum and axios is configured globally
+// Provide a file-local alias used throughout this file
+const safePost = (url: string, payload: any, extraHeaders: Record<string,string> = {}) => postJsonWithSanctum(url, payload, extraHeaders)
 
 // Currency formatting function
 const formatCurrency = (amount: number | string): string => {
@@ -61,7 +62,6 @@ const showPaymentModal = ref(false)
 const payments = ref<Array<{ method: string; amount: number; reference?: string }>>([])
 // Prevent duplicate sale submissions
 const saleSubmitting = ref(false)
-const saleHandled = ref(false)
 // Payment checkout id for polling
 const paymentCheckoutId = ref('')
 
@@ -129,18 +129,16 @@ const scanBarcode = async () => {
     scanning.value = true
 
     try {
-        const response = await fetch(`/api/products/scan?barcode=${encodeURIComponent(barcode.value)}`)
+        const response = await axios.get(`/api/products/scan?barcode=${encodeURIComponent(barcode.value)}`)
 
-        if (!response.ok) {
-            // Only show alert if product truly not found (404)
-            if (response.status === 404) {
-                alert('Product not found!')
-            }
+        const product = response.data
+
+        if (!product || !product.id) {
+            // Only show alert if product truly not found (null response)
+            alert('Product not found!')
             barcode.value = ''
             return
         }
-
-        const product = await response.json()
 
         if (product && product.id) {
             addToCart(product)
@@ -172,15 +170,15 @@ const searchProducts = async () => {
     }
 
     try {
-        const response = await fetch(`/api/products/search?q=${encodeURIComponent(searchQuery.value)}`)
+        const res = await axios.get(`/api/products/search?q=${encodeURIComponent(searchQuery.value)}`)
+        const products = res.data
 
-        if (!response.ok) {
+        if (!products) {
             searchResults.value = []
             showSearchResults.value = false
             return
         }
 
-        const products = await response.json()
         searchResults.value = products
         showSearchResults.value = products.length > 0
     } catch (error) {
@@ -344,26 +342,17 @@ const processMpesaSTKPush = async () => {
         console.log('Amount:', remaining)
         console.log('Phone:', mpesaPhone.value)
 
-        const response = await fetch('/api/payments/mpesa/stk-push', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken.value,
-                'Accept': 'application/json',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                phone_number: mpesaPhone.value,
-                amount: remaining,
-                account_reference: 'POS-SALE-' + Date.now()
-            })
+        // Use safePost helper which ensures the sanctum csrf-cookie and retries on 419.
+        const response = await safePost('/api/payments/mpesa/stk-push', {
+            phone_number: mpesaPhone.value,
+            amount: remaining,
+            account_reference: 'POS-SALE-' + Date.now()
         })
 
         console.log('Response status:', response.status)
 
         if (!response.ok) {
             const errorText = await response.text()
-            console.error('Response error:', errorText)
 
             // Try to parse as JSON
             let errorMessage = 'M-Pesa payment failed'
@@ -454,16 +443,7 @@ const pollMpesaStatus = (checkoutRequestId: string, amount: number) => {
         console.log(`Polling attempt ${attempts}/${maxAttempts}`)
 
         try {
-            const response = await fetch('/api/payments/mpesa/check-status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken.value,
-                    'Accept': 'application/json',
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ checkout_request_id: checkoutRequestId })
-            })
+            const response = await safePost('/api/payments/mpesa/check-status', { checkout_request_id: checkoutRequestId })
 
             if (!response.ok) {
                 console.error('Status check HTTP error:', response.status)
@@ -581,19 +561,10 @@ const processMpesaTillPayment = async () => {
 
     const remaining = grandTotal.value - totalPaid.value
 
-    const response = await fetch('/api/payments/mpesa/till-payment', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken.value,
-            'Accept': 'application/json',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-            transaction_code: mpesaTransactionCode.value,
-            phone_number: mpesaPhone.value,
-            amount: remaining
-        })
+    const response = await safePost('/api/payments/mpesa/till-payment', {
+        transaction_code: mpesaTransactionCode.value,
+        phone_number: mpesaPhone.value,
+        amount: remaining
     })
 
     if (!response.ok) {
@@ -624,22 +595,13 @@ const processCardPayment = async () => {
 
     const remaining = grandTotal.value - totalPaid.value
 
-    const response = await fetch('/api/payments/card', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken.value,
-            'Accept': 'application/json',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-            card_number: cardNumber.value.replace(/\s/g, ''),
-            expiry_month: parseInt(cardExpMonth.value),
-            expiry_year: parseInt(cardExpYear.value),
-            cvv: cardCVV.value,
-            cardholder_name: cardholderName.value,
-            amount: remaining
-        })
+    const response = await safePost('/api/payments/card', {
+        card_number: cardNumber.value.replace(/\s/g, ''),
+        expiry_month: parseInt(cardExpMonth.value),
+        expiry_year: parseInt(cardExpYear.value),
+        cvv: cardCVV.value,
+        cardholder_name: cardholderName.value,
+        amount: remaining
     })
 
     if (!response.ok) {
@@ -670,19 +632,10 @@ const processBankTransfer = async () => {
 
     const remaining = grandTotal.value - totalPaid.value
 
-    const response = await fetch('/api/payments/bank-transfer', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken.value,
-            'Accept': 'application/json',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-            reference_number: bankReference.value,
-            amount: remaining,
-            bank_name: bankName.value || null
-        })
+    const response = await safePost('/api/payments/bank-transfer', {
+        reference_number: bankReference.value,
+        amount: remaining,
+        bank_name: bankName.value || null
     })
 
     if (!response.ok) {
@@ -714,18 +667,9 @@ const processCashPayment = async () => {
     }
 
     try {
-        const response = await fetch('/api/payments/cash', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken.value,
-                'Accept': 'application/json',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                amount: remaining,
-                received_amount: cashReceived.value
-            })
+        const response = await safePost('/api/payments/cash', {
+            amount: remaining,
+            received_amount: cashReceived.value
         })
 
         if (!response.ok) {
@@ -810,16 +754,7 @@ const completeSale = async () => {
             try { popup.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Printing...</title></head><body><p style="font-family: sans-serif; padding:24px;">Preparing receipt...</p></body></html>') } catch(e){ console.debug(e) }
         }
 
-        const resp = await fetch('/api/sales/quick', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken.value,
-                'Accept': 'application/json',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify(payload),
-        })
+        const resp = await safePost('/api/sales/quick', payload)
 
         if (!resp.ok) {
             const t = await resp.text()

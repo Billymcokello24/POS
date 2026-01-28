@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import { Head, router, useForm, usePage } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
+import { Plus, Search, Filter, Edit, Trash2, UserCheck, UserX, Shield, Users, Eye } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Search, Filter, Edit, Trash2, UserCheck, UserX, Shield, Users, Eye } from 'lucide-vue-next'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import AppLayout from '@/layouts/AppLayout.vue'
+
 
 // Get page props
 const page = usePage()

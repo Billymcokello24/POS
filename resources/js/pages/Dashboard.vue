@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Head, router, usePage } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
     ShoppingCart,
     Package,
@@ -20,6 +15,13 @@ import {
     ShoppingBag,
     Zap
 } from 'lucide-vue-next'
+import { computed } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import AppLayout from '@/layouts/AppLayout.vue'
+
 
 // Get currency from page props
 const page = usePage()

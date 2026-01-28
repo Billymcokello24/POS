@@ -38,6 +38,8 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'csrf_token' => csrf_token(),
+            'session_id' => $request->session()->getId(),
             'auth' => [
                 'user' => $request->user(),
                 'business' => $request->user()?->currentBusiness,

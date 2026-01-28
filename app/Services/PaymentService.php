@@ -263,19 +263,19 @@ class PaymentService
                 'message' => $friendly,
                 'error' => $body
             ];
-         } catch (\Exception $e) {
-             Log::error('M-Pesa STK Push Exception', [
-                 'message' => $e->getMessage(),
-                 'trace' => $e->getTraceAsString()
-             ]);
+        } catch (\Exception $e) {
+            Log::error('M-Pesa STK Push Exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
-             return [
-                 'success' => false,
-                 'message' => 'An error occurred while processing M-Pesa payment',
-                 'error' => $e->getMessage()
-             ];
-         }
-     }
+            return [
+                'success' => false,
+                'message' => 'An error occurred while processing M-Pesa payment',
+                'error' => $e->getMessage()
+            ];
+        }
+    }
 
     /**
      * Query STK Push transaction status
@@ -514,4 +514,3 @@ class PaymentService
         ];
     }
 }
-

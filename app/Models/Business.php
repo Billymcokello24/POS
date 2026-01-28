@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 
 class Business extends Model
 {
@@ -211,23 +212,65 @@ class Business extends Model
         $billingCycle = $subscription->payment_details['billing_cycle'] ?? 'monthly';
         $duration = $billingCycle === 'yearly' ? 365 : 30;
 
-        // Update subscription
-        $subscription->update([
-            'status' => 'active',
-            'transaction_id' => $receipt ?? $subscription->transaction_id,
-            'starts_at' => now(),
-            'ends_at' => now()->addDays($duration),
-            'payment_details' => array_merge($subscription->payment_details ?? [], $metadata, [
-                'activated_at' => now()->toDateTimeString()
-            ])
-        ]);
+        // Prepare metadata and timestamps
+        $now = now();
+        $activatedAt = $now;
+        $verifiedAt = $now;
 
-        // Update business plan
-        $this->update(['plan_id' => $plan->id]);
+        DB::transaction(function () use ($subscription, $receipt, $metadata, $plan, $duration, $activatedAt, $verifiedAt, $now) {
+            // Expire any existing active subscriptions for this business (except this one)
+            try {
+                $this->subscriptions()->where('status', 'active')->where('id', '!=', $subscription->id)->get()->each(function ($old) use ($now) {
+                    try {
+                        $old->update(['status' => 'expired', 'ends_at' => $now]);
+                    } catch (\Throwable $_) { /* ignore per-subscription failures */ }
+                });
+            } catch (\Throwable $_) {
+                // ignore
+            }
 
-        // Auto-toggle features
-        $featureIds = $plan->features()->pluck('id')->toArray();
-        $this->features()->syncWithPivotValues($featureIds, ['is_enabled' => true]);
+            // Update subscription with MPESA receipt and verification timestamps when available
+            $subscription->update([
+                'status' => 'active',
+                'transaction_id' => $receipt ?? $subscription->transaction_id,
+                'mpesa_receipt' => $receipt ?? $subscription->mpesa_receipt ?? null,
+                'starts_at' => $now,
+                'verified_at' => $receipt ? $verifiedAt : ($subscription->verified_at ?? null),
+                'activated_at' => $receipt ? $activatedAt : ($subscription->activated_at ?? null),
+                'ends_at' => $now->copy()->addDays($duration),
+                'payment_details' => array_merge($subscription->payment_details ?? [], $metadata, [
+                    'activated_at' => $activatedAt->toDateTimeString(),
+                    'mpesa_receipt' => $receipt ?? ($subscription->mpesa_receipt ?? null),
+                ])
+            ]);
+
+            // Update business plan and plan_ends_at
+            try {
+                $this->plan_id = $plan->id;
+                if (isset($subscription->ends_at) && $subscription->ends_at) {
+                    $this->plan_ends_at = $subscription->ends_at;
+                } else {
+                    $this->plan_ends_at = $subscription->ends_at ?? $subscription->activated_at ?? $subscription->starts_at ?? $now->copy()->addDays($duration);
+                }
+                $this->save();
+            } catch (\Throwable $_) {
+                // ignore
+            }
+
+            // Sync features: enable features that belong to the new plan and remove previous feature mappings
+            try {
+                $featureIds = $plan->features()->pluck('features.id')->toArray();
+                // Build sync array to set is_enabled = true for current plan features
+                $sync = [];
+                foreach ($featureIds as $fid) {
+                    $sync[$fid] = ['is_enabled' => 1, 'created_at' => now(), 'updated_at' => now()];
+                }
+                // Replace pivot entries with new mapping (this will remove previously enabled features not in this plan)
+                $this->features()->sync($sync);
+            } catch (\Throwable $_) {
+                // ignore
+            }
+        });
     }
 
     /**

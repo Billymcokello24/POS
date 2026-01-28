@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'super_admin' => \App\Http\Middleware\IsSuperAdmin::class,
             'feature' => \App\Http\Middleware\CheckFeature::class,
+            'subscription_active' => \App\Http\Middleware\EnsureSubscriptionActive::class,
         ]);
 
         $middleware->web(append: [
@@ -37,6 +38,10 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\CheckMaintenanceMode::class,
+        ]);
+
+        $middleware->api(append: [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

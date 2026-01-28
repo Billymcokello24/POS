@@ -3,7 +3,6 @@
 use Illuminate\Support\Str;
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Default Session Driver
@@ -18,7 +17,17 @@ return [
     |
     */
 
-    'driver' => env('SESSION_DRIVER', 'database'),
+    'driver' => (function () {
+        // Default to 'file' for local development to avoid requiring Redis.
+        $envDriver = env('SESSION_DRIVER', 'file');
+
+        // If redis is selected but the phpredis extension is missing, fallback to file driver
+        if (strtolower($envDriver) === 'redis' && env('REDIS_CLIENT') === 'phpredis' && !extension_loaded('redis')) {
+            return 'file';
+        }
+
+        return $envDriver;
+    })(),
 
     /*
     |--------------------------------------------------------------------------
@@ -156,7 +165,13 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN'),
+    'domain' => (function () {
+        $domain = env('SESSION_DOMAIN', null);
+        if ($domain === 'localhost' || $domain === '127.0.0.1' || $domain === '') {
+            return null;
+        }
+        return $domain;
+    })(),
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +184,7 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    'secure' => filter_var(env('SESSION_SECURE_COOKIE', false), FILTER_VALIDATE_BOOLEAN),
 
     /*
     |--------------------------------------------------------------------------
@@ -213,5 +228,4 @@ return [
     */
 
     'partitioned' => env('SESSION_PARTITIONED_COOKIE', false),
-
 ];

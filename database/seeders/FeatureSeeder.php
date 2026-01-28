@@ -24,6 +24,7 @@ class FeatureSeeder extends Seeder
             ['name' => 'API Access', 'key' => 'api_access', 'description' => 'Access platform APIs for integrations.'],
             ['name' => 'SMS Notifications', 'key' => 'sms_notifications', 'description' => 'Send transactional SMS notifications.' ],
             ['name' => 'Categories', 'key' => 'categories', 'description' => 'Product categories and grouping.'],
+            ['name' => 'Users', 'key' => 'users', 'description' => 'User management and role-based access control'],
             // add any other features your app expects here
         ];
 

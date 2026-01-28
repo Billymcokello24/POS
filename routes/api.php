@@ -3,7 +3,7 @@
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
-use App\Http\Controllers\MpesaController;
+use App\Http\Controllers\Api\MpesaController;
 
 // M-Pesa Callback (no auth required - public endpoint for Safaricom)
 Route::post('/payments/mpesa/callback', [MpesaController::class, 'stkCallback']);

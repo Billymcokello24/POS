@@ -1,13 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { 
     ShieldCheck, 
     Plus, 
@@ -20,6 +12,13 @@ import {
     Layers,
     Save
 } from 'lucide-vue-next'
+import { ref } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -28,6 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     roles: Array<{

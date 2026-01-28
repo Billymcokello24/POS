@@ -1,17 +1,18 @@
+/* eslint-disable import/order */
 import { computed, ref } from 'vue';
+import axios from '@/axios';
+import { postJsonWithSanctum } from '@/lib/sanctum';
 
 import { qrCode, recoveryCodes, secretKey } from '@/routes/two-factor';
 
 const fetchJson = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
-    });
+    const response = await axios.get(url, { headers: { Accept: 'application/json' } });
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(`Failed to fetch: ${response.status}`);
     }
 
-    return response.json();
+    return response.data as T;
 };
 
 const errors = ref<string[]>([]);
@@ -103,3 +104,8 @@ export const useTwoFactorAuth = () => {
         fetchRecoveryCodes,
     };
 };
+
+export async function postTwoFactor(url: string, payload: any) {
+    // centralize POST through Sanctum helper so XSRF token and credentials are handled consistently
+    return await postJsonWithSanctum(url, payload);
+}

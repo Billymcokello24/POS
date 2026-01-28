@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
+import { Plus, Users, Shield, Eye, ArrowLeft } from 'lucide-vue-next'
+import { computed } from 'vue'
+
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Users, Shield, Eye, ArrowLeft } from 'lucide-vue-next'
+import AppLayout from '@/layouts/AppLayout.vue'
+
 
 const props = defineProps<{
   roles: Array<{

@@ -13,18 +13,18 @@ apt update && apt upgrade -y
 
 # Install required packages
 echo "Installing required packages..."
-apt install -y nginx mysql-server redis-server php8.2 php8.2-fpm php8.2-mysql php8.2-xml php8.2-mbstring php8.2-curl php8.2-zip php8.2-gd php8.2-intl php8.2-bcmath php8.2-soap php8.2-readline php8.2-pcov php8.2-msgpack php8.2-igbinary php8.2-redis composer unzip curl
+apt install -y nginx mysql-server redis-server php8.4 php8.4-fpm php8.4-mysql php8.4-xml php8.4-mbstring php8.4-curl php8.4-zip php8.4-gd php8.4-intl php8.4-bcmath php8.4-soap php8.4-readline php8.4-pcov php8.4-msgpack php8.4-igbinary php8.4-redis composer unzip curl
 
 # Start and enable services
 systemctl enable nginx
 systemctl enable mysql
 systemctl enable redis-server
-systemctl enable php8.2-fpm
+systemctl enable php8.4-fpm
 
 systemctl start nginx
 systemctl start mysql
 systemctl start redis-server
-systemctl start php8.2-fpm
+systemctl start php8.4-fpm
 
 # Secure MySQL installation (optional, but recommended)
 # mysql_secure_installation
@@ -39,30 +39,30 @@ FLUSH PRIVILEGES;
 EOF
 
 # Create web directory
-mkdir -p /var/www/pos
-chown -R www-data:www-data /var/www/pos
+mkdir -p /var/www/POS
+chown -R www-data:www-data /var/www/POS
 
 # Assuming the code is uploaded to /tmp/pos or cloned
-# If using git: git clone <your-repo-url> /var/www/pos
+# If using git: git clone <your-repo-url> /var/www/POS
 # Else, copy from uploaded files
-# cp -r /path/to/uploaded/pos/* /var/www/pos/
+# cp -r /path/to/uploaded/pos/* /var/www/POS/
 
 # For now, assume code is in /tmp/pos
 # Uncomment and adjust:
-# cp -r /tmp/pos/* /var/www/pos/
+# cp -r /tmp/pos/* /var/www/POS/
 
 # Or if cloning from git:
 echo "Enter your git repository URL (e.g., https://github.com/user/pos.git):"
 read REPO_URL
 if [ -n "$REPO_URL" ]; then
-    git clone $REPO_URL /var/www/pos
+    git clone $REPO_URL /var/www/POS
 else
     echo "No repo URL provided. Assuming code is uploaded to /tmp/pos"
-    cp -r /tmp/pos/* /var/www/pos/
+    cp -r /tmp/pos/* /var/www/POS/
 fi
 
 # Install PHP dependencies
-cd /var/www/pos
+cd /var/www/POS
 composer install --optimize-autoloader --no-dev --no-interaction
 
 # Copy environment file
@@ -86,12 +86,12 @@ npm install
 npm run build
 
 # Set permissions
-chown -R www-data:www-data /var/www/pos
-chmod -R 755 /var/www/pos/storage
-chmod -R 755 /var/www/pos/bootstrap/cache
+chown -R www-data:www-data /var/www/POS
+chmod -R 755 /var/www/POS/storage
+chmod -R 755 /var/www/POS/bootstrap/cache
 
 # Copy nginx config
-cp /var/www/pos/deploy/nginx.conf /etc/nginx/sites-available/pos.digiprojects.co.ke
+cp /var/www/POS/deploy/nginx.conf /etc/nginx/sites-available/pos.digiprojects.co.ke
 ln -s /etc/nginx/sites-available/pos.digiprojects.co.ke /etc/nginx/sites-enabled/
 
 # Remove default nginx site
@@ -108,7 +108,7 @@ systemctl restart nginx
 # certbot --nginx -d pos.digiprojects.co.ke -d www.pos.digiprojects.co.ke
 
 # Restart services
-systemctl restart php8.2-fpm
+systemctl restart php8.4-fpm
 systemctl restart redis-server
 
 echo "Deployment completed. Visit http://pos.digiprojects.co.ke to access the application."

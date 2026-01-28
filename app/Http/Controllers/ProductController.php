@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\TaxConfiguration;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -98,85 +99,116 @@ class ProductController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        // determine business first so validation uniqueness can be scoped to business
-        $businessId = auth()->user()->current_business_id;
-        if (! $businessId) {
-            $business = \App\Models\Business::first();
-            if (! $business) {
-                $business = \App\Models\Business::create([
-                    'name' => 'Default Business',
-                    'business_type' => 'retail',
-                    'address' => 'Default Address',
-                    'phone' => '0000000000',
-                    'email' => 'business@example.com',
-                    'receipt_prefix' => 'REC',
-                    'currency' => 'USD',
+        try {
+            // Debug log: record attempt to create a product with basic context
+            try {
+                \Illuminate\Support\Facades\Log::info('Product store attempt', [
+                    'user_id' => auth()->id(),
+                    'business_id' => auth()->user()?->current_business_id ?? null,
+                    'input' => array_slice($request->all(), 0, 20),
                 ]);
+            } catch (\Throwable $__e) {
+                // ignore logging errors
             }
-            $businessId = $business->id;
-            auth()->user()->update(['current_business_id' => $businessId]);
+            // determine business first so validation uniqueness can be scoped to business
+            $businessId = auth()->user()->current_business_id;
+            if (! $businessId) {
+                $business = \App\Models\Business::first();
+                if (! $business) {
+                    $business = \App\Models\Business::create([
+                        'name' => 'Default Business',
+                        'business_type' => 'retail',
+                        'address' => 'Default Address',
+                        'phone' => '0000000000',
+                        'email' => 'business@example.com',
+                        'receipt_prefix' => 'REC',
+                        'currency' => 'USD',
+                    ]);
+                }
+                $businessId = $business->id;
+                auth()->user()->update(['current_business_id' => $businessId]);
+            }
+
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'category_id' => 'nullable|exists:categories,id',
+                'sku' => [
+                    'nullable','string',
+                    Rule::unique('products')->where(function ($query) use ($businessId) {
+                        return $query->where('business_id', $businessId);
+                    }),
+                ],
+                'barcode' => [
+                    'nullable','string',
+                    Rule::unique('products')->where(function ($query) use ($businessId) {
+                        return $query->where('business_id', $businessId);
+                    }),
+                ],
+                'barcode_type' => 'nullable|in:EAN13,UPCA,CODE128',
+                'description' => 'nullable|string',
+                'cost_price' => 'required|numeric|min:0',
+                'selling_price' => 'required|numeric|min:0',
+                'quantity' => 'required|integer|min:0',
+                'reorder_level' => 'nullable|integer|min:0',
+                'unit' => 'nullable|string|max:50',
+                'track_inventory' => 'boolean',
+                'is_active' => 'boolean',
+                'tax_configuration_id' => 'nullable|exists:tax_configurations,id',
+            ]);
+
+            $validated['business_id'] = $businessId;
+
+            // Generate SKU if not provided
+            if (empty($validated['sku'])) {
+                $validated['sku'] = 'SKU-'.Str::upper(Str::random(8));
+            }
+
+            // Barcode must be entered manually - no auto-generation
+            // Set default barcode_type if barcode is provided without type
+            if (! empty($validated['barcode']) && empty($validated['barcode_type'])) {
+                $validated['barcode_type'] = 'CODE128';
+            }
+
+            // Plan Limit Check
+            $business = \App\Models\Business::find($businessId);
+            if ($business && ! $business->withinPlanLimits('products')) {
+                return back()->with('error', 'Your current plan limit for products ('.$business->plan->max_products.') has been reached. Please upgrade to add more.');
+            }
+
+            $product = Product::create($validated);
+
+            // Create initial inventory transaction
+            if ($validated['quantity'] > 0) {
+                $product->increaseStock(
+                    $validated['quantity'],
+                    'IN',
+                    null,
+                    auth()->id()
+                );
+            }
+
+            // Push SSE event for product created so dashboard clients can refresh
+            try {
+                \App\Services\SseService::pushBusinessEvent($businessId, 'product.created', ['id' => $product->id, 'name' => $product->name]);
+            } catch (\Throwable $e) {
+                // don't block normal flow on SSE errors
+            }
+
+            return redirect()->route('products.index')
+                ->with('success', 'Product created successfully.');
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            // Let Laravel handle validation exceptions normally
+            throw $ve;
+        } catch (\Throwable $e) {
+            // Log full exception to help diagnosis and return friendly error to user
+            \Illuminate\Support\Facades\Log::error('Product store failed: '.$e->getMessage(), ['exception' => (string) $e]);
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Failed to create product', 'error' => $e->getMessage()], 500);
+            }
+
+            return back()->withInput()->with('error', 'Failed to create product: '.$e->getMessage());
         }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category_id' => 'nullable|exists:categories,id',
-            'sku' => [
-                'nullable','string',
-                Rule::unique('products')->where(function ($query) use ($businessId) {
-                    return $query->where('business_id', $businessId);
-                }),
-            ],
-            'barcode' => [
-                'nullable','string',
-                Rule::unique('products')->where(function ($query) use ($businessId) {
-                    return $query->where('business_id', $businessId);
-                }),
-            ],
-            'barcode_type' => 'nullable|in:EAN13,UPCA,CODE128',
-            'description' => 'nullable|string',
-            'cost_price' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0',
-            'quantity' => 'required|integer|min:0',
-            'reorder_level' => 'nullable|integer|min:0',
-            'unit' => 'nullable|string|max:50',
-            'track_inventory' => 'boolean',
-            'is_active' => 'boolean',
-            'tax_configuration_id' => 'nullable|exists:tax_configurations,id',
-        ]);
-
-        $validated['business_id'] = $businessId;
-
-        // Generate SKU if not provided
-        if (empty($validated['sku'])) {
-            $validated['sku'] = 'SKU-'.Str::upper(Str::random(8));
-        }
-
-        // Barcode must be entered manually - no auto-generation
-        // Set default barcode_type if barcode is provided without type
-        if (! empty($validated['barcode']) && empty($validated['barcode_type'])) {
-            $validated['barcode_type'] = 'CODE128';
-        }
-
-        // Plan Limit Check
-        $business = \App\Models\Business::find($businessId);
-        if ($business && ! $business->withinPlanLimits('products')) {
-            return back()->with('error', 'Your current plan limit for products ('.$business->plan->max_products.') has been reached. Please upgrade to add more.');
-        }
-
-        $product = Product::create($validated);
-
-        // Create initial inventory transaction
-        if ($validated['quantity'] > 0) {
-            $product->increaseStock(
-                $validated['quantity'],
-                'IN',
-                null,
-                auth()->id()
-            );
-        }
-
-        return redirect()->route('products.index')
-            ->with('success', 'Product created successfully.');
     }
 
     public function show(Product $product)
@@ -260,6 +292,13 @@ class ProductController extends Controller
 
         $product->update($validated);
 
+        // Push SSE event for product updated
+        try {
+            \App\Services\SseService::pushBusinessEvent($product->business_id, 'product.updated', ['id' => $product->id, 'name' => $product->name]);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
         return back()->with('success', 'Product updated successfully.');
     }
 
@@ -274,6 +313,13 @@ class ProductController extends Controller
         }
 
         $product->delete();
+
+        // Push SSE event for product deleted
+        try {
+            \App\Services\SseService::pushBusinessEvent($product->business_id, 'product.deleted', ['id' => $product->id]);
+        } catch (\Throwable $e) {
+            // ignore
+        }
 
         return redirect()->route('products.index')
             ->with('success', 'Product deleted successfully.');

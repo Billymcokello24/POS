@@ -1,16 +1,52 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
 
-import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
-import { logout } from '@/routes';
 import { send } from '@/routes/verification';
 
 defineProps<{
     status?: string;
 }>();
+
+// Submit the server-rendered hidden logout form or create a fallback POST form with CSRF token
+const submitLogout = (e?: Event) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const serverForm = document.getElementById('logout-form') as HTMLFormElement | null;
+
+    const redirectTo = window.location.pathname.startsWith('/business') ? '/login' : '/';
+
+    if (serverForm) {
+        const redirectInput = serverForm.querySelector('input[name="redirect_to"]') as HTMLInputElement | null;
+        if (redirectInput) redirectInput.value = redirectTo;
+        serverForm.submit();
+        return;
+    }
+
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null;
+    const token = tokenMeta?.getAttribute('content') || '';
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/logout';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = '_token';
+    input.value = token;
+    form.appendChild(input);
+
+    const redirect = document.createElement('input');
+    redirect.type = 'hidden';
+    redirect.name = 'redirect_to';
+    redirect.value = redirectTo;
+    form.appendChild(redirect);
+
+    document.body.appendChild(form);
+    form.submit();
+};
 </script>
 
 <template>
@@ -38,13 +74,14 @@ defineProps<{
                 Resend verification email
             </Button>
 
-            <TextLink
-                :href="logout()"
-                as="button"
-                class="mx-auto block text-sm"
+            <!-- Use a button that submits the server-rendered logout form to ensure CSRF and cookies are sent -->
+            <button
+                type="button"
+                class="mx-auto block text-sm text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current!"
+                @click="submitLogout"
             >
                 Log out
-            </TextLink>
+            </button>
         </Form>
     </AuthLayout>
 </template>

@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Services\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Services\MpesaService;
@@ -58,7 +59,8 @@ class MpesaController extends Controller
     {
         Log::info('MPESA STK CALLBACK', $request->all());
 
-        ProcessMpesaCallback::dispatch($request->all());
+        // Process synchronously so activation happens immediately even if queue worker isn't running
+        ProcessMpesaCallback::dispatchSync($request->all());
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }

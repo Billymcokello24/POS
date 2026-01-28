@@ -44,4 +44,3 @@ try {
 } catch (\Throwable $e) {
     echo "EXCEPTION:\n" . $e->getMessage() . "\n" . $e->getTraceAsString();
 }
-

@@ -18,7 +18,7 @@ class LoginResponse implements LoginResponseContract
     {
         $isSuper = $request->user() && $request->user()->is_super_admin;
         \Log::debug('LoginResponse: User ' . ($request->user()?->email ?? 'Guest') . ' - Is Super: ' . ($isSuper ? 'YES' : 'NO'));
-        
+
         $home = $isSuper ? '/admin/dashboard' : config('fortify.home');
         \Log::debug('LoginResponse: Redirecting to ' . $home);
 
@@ -27,4 +27,3 @@ class LoginResponse implements LoginResponseContract
             : redirect()->intended($home);
     }
 }
-

@@ -74,4 +74,3 @@ class AIAgentController extends Controller
         return response()->json(['success' => true, 'data' => $result]);
     }
 }
-

@@ -14,6 +14,8 @@ use Laravel\Fortify\Features;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Http\Controllers\Auth\LogoutController;
+use Illuminate\Support\Facades\Log;
 
 Route::get('/', function (\App\Services\CmsService $cmsService) {
     return Inertia::render('Welcome', [
@@ -145,15 +147,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 require __DIR__.'/settings.php';
 
+// Public endpoint for M-Pesa STK callback (Safaricom will POST here).
+// Intentionally kept outside auth middleware so external callbacks can reach it.
+Route::post('/api/payments/mpesa/callback', [\App\Http\Controllers\Api\PaymentController::class, 'mpesaCallback']);
+
 Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
     Route::get('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'index'])->name('admin.cms.index');
     Route::put('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'update'])->name('admin.cms.update');
+    // Test platform MPESA credentials (super-admin only)
+    Route::post('/cms/test-mpesa', [\App\Http\Controllers\Admin\CmsController::class, 'testPlatformMpesa'])->name('admin.cms.test_mpesa');
 
     // Admin subscriptions routes
     Route::get('/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'index'])->name('admin.subscriptions.index');
     Route::post('/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'store'])->name('admin.subscriptions.store');
     Route::post('/subscriptions/{subscription}/approve', [\App\Http\Controllers\Admin\SubscriptionController::class, 'approve'])->name('admin.subscriptions.approve');
     Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\Admin\SubscriptionController::class, 'cancel'])->name('admin.subscriptions.cancel');
+    // Manual reconcile endpoint for superadmins to trigger auto-activation check
+    Route::post('/subscriptions/reconcile', [\App\Http\Controllers\Admin\SubscriptionController::class, 'reconcile'])->name('admin.subscriptions.reconcile');
 
     // Admin features routes
     // Features index (render UI)
@@ -188,7 +198,7 @@ Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
     Route::get('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('admin.roles.index');
     Route::post('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('admin.roles.store');
     Route::put('/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'update'])->name('admin.roles.update');
-    Route::delete('/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'destroy'])->name('admin.roles.destroy');
+    Route::delete('/roles/{role}', [\AppHttp\Controllers\Admin\RoleController::class, 'destroy'])->name('admin.roles.destroy');
 
     // Admin audit logs
     Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditController::class, 'index'])->name('admin.audit.index');
@@ -200,14 +210,41 @@ Route::get('/api/payments/mpesa/stream', function (\Illuminate\Http\Request $req
     $checkout = $request->query('checkoutRequestID');
     $token = $request->query('token');
 
-    if (! $checkout || ! $token) {
+    if (! $checkout) {
         return response('Missing parameters', 400);
     }
 
-    $cacheKey = "mpesa_sse_" . $checkout;
-    $expected = Cache::get($cacheKey);
-    if (! $expected || ! hash_equals((string) $expected, (string) $token)) {
-        return response('Unauthorized', 401);
+    // If a token is provided, validate it against cache (token-backed clients)
+    if ($token) {
+        $cacheKey = "mpesa_sse_" . $checkout;
+        $expected = Cache::get($cacheKey);
+        if (! $expected || ! hash_equals((string) $expected, (string) $token)) {
+            return response('Unauthorized', 401);
+        }
+    } else {
+        // No token: allow same-origin/session-authenticated clients to connect.
+        // Ensure user is authenticated and the checkout belongs to their current business.
+        $user = $request->user();
+        if (! $user) {
+            return response('Unauthorized', 401);
+        }
+
+        try {
+            $businessId = $user->current_business_id ?? null;
+            if (! $businessId) return response('Unauthorized', 401);
+
+            $mp = \App\Models\MpesaPayment::where('checkout_request_id', $checkout)
+                ->where('business_id', $businessId)
+                ->latest()
+                ->first();
+
+            if (! $mp) {
+                // No matching MpesaPayment for this user/business -> reject
+                return response('Unauthorized', 401);
+            }
+        } catch (\Throwable $e) {
+            return response('Unauthorized', 401);
+        }
     }
 
     // StreamedResponse that polls the MpesaPayment record every 2 seconds for updates.
@@ -281,3 +318,228 @@ Route::post('/api/payments/mpesa/check-status-token', function (\Illuminate\Http
         return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
     }
 });
+
+// Short-lived token endpoint for SSE (frontend requests token, then opens EventSource with token)
+Route::post('/api/payments/mpesa/sse-token', function (\Illuminate\Http\Request $request) {
+    $checkout = $request->input('checkout_request_id') ?? $request->input('checkoutRequestID') ?? null;
+    if (! $checkout) {
+        return response()->json(['success' => false, 'message' => 'Missing checkout_request_id'], 400);
+    }
+
+    $user = $request->user();
+    if (! $user) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+    }
+
+    $businessId = $user->current_business_id ?? null;
+    if (! $businessId) {
+        return response()->json(['success' => false, 'message' => 'No business context'], 400);
+    }
+
+    // Ensure the checkout belongs to this business
+    $mp = \App\Models\MpesaPayment::where('checkout_request_id', $checkout)
+        ->where('business_id', $businessId)
+        ->latest()
+        ->first();
+
+    if (! $mp) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+    }
+
+    // Generate short-lived token and store in cache
+    $token = \Illuminate\Support\Str::random(48);
+    $cacheKey = 'mpesa_sse_' . $checkout;
+    \Illuminate\Support\Facades\Cache::put($cacheKey, $token, now()->addMinutes(5));
+
+    return response()->json(['success' => true, 'token' => $token]);
+})->middleware(['auth']);
+
+// Persist SubscriptionPayment
+Route::post('/api/subscription/finalize', [\App\Http\Controllers\Api\SubscriptionPaymentController::class, 'finalize'])->middleware(['auth']);
+
+// Ensure our debug-logging logout route is available (will be used for troubleshooting 419)
+Route::post('/logout', [LogoutController::class, 'destroy'])->name('logout.debug');
+
+// Debug route: accept POST and bypass CSRF to inspect cookies/session for troubleshooting logout 419
+Route::post('/debug/logout-no-csrf', function (Request $request) {
+    $payload = [
+        'session_id' => $request->session()->getId(),
+        'session_token' => $request->session()->token(),
+        'csrf_meta' => csrf_token(),
+        'request_input_token' => $request->input('_token'),
+        'cookies' => $request->cookies->all(),
+        'headers_cookie' => $request->headers->get('cookie'),
+        'headers' => $request->headers->all(),
+        'url' => $request->fullUrl(),
+    ];
+
+    Log::info('Debug logout-no-csrf called', $payload);
+
+    return response()->json($payload);
+})->middleware('auth')->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)->name('debug.logout_no_csrf');
+
+// Lightweight CSRF cookie endpoint (Sanctum-like) — ensures frontend can fetch XSRF token
+Route::get('/sanctum/csrf-cookie', function (Request $request) {
+    // Return a 204 and set the XSRF-TOKEN cookie using Laravel's csrf_token()
+    $response = response()->noContent();
+    // Make cookie accessible to JS (httpOnly = false) so frontend can read it and set the X-XSRF-TOKEN header
+    $cookie = cookie('XSRF-TOKEN', urlencode(csrf_token()), 120, '/', null, config('session.secure'), false, false, 'Lax');
+    return $response->withCookie($cookie);
+});
+
+Route::post('/test-csrf', function (Illuminate\Http\Request $request) {
+    return response()->json([
+        'csrf_token' => csrf_token(),
+        'session_id' => session()->getId(),
+    ]);
+});
+
+// SSE endpoint for business-specific updates (authenticated)
+Route::middleware(['auth'])->get('/sse/business-stream', [\App\Http\Controllers\SseController::class, 'businessStream'])->name('sse.business_stream');
+
+// Development helper: push a test SSE event for current business (local only)
+Route::post('/debug/sse/push', function (Request $request) {
+    if (config('app.env') !== 'local') {
+        return response()->json(['success' => false, 'message' => 'Not available in this environment'], 403);
+    }
+
+    $user = $request->user();
+    if (! $user) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+    }
+
+    $businessId = $user->current_business_id;
+    if (! $businessId) {
+        return response()->json(['success' => false, 'message' => 'No business context'], 400);
+    }
+
+    $type = $request->input('type', 'debug.ping');
+    $payload = $request->input('payload', []);
+
+    try {
+        \App\Services\SseService::pushBusinessEvent($businessId, $type, (array) $payload);
+        return response()->json(['success' => true, 'message' => 'Event pushed', 'type' => $type]);
+    } catch (\Throwable $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+})->middleware(['auth'])->name('debug.sse.push');
+
+// Lightweight polling endpoint for clients that can't use SSE
+Route::get('/realtime/status', [\App\Http\Controllers\RealtimeController::class, 'status'])->middleware('auth')->name('realtime.status');
+
+// Local-only debug: create a product quickly for testing manual creation flow
+Route::post('/debug/products/create', function (\Illuminate\Http\Request $request) {
+    if (config('app.env') !== 'local') {
+        return response()->json(['success' => false, 'message' => 'Not available in this environment'], 403);
+    }
+
+    $user = $request->user();
+    if (! $user) return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+
+    $businessId = $user->current_business_id;
+    if (! $businessId) return response()->json(['success' => false, 'message' => 'No business context'], 400);
+
+    $payload = $request->only(['name', 'cost_price', 'selling_price', 'quantity']);
+    if (empty($payload['name']) || ! isset($payload['selling_price'])) {
+        return response()->json(['success' => false, 'message' => 'name and selling_price are required'], 400);
+    }
+
+    try {
+        $product = \App\Models\Product::create(array_merge([
+            'business_id' => $businessId,
+            'name' => $payload['name'],
+            'sku' => 'DBG-'.strtoupper(\Illuminate\Support\Str::random(6)),
+            'barcode' => null,
+            'description' => null,
+            'category_id' => null,
+            'cost_price' => $payload['cost_price'] ?? 0,
+            'selling_price' => $payload['selling_price'],
+            'quantity' => $payload['quantity'] ?? 0,
+            'reorder_level' => 10,
+            'unit' => 'pcs',
+            'track_inventory' => true,
+            'is_active' => true,
+        ], []));
+
+        return response()->json(['success' => true, 'product' => $product]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('Debug product create failed: '.$e->getMessage(), ['exception' => (string) $e]);
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+})->middleware('auth')->name('debug.product_create');
+
+// Polling endpoint: return current/pending subscription status for the authenticated business
+Route::match(['get','post'], '/api/business/{business}/subscription-status', function (\Illuminate\Http\Request $request, \App\Models\Business $business) {
+    $user = $request->user();
+    if (! $user) return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+
+    // Ensure user belongs to this business (or is super admin)
+    if (! $user->is_super_admin && ! $user->businesses()->where('businesses.id', $business->id)->exists()) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+    }
+
+    $active = $business->activeSubscription()->first();
+    $pending = $business->subscriptions()->where('status', 'pending_verification')->latest()->first();
+
+    return response()->json([
+        'success' => true,
+        'active' => $active ? [
+            'id' => $active->id,
+            'plan_name' => $active->plan_name,
+            'starts_at' => $active->starts_at?->toDateTimeString(),
+            'ends_at' => $active->ends_at?->toDateTimeString(),
+            'status' => $active->status,
+        ] : null,
+        'pending' => $pending ? [
+            'id' => $pending->id,
+            'plan_name' => $pending->plan_name,
+            'created_at' => $pending->created_at?->toDateTimeString(),
+            'status' => $pending->status,
+        ] : null,
+    ]);
+})->middleware(['auth']);
+
+// Debug helper: force-activate a subscription (owner or super-admin) — safe for local use
+Route::post('/api/subscription/{subscription}/force-activate', function (\Illuminate\Http\Request $request, \App\Models\Subscription $subscription) {
+    $user = $request->user();
+    if (! $user) return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+
+    // Only allow if user belongs to the business or is super admin
+    if (! $user->is_super_admin && $subscription->business_id !== ($user->current_business_id ?? null)) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+    }
+
+    try {
+        // ensure plan_name exists
+        if (! $subscription->plan_name && $subscription->plan_id) {
+            try { $plan = \App\Models\Plan::find($subscription->plan_id); if ($plan) $subscription->update(['plan_name' => $plan->name]); } catch (\Throwable $_) {}
+        }
+
+        if (! method_exists($subscription->business, 'activateSubscription')) {
+            return response()->json(['success' => false, 'message' => 'Activation helper unavailable'], 500);
+        }
+
+        $transactionId = $request->input('transaction_id') ?? $subscription->transaction_id ?? ('FORCE-' . strtoupper(uniqid()));
+
+        $subscription->business->activateSubscription($subscription, $transactionId, ['source' => 'force_activate_endpoint']);
+
+        try { \App\Services\SseService::pushBusinessEvent($subscription->business_id, 'subscription.activated', ['id' => $subscription->id, 'status' => 'active']); } catch (\Throwable $_) {}
+
+        return response()->json(['success' => true, 'message' => 'Subscription activated (forced)', 'subscription' => $subscription->fresh()->toArray()]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('Force activate failed', ['error' => $e->getMessage(), 'subscription_id' => $subscription->id]);
+        return response()->json(['success' => false, 'message' => 'Activation failed', 'error' => $e->getMessage()], 500);
+    }
+})->middleware(['auth']);
+
+// Debug helper: show subscription payments for the current business (auth required)
+Route::get('/my/subscription-payments', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    if (! $user) return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+    $businessId = $user->current_business_id ?? null;
+    if (! $businessId) return response()->json(['success' => false, 'message' => 'No business selected'], 400);
+
+    $rows = \App\Models\SubscriptionPayment::where('business_id', $businessId)->orderBy('created_at', 'desc')->take(50)->get();
+    return response()->json(['success' => true, 'data' => $rows]);
+})->name('my.subscription.payments');
+

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Wrench, Check, X, ShieldCheck, HelpCircle, Loader2 } from 'lucide-vue-next'
+import { ref } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Switch } from '@/components/ui/switch'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     features: Array<{

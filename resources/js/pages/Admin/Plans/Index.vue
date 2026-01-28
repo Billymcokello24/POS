@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
-
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import {
     Plus,
     Pencil,
@@ -20,6 +13,19 @@ import {
     Info,
     Loader2
 } from 'lucide-vue-next'
+import { ref } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -28,13 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     plans: Array<any>

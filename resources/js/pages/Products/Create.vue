@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
+
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import AppLayout from '@/layouts/AppLayout.vue'
 
 const props = defineProps<{
   categories: Array<any>
@@ -31,9 +32,51 @@ const form = useForm({
   tax_configuration_id: null,
 })
 
+const serverError = ref('')
+
 const submit = () => {
+  serverError.value = ''
+  // Log payload for debugging
+  try {
+    // Convert to plain object to avoid reactive proxies in logs
+    const payload = JSON.parse(JSON.stringify(form));
+    console.debug('Creating product payload', payload)
+  } catch {
+    console.debug('Creating product (unable to stringify reactive form)')
+  }
+
   form.post('/products', {
-    onSuccess: () => form.reset(),
+    onStart: () => {
+      console.debug('Product create request started')
+    },
+    onError: (errors) => {
+      // errors is an object of validation errors keyed by field
+      console.warn('Product create validation errors', errors)
+      // Optional: focus first error field
+      const first = Object.keys(errors)[0]
+      if (first) {
+        const el = document.getElementById(first)
+        if (el && (el as HTMLElement).focus) (el as HTMLElement).focus()
+      }
+    },
+    onSuccess: () => {
+      console.debug('Product created successfully')
+      form.reset()
+    },
+    onFinish: (page) => {
+      // If server returned a non-validation flash error, display it in console and UI
+      try {
+        // Inertia will include props if redirect happened; check for flash
+        const flash = (page && page.props && page.props.flash) || null
+        if (flash && flash.error) {
+          serverError.value = flash.error
+          console.warn('Server flash error on product create', flash.error)
+        }
+      } catch (e) {
+        // ignore
+      }
+      console.debug('Product create request finished')
+    }
   })
 }
 </script>
@@ -151,7 +194,7 @@ const submit = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div class="space-y-2">
                 <Label for="tax_configuration_id">Tax Configuration</Label>
                 <Select v-model="form.tax_configuration_id">
@@ -188,7 +231,7 @@ const submit = () => {
                  </div>
                  <Switch v-model:checked="form.track_inventory" />
               </div>
-              
+
               <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-2">
                   <Label for="quantity">Initial Stock</Label>
@@ -294,6 +337,35 @@ const submit = () => {
             >
               {{ form.processing ? 'Creating...' : '✨ Create Product' }}
             </Button>
+          </div>
+
+          <!-- Server Error Alert -->
+          <div
+            v-if="serverError"
+            class="rounded-md bg-red-50 p-4 text-sm text-red-700"
+          >
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <!-- Heroicon name: mini/x-mark -->
+                <svg
+                  class="h-5 w-5 text-red-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 9a1 1 0 00-1 1v4a1 1 0 002 0v-4a1 1 0 00-1-1zm-1-7a8 8 0 100 16 8 8 0 000-16zm0 18a10 10 0 110-20 10 10 0 010 20z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="font-medium">Error</p>
+                <p>{{ serverError }}</p>
+              </div>
+            </div>
           </div>
         </form>
       </div>

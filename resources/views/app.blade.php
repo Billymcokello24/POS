@@ -4,6 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        @auth
+            <meta name="business-id" content="{{ auth()->user()->current_business_id }}" />
+        @endauth
 
         {{-- Force light theme --}}
         <style>
@@ -25,6 +28,16 @@
         @inertiaHead
     </head>
     <body class="font-sans antialiased bg-white">
+        {{-- Hidden server-rendered forms for reliable logout / stop-impersonating submissions --}}
+        <form id="logout-form" method="POST" action="/logout" style="display:none;">
+            @csrf
+            <input type="hidden" name="redirect_to" value="/" />
+        </form>
+
+        <form id="stop-impersonating-form" method="POST" action="/admin/businesses/stop-impersonating" style="display:none;">
+            @csrf
+        </form>
+
         @inertia
     </body>
 </html>

@@ -41,9 +41,65 @@ class SubscriptionController extends Controller
             return redirect()->route('dashboard')->with('error', 'No business context found.');
         }
 
+        // Proactive activation: if there are any subscriptions in 'initiated' or 'pending' state
+        // but a completed SubscriptionPayment or successful MpesaPayment already exists, attempt activation now.
+        try {
+            // Include pending_verification as well: retry activation for subscriptions already flagged for manual verification
+            $candidates = $business->subscriptions()->whereIn('status', ['initiated','pending','pending_verification'])->get();
+            foreach ($candidates as $cand) {
+                try {
+                    // Check for a completed SubscriptionPayment
+                    $sp = \App\Models\SubscriptionPayment::where('subscription_id', $cand->id)->whereIn('status', ['completed','completed'])->first();
+                    if (! $sp) {
+                        // Check MpesaPayment by checkout or account reference
+                        $mp = null;
+                        if (! empty($cand->transaction_id)) {
+                            $mp = \App\Models\MpesaPayment::where('checkout_request_id', $cand->transaction_id)->orWhere('receipt', $cand->transaction_id)->where('business_id', $business->id)->first();
+                        }
+                        // also try by SUB-<id> account reference
+                        if (! $mp) {
+                            $mp = \App\Models\MpesaPayment::where('account_reference', 'SUB-'.$cand->id)->where('business_id', $business->id)->first();
+                        }
+
+                        if ($mp && ($mp->status === 'success' || $mp->status === 'completed')) {
+                            // Create subscription payment record if missing
+                            \App\Models\SubscriptionPayment::firstOrCreate([
+                                'subscription_id' => $cand->id,
+                                'checkout_request_id' => $mp->checkout_request_id,
+                            ], [
+                                'business_id' => $business->id,
+                                'merchant_request_id' => $mp->merchant_request_id ?? null,
+                                'mpesa_receipt' => $mp->receipt ?? null,
+                                'phone' => $mp->phone ?? null,
+                                'amount' => $mp->amount ?? $cand->amount,
+                                'status' => 'completed',
+                                'metadata' => $mp->metadata ?? null,
+                                'raw_response' => $mp->raw_response ?? null,
+                            ]);
+
+                            // Attempt activation
+                            if (method_exists($cand->business, 'activateSubscription')) {
+                                $cand->business->activateSubscription($cand, $mp->receipt ?? $mp->checkout_request_id, ['source' => 'proactive_index_activation']);
+                            }
+                        }
+                    } else {
+                        // If SubscriptionPayment exists and is completed, activate
+                        if (method_exists($cand->business, 'activateSubscription')) {
+                            $cand->business->activateSubscription($cand, $sp->mpesa_receipt ?? $sp->checkout_request_id, ['source' => 'proactive_index_activation']);
+                        }
+                    }
+                } catch (\Throwable $_) {
+                    // ignore per-subscription activation errors — we'll still render page
+                }
+            }
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
         $plans = Plan::where('is_active', true)->with('features')->get();
         $currentSubscription = $business->activeSubscription;
-        $pendingSubscription = $business->subscriptions()->where('status', 'pending')->latest()->first();
+        // Show only subscriptions that passed payment and are awaiting admin verification
+        $pendingSubscription = $business->subscriptions()->where('status', 'pending_verification')->latest()->first();
 
         return Inertia::render('Subscription/Index', [
             'plans' => $plans,
@@ -104,7 +160,7 @@ class SubscriptionController extends Controller
             // find pending subscription for this business and plan
             $pending = Subscription::where('business_id', $business->id)
                 ->where('plan_id', $plan->id)
-                ->where('status', 'pending')
+                ->whereIn('status', ['initiated', 'pending'])
                 ->latest()
                 ->first();
 
@@ -118,7 +174,7 @@ class SubscriptionController extends Controller
 
             try {
                 // record the transaction id on the pending subscription
-                $pending->update(['transaction_id' => $mpesaReceipt]);
+                $pending->update(['transaction_id' => $mpesaReceipt, 'mpesa_receipt' => $mpesaReceipt, 'verified_at' => now()]);
 
                 // Ensure a Payment record exists for this checkout/receipt so the system treats it as recorded by Safaricom
                 $payment = \App\Models\Payment::where('reference_number', $mpesaReceipt)->orWhere('metadata->checkout_request_id', $mpesaReceipt)->first();
@@ -151,8 +207,30 @@ class SubscriptionController extends Controller
                     Log::warning('Failed to create/update SubscriptionPayment on finalization', ['error' => $e->getMessage()]);
                 }
 
-                // Mark subscription as pending_verification (do not auto-activate)
-                $pending->update(['status' => 'pending_verification']);
+                // Attempt backend-driven activation now that we have confirmed payment
+                try {
+                    if (method_exists($pending->business, 'activateSubscription')) {
+                        $pending->business->activateSubscription($pending, $mpesaReceipt, ['source' => 'business_finalize']);
+
+                        // Push SSE event to inform clients of activation
+                        try { \App\Services\SseService::pushBusinessEvent($pending->business_id, 'subscription.activated', ['id' => $pending->id, 'status' => 'active']); } catch (\Throwable $_) {}
+
+                        if ($isApiRequest) {
+                            return response()->json(['success' => true, 'message' => 'Subscription activated successfully', 'data' => ['receipt' => $mpesaReceipt]]);
+                        }
+
+                        return back()->with('success', 'Subscription activated successfully.');
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Business finalize activation failed: '.$e->getMessage());
+                    // fall through to pending_verification fallback
+                }
+
+                // Fallback: mark subscription as pending_verification so admins can review
+                try {
+                    $pending->update(['status' => 'pending_verification']);
+                    try { \App\Services\SseService::pushBusinessEvent($pending->business_id, 'subscription.finalized', ['id' => $pending->id, 'status' => $pending->status]); } catch (\Throwable $_) {}
+                } catch (\Throwable $_) {}
 
                 if ($isApiRequest) {
                     return response()->json(['success' => true, 'message' => 'Subscription recorded and awaiting verification', 'data' => ['receipt' => $mpesaReceipt]]);
@@ -175,58 +253,15 @@ class SubscriptionController extends Controller
             $data = [
                 'phone_number' => $request->phone_number,
                 'amount' => $amount,
-                'account_reference' => 'SUBSCRIPTION',
+                // account_reference set after subscription created to include subscription id
                 'transaction_desc' => "Payment for {$plan->name} [{$request->billing_cycle}]",
             ];
 
-            // Use platform-wide MPESA credentials from CMS (superadmin-configured)
-            $cmsContent = $this->cmsService->getContent();
-
-            // Normalize CMS content: it may be stored as JSON string, array, or object.
-            $cmsArr = [];
-            if (is_string($cmsContent)) {
-                $decoded = json_decode($cmsContent, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $cmsArr = $decoded;
-                }
-            } elseif (is_array($cmsContent)) {
-                $cmsArr = $cmsContent;
-            } elseif (is_object($cmsContent)) {
-                $cmsArr = (array) $cmsContent;
+            // Use platform-level MPESA config from CmsService (handles decryption)
+            $platformMpesa = $this->cmsService->getMpesaConfig();
+            if (is_array($platformMpesa) && !empty($platformMpesa)) {
+                $data['mpesa'] = $platformMpesa;
             }
-
-            // The MPESA config may be nested under 'mpesa' or it may be the CMS content itself.
-            $platformMpesa = $cmsArr['mpesa'] ?? null;
-            if (! $platformMpesa) {
-                // Heuristic: if the CMS array contains typical mpesa keys, treat it as mpesa config
-                $mpesaKeys = ['consumer_key', 'consumer_secret', 'passkey', 'shortcode', 'head_office_passkey'];
-                foreach ($mpesaKeys as $k) {
-                    if (array_key_exists($k, $cmsArr)) {
-                        $platformMpesa = $cmsArr;
-                        break;
-                    }
-                }
-            }
-             if ($platformMpesa && is_array($platformMpesa)) {
-                 // Decrypt any encrypted sensitive values stored by admin (CmsController encrypts on save)
-                 try {
-                     foreach (['consumer_secret', 'passkey', 'head_office_passkey', 'initiator_password', 'security_credential'] as $skey) {
-                         if (array_key_exists($skey, $platformMpesa) && $platformMpesa[$skey]) {
-                             try {
-                                 $platformMpesa[$skey] = \Illuminate\Support\Facades\Crypt::decryptString($platformMpesa[$skey]);
-                             } catch (\Exception $e) {
-                                 // If decrypt fails, leave raw value (may already be plaintext)
-                             }
-                         }
-                     }
-                 } catch (\Throwable $e) {
-                     // If something unexpected happens, fall back to raw values
-                 }
-
-                 // Ensure simulate flag boolean
-                 $platformMpesa['simulate'] = isset($platformMpesa['simulate']) ? (bool) $platformMpesa['simulate'] : false;
-                 $data['mpesa'] = $platformMpesa;
-             }
 
             // Create pending subscription BEFORE initiating STK so we can include subscription id in AccountReference
             $subscription = Subscription::create([
@@ -235,7 +270,7 @@ class SubscriptionController extends Controller
                 'plan_name' => $plan->name,
                 'amount' => $amount,
                 'currency' => 'KES',
-                'status' => 'pending',
+                'status' => 'initiated', // awaiting payment confirmation via STK callback
                 'transaction_id' => null,
                 'payment_method' => 'MPESA_STK',
                 'payment_details' => [
@@ -255,12 +290,11 @@ class SubscriptionController extends Controller
 
             // Also allow business mpesa fallback if present in business settings
             $businessMpesa = $business->mpesa() ?? null;
-            if (empty($data['mpesa']) && !empty($businessMpesa)) {
+            if (empty($data['mpesa']) && ! empty($businessMpesa)) {
                 $data['mpesa'] = $businessMpesa;
             }
 
-            // Initiate STK via PaymentService
-            // Basic credential presence check to give clearer errors before remote calls
+            // Basic credential presence check and preflight auth to give clearer errors before remote calls
             $creds = $data['mpesa'] ?? null;
             $requiredKeys = ['consumer_key', 'consumer_secret', 'shortcode', 'passkey'];
             $missing = [];
@@ -285,6 +319,78 @@ class SubscriptionController extends Controller
                     return response()->json(['success' => false, 'message' => $userMessage, 'error' => 'missing_credentials', 'missing' => $missing], 400);
                 }
                 return back()->with('error', $userMessage);
+            }
+
+            // Pre-flight OAuth check: verify token can be obtained to surface clear errors early.
+            if (is_array($creds)) {
+                try {
+                    $env = $creds['environment'] ?? config('mpesa.environment', 'production');
+                    $urls = config("mpesa.urls.{$env}");
+                    $authUrl = config('mpesa.auth_url') ?: ($urls['oauth'] ?? null);
+                    if ($authUrl && !empty($creds['consumer_key']) && !empty($creds['consumer_secret'])) {
+                        $authResp = \Illuminate\Support\Facades\Http::withBasicAuth($creds['consumer_key'], $creds['consumer_secret'])
+                            ->timeout(10)
+                            ->get($authUrl . (str_contains($authUrl, '?') ? '&' : '?') . 'grant_type=client_credentials');
+
+                        if (! $authResp->successful()) {
+                            $errorId = 'mpesa_err_' . uniqid();
+                            $body = null;
+                            try { $body = $authResp->body(); } catch (\Throwable $_) { $body = null; }
+                            Log::error('Subscription STK auth preflight failed (business flow)', ['error_id' => $errorId, 'status' => method_exists($authResp,'status') ? $authResp->status() : null, 'body_snippet' => $body ? substr($body,0,1000) : null, 'business_id' => $business->id]);
+
+                            // If simulation enabled, fall back to simulated STK as a development convenience
+                            $platformSim = isset($creds['simulate']) ? (bool)$creds['simulate'] : false;
+                            $globalSim = config('mpesa.simulate', false);
+                            if ($platformSim || $globalSim) {
+                                Log::warning('Auth failed but simulation enabled (business flow) — creating simulated STK', ['error_id' => $errorId, 'business_id' => $business->id]);
+                                $simulated = [
+                                    'CheckoutRequestID' => 'SIM-CHECKOUT-' . strtoupper(uniqid()),
+                                    'MerchantRequestID' => 'SIM-MERCHANT-' . strtoupper(uniqid()),
+                                    'ResponseCode' => '0',
+                                    'ResponseDescription' => 'Simulated success',
+                                    'CustomerMessage' => 'Simulated: Please check your phone to complete payment',
+                                ];
+                                try {
+                                    SubscriptionPayment::create([
+                                        'subscription_id' => $subscription->id,
+                                        'business_id' => $business->id,
+                                        'checkout_request_id' => $simulated['CheckoutRequestID'],
+                                        'merchant_request_id' => $simulated['MerchantRequestID'],
+                                        'mpesa_receipt' => null,
+                                        'phone' => $request->phone_number,
+                                        'amount' => $amount,
+                                        'status' => 'pending',
+                                        'metadata' => ['simulated' => true],
+                                        'raw_response' => $simulated,
+                                    ]);
+                                    \App\Models\MpesaPayment::create([
+                                        'business_id' => $business->id,
+                                        'sale_id' => null,
+                                        'checkout_request_id' => $simulated['CheckoutRequestID'],
+                                        'merchant_request_id' => $simulated['MerchantRequestID'],
+                                        'phone' => $request->phone_number,
+                                        'amount' => $amount,
+                                        'reference' => null,
+                                        'account_reference' => $data['account_reference'],
+                                        'status' => 'pending',
+                                        'raw_response' => $simulated,
+                                        'metadata' => ['simulated' => true],
+                                    ]);
+                                } catch (\Throwable $e) {
+                                    Log::error('Failed to persist simulated subscription_payment (business flow)', ['error' => $e->getMessage()]);
+                                }
+                                $dataOut = ['success'=>true,'data'=>['checkout_request_id'=>$simulated['CheckoutRequestID'],'merchant_request_id'=>$simulated['MerchantRequestID'],'simulated'=>true]];
+                                return $isApiRequest ? response()->json($dataOut) : back()->with('success','M-Pesa prompt (simulated) sent.');
+                            }
+
+                            return $isApiRequest ? response()->json(['success'=>false,'message'=>'Failed to authenticate with M-Pesa using configured credentials.','error_id'=>$errorId,'body_snippet'=>$body],400) : back()->with('error','Failed to authenticate with M-Pesa using configured credentials.');
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $errorId = 'mpesa_err_' . uniqid();
+                    Log::error('Subscription STK auth preflight exception (business flow)', ['error_id'=>$errorId,'message'=>$e->getMessage(),'business_id'=>$business->id]);
+                    return $isApiRequest ? response()->json(['success'=>false,'message'=>'Error while validating M-Pesa credentials','error_id'=>$errorId],500) : back()->with('error','Error while validating M-Pesa credentials');
+                }
             }
 
             $result = $this->paymentService->initiateMpesaStkPush($data);
@@ -374,7 +480,7 @@ class SubscriptionController extends Controller
 
         // TILL (manual) flow
         if ($request->payment_method === 'till') {
-            Subscription::create([
+            $sub = Subscription::create([
                 'business_id' => $business->id,
                 'plan_id' => $plan->id,
                 'plan_name' => $plan->name,
@@ -388,6 +494,31 @@ class SubscriptionController extends Controller
                     'is_manual' => true,
                 ],
             ]);
+
+            // Record the till transaction in subscription_payments so admin/reconcile can see and act on it
+            try {
+                SubscriptionPayment::create([
+                    'subscription_id' => $sub->id,
+                    'business_id' => $business->id,
+                    'checkout_request_id' => null,
+                    'merchant_request_id' => null,
+                    'mpesa_receipt' => null,
+                    'phone' => null,
+                    'amount' => $amount,
+                    'status' => 'pending',
+                    'metadata' => ['transaction_code' => $request->transaction_code, 'type' => 'till'],
+                    'raw_response' => null,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to create SubscriptionPayment for till transaction', ['error' => $e->getMessage(), 'business_id' => $business->id]);
+            }
+
+            // Push SSE event for pending subscription (manual/till)
+            try {
+                \App\Services\SseService::pushBusinessEvent($business->id, 'subscription.pending', ['plan_id' => $plan->id, 'amount' => $amount]);
+            } catch (\Throwable $e) {
+                // ignore
+            }
 
             return $isApiRequest ? response()->json(['success'=>true,'message'=>'Transaction logged and awaiting manual verification']) : back()->with('success','Transaction code submitted. Our team will verify and activate your subscription shortly.');
         }

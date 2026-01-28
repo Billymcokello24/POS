@@ -3,6 +3,10 @@
 import { ref, onUnmounted } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
+import { postJsonWithSanctum } from '@/lib/sanctum'
+
+// Provide a file-local alias used throughout this file (mirrors Sales Create safePost)
+const safePost = (url: string, payload: any, extraHeaders: Record<string,string> = {}) => postJsonWithSanctum(url, payload, extraHeaders)
 
 // icons and UI
 import {
@@ -84,19 +88,11 @@ const paymentError = ref<string | null>(null)
 const paymentSuccessData = ref<{ receipt?: string; amount?: number } | null>(null)
 
 // --- Monitoring state ---
-const sseConnections = new Map<string, EventSource>()
+// Only keep polling interval registry (used to clear polling on completion)
 const pollingIntervals = new Map<string, number>()
-const processedCheckouts = new Set<string>()
-const activeMonitorings = new Set<string>()
 
 // --- Cleanup on unmount ---
 onUnmounted(() => {
-    // Close all SSE connections
-    sseConnections.forEach((sse) => {
-        try { sse.close() } catch { }
-    })
-    sseConnections.clear()
-
     // Clear all polling intervals
     pollingIntervals.forEach((intervalId) => {
         clearInterval(intervalId)
@@ -132,7 +128,7 @@ const resetProcessing = () => {
     paymentSuccessData.value = null
 }
 
-// Initiate STK Push: open a popup synchronously, POST to /subscription/pay with CSRF token (expects JSON),
+// Initiate STK Push: open a popup synchronously, POST to /subscription/api/pay with CSRF token (expects JSON),
 // then poll /api/payments/mpesa/check-status for the result. Mirrors the Sales STK flow to avoid 419s.
 const initiateStkPush = async () => {
     paymentError.value = null
@@ -172,42 +168,47 @@ const initiateStkPush = async () => {
     }
 
     try {
-        const resp = await fetch('/subscription/api/pay', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-            },
-            body: JSON.stringify({
-                plan_id: selectedPlan.value.id,
-                billing_cycle: billingCycle.value,
-                phone_number: phone,
-                amount: amount,
-                payment_method: 'stk'
-            })
+        // Use safePost helper which ensures the sanctum csrf-cookie and retries on 419.
+        const resp = await safePost('/subscription/api/pay', {
+            plan_id: selectedPlan.value.id,
+            billing_cycle: billingCycle.value,
+            phone_number: phone,
+            amount: amount,
+            payment_method: 'stk'
         })
 
         if (!resp.ok) {
             const text = await resp.text()
-            throw new Error(`HTTP ${resp.status}: ${text}`)
+            // Try to parse as JSON for a friendly message
+            let errorMessage = text
+            try {
+                const parsed = JSON.parse(text)
+                errorMessage = parsed.message || text
+            } catch {}
+
+            // Surface a helpful error
+            throw new Error(errorMessage || `HTTP ${resp.status}: ${resp.statusText}`)
         }
 
         const data = await resp.json()
 
         if (!data.success) {
-            throw new Error(data.message || 'Failed to initiate STK')
+            paymentError.value = data.message || 'Failed to initiate STK'
+            processingMpesa.value = false
+            if (popup && !popup.closed) try { popup.close() } catch {}
+            return
         }
 
-        // The backend should return a checkout id for polling
         const checkoutId = data.data?.checkout_request_id || data.data?.checkoutRequestID || data.checkout_request_id
         if (!checkoutId) {
             throw new Error('Missing checkout ID from server')
         }
 
-        // start polling for status
-        pollMpesaStatus(checkoutId, popup, amount)
+        // Keep preloader and start polling
+        paymentError.value = null
+        paymentSuccess.value = false
+        // Start polling for payment status using the same authoritative endpoint Sales uses
+        pollMpesaStatus(checkoutId, amount, popup)
 
     } catch (err: any) {
         console.error('STK push error', err)
@@ -219,336 +220,175 @@ const initiateStkPush = async () => {
     }
 }
 
-// Polling helper for M-Pesa status
-const pollMpesaStatus = (checkoutRequestId: string, popup: Window | null, amount: number) => {
+// Polling helper for M-Pesa status — mirrored from Sales/Create.vue
+const pollMpesaStatus = (checkoutRequestId: string, amount: number, popup: Window | null = null) => {
     let attempts = 0
-    const maxAttempts = 40 // ~2 minutes
+    const maxAttempts = 40 // Poll for ~2 minutes
+
+    console.log('Starting M-Pesa status polling for:', checkoutRequestId)
+
+    // M-Pesa result code friendly map (same as sales)
+    const mpesaErrorCodes: Record<string, string> = {
+        '0': 'Success',
+        '1': 'Insufficient Balance',
+        '1032': 'Request cancelled by user',
+        '1037': 'Transaction pending (waiting for customer)',
+        '2001': 'Wrong PIN entered',
+        '2002': 'Agent number and Store number mismatch',
+        '2006': 'PIN blocked',
+        '2007': 'SIM Toolkit menu timeout',
+        '2029': 'Transaction cancelled by customer',
+        '4001': 'System error',
+        '4031': 'Customer MSISDN not found',
+        '4032': 'Invalid Bill Reference Number',
+        '4999': 'Transaction still under processing'
+    }
+
+    const pendingCodes = ['1037', '4999']
+    const cancelledCodes = ['1032', '2029']
 
     const interval = setInterval(async () => {
         attempts++
         try {
-            const r = await fetch('/api/payments/mpesa/check-status', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                },
-                body: JSON.stringify({ checkout_request_id: checkoutRequestId })
-            })
+            const response = await safePost('/api/payments/mpesa/check-status', { checkout_request_id: checkoutRequestId })
 
-            if (!r.ok) {
-                console.warn('Status check HTTP error', r.status)
+            if (!response.ok) {
+                console.error('Status check HTTP error:', response.status)
                 if (attempts >= maxAttempts) {
                     clearInterval(interval)
+                    paymentError.value = 'Payment verification timed out. Please check your M-Pesa messages.'
                     processingMpesa.value = false
-                    paymentError.value = 'Payment verification timed out.'
-                    if (popup && !popup.closed) try { popup.close() } catch(e){}
+                    if (popup && !popup.closed) try { popup.close() } catch {}
                 }
                 return
             }
 
-            const res = await r.json()
-            if (!res.success) {
-                console.warn('Status API returned success=false', res.message)
+            const result = await response.json()
+            console.log('Status check result:', result)
+
+            if (!result.success) {
+                console.warn('Query returned success=false:', result.message)
+                // Treat common transient backend messages as temporary (keep polling)
+                const msg = String(result.message || '').toLowerCase()
+                const transient = [
+                    'authentication failed',
+                    'auth url missing',
+                    'not configured',
+                    'unable to verify status',
+                    'failed to initiate payment'
+                ]
+                if (transient.some(t => msg.includes(t))) {
+                    console.warn('Transient backend MPESA issue, continuing to poll:', result.message)
+                    // don't set error yet
+                    if (attempts >= maxAttempts) {
+                        clearInterval(interval)
+                        paymentError.value = result.message || 'Could not verify payment'
+                        processingMpesa.value = false
+                        if (popup && !popup.closed) try { popup.close() } catch {}
+                    }
+                    return
+                }
+
                 if (attempts >= maxAttempts) {
                     clearInterval(interval)
+                    paymentError.value = 'Cannot verify payment status. Please check your M-Pesa messages.'
                     processingMpesa.value = false
-                    paymentError.value = res.message || 'Could not verify payment'
-                    if (popup && !popup.closed) try { popup.close() } catch(e){}
+                    if (popup && !popup.closed) try { popup.close() } catch {}
                 }
                 return
             }
 
-            const resultCode = res.data?.ResultCode
+            const resultCode = result.data?.ResultCode
+
             if (resultCode === '0') {
+                // Success
                 clearInterval(interval)
-                processingMpesa.value = false
-                paymentSuccess.value = true
-                paymentSuccessData.value = { receipt: res.data?.MpesaReceiptNumber || checkoutRequestId, amount }
+                console.log('✅ Payment successful!')
 
-                // Optionally navigate popup to a confirmation/receipt page for subscriptions
+                const receipt = result.data.MpesaReceiptNumber || checkoutRequestId
+                // Prevent duplicates
+                // Use payments array if you want to keep transaction history; for subscription we set modal success
+                paymentSuccessData.value = { receipt: receipt, amount: amount }
+                paymentSuccess.value = true
+                paymentError.value = null
+                processingMpesa.value = false
+
+                // Close popup with success message
                 if (popup && !popup.closed) {
                     try {
-                        // If backend created subscription ID, open subscription page
-                        const subId = res.data?.subscription_id || null
+                        const subId = result.data?.subscription_id || null
                         if (subId) {
                             popup.location.href = `/subscription/${subId}`
                         } else {
                             popup.document.body.innerHTML = '<p style="font-family:sans-serif;padding:16px;">Payment received. You can close this window.</p>'
                         }
-                    } catch { /* ignore */ }
+                    } catch (e) { console.debug(e) }
                 }
-            } else if (resultCode && ['1037','4999'].includes(resultCode.toString())) {
-                // still processing; keep polling
-                console.log('Payment pending:', resultCode)
+
+                // Allow backend to have activated subscription already (ProcessMpesaCallback does activation)
+                // Wait a short moment then reload so page-level state reflects activation
+                setTimeout(() => {
+                    showPaymentModal.value = false
+                    form.reset()
+                    window.location.reload()
+                }, 1500)
+
+            } else if (resultCode && pendingCodes.includes(resultCode.toString())) {
+                console.log(`Transaction still pending (code ${resultCode}), will check again...`)
+                // keep polling, do not change processingMpesa
+
             } else if (resultCode) {
+                // definitive failure
                 clearInterval(interval)
+                const errorDesc = result.data?.ResultDesc || 'Unknown error'
+                const friendly = mpesaErrorCodes[resultCode] || errorDesc
+                console.error('Payment failed with code:', resultCode, '-', friendly)
+
+                if (cancelledCodes.includes(resultCode.toString())) {
+                    if ((result.data?.ResultDesc || '').includes('unresolved reason')) {
+                        paymentError.value = 'The payment could not be processed. Possible reasons include:\n• Phone number is not registered with M-Pesa\n• Network connectivity issues\n• Phone is switched off or out of coverage\n• M-Pesa account has restrictions\n\nPlease verify the phone number and try again or use a different payment method.'
+                    } else {
+                        paymentError.value = 'Payment cancelled by customer'
+                    }
+                } else if (resultCode === '1') {
+                    paymentError.value = 'Insufficient Balance'
+                } else if (resultCode === '2001') {
+                    paymentError.value = 'Wrong PIN'
+                } else if (resultCode === '2006') {
+                    paymentError.value = 'PIN Blocked'
+                } else if (resultCode === '2007') {
+                    paymentError.value = 'Request Timed Out'
+                } else {
+                    paymentError.value = `M-Pesa Payment Failed: ${friendly}`
+                }
+
                 processingMpesa.value = false
-                paymentError.value = res.data?.ResultDesc || 'Payment failed'
-                if (popup && !popup.closed) try { popup.close() } catch(e){}
+                if (popup && !popup.closed) try { popup.close() } catch {}
             }
 
             if (attempts >= maxAttempts) {
                 clearInterval(interval)
+                paymentError.value = 'Payment verification timed out. Please check your M-Pesa messages.'
                 processingMpesa.value = false
-                paymentError.value = 'Payment verification timed out.'
-                if (popup && !popup.closed) try { popup.close() } catch(e){}
+                if (popup && !popup.closed) try { popup.close() } catch {}
             }
 
         } catch (err) {
-            console.error('Status check error', err)
+            console.error('Status check error:', err)
             if (attempts >= maxAttempts) {
                 clearInterval(interval)
+                paymentError.value = 'Network error during verification. Please check your M-Pesa messages.'
                 processingMpesa.value = false
-                paymentError.value = 'Network error during verification.'
-                if (popup && !popup.closed) try { popup.close() } catch(e){}
+                if (popup && !popup.closed) try { popup.close() } catch {}
             }
         }
     }, 3000)
+
+    // store interval so it can be cleared elsewhere if needed
+    pollingIntervals.set(checkoutRequestId, interval)
 }
 
 
-const startSSEConnection = (checkoutRequestId: string, amount: number, sseToken: string | null = null) => {
-    try {
-        if (sseConnections.has(checkoutRequestId)) return
-
-        // Build SSE URL including the short-lived server token when available
-        let sseUrl = `/api/payments/mpesa/stream?checkoutRequestID=${encodeURIComponent(checkoutRequestId)}&_=${Date.now()}`
-        if (sseToken) sseUrl += `&token=${encodeURIComponent(sseToken)}`
-
-        const sse = new EventSource(sseUrl)
-        sseConnections.set(checkoutRequestId, sse)
-
-        sse.onmessage = (ev) => {
-            try {
-                const payload = JSON.parse(ev.data)
-                handlePaymentUpdate(payload, checkoutRequestId, amount)
-            } catch {
-                console.error('Error parsing SSE data:', e)
-            }
-        }
-
-        sse.onerror = (error) => {
-            console.error('SSE connection error:', error)
-            // Close SSE connection and remove it; fall back to polling (which is running).
-            try { sse.close() } catch { }
-            sseConnections.delete(checkoutRequestId)
-            // Stop the active "processing" spinner because the STK was already sent; we are now waiting for confirmation.
-            processingMpesa.value = false
-            // Keep a user-friendly notice in paymentError to show status — will be overwritten on real updates.
-            paymentError.value = 'Real-time updates unavailable; verifying payment via background check.'
-            setTimeout(() => { paymentError.value = null }, 5000)
-        }
-
-        // Close connection after 5 minutes
-        setTimeout(() => {
-            if (sseConnections.has(checkoutRequestId)) {
-                try { sse.close() } catch { }
-                sseConnections.delete(checkoutRequestId)
-            }
-        }, 300000) // 5 minutes
-
-    } catch {
-        console.error('Failed to open SSE connection:', e)
-    }
-}
-
-const startPolling = (checkoutRequestId: string, amount: number, sseToken: string | null = null) => {
-    if (pollingIntervals.has(checkoutRequestId)) return
-
-    let attempts = 0
-    const maxAttempts = 40 // ~2 minutes at 3-second intervals
-
-    const pollStatus = async () => {
-        if (processedCheckouts.has(checkoutRequestId) || !activeMonitorings.has(checkoutRequestId)) {
-            return
-        }
-
-        attempts++
-
-        try {
-            // Use fetch with credentials for automatic cookie sending
-            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-            const headers: Record<string,string> = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': csrf
-            }
-            if (sseToken) headers['X-SSE-TOKEN'] = sseToken
-
-            const endpoint = sseToken ? '/api/payments/mpesa/check-status-token' : '/api/payments/mpesa/check-status'
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: headers,
-                // use include so cookies (session) are sent even on cross-origin (ngrok) tests
-                credentials: 'include',
-                body: JSON.stringify({ checkout_request_id: checkoutRequestId })
-            })
-
-            if (response.ok) {
-                // We have a response from the server; stop the active spinner (we're now verifying)
-                processingMpesa.value = false
-                const data = await response.json()
-                handlePaymentUpdate(data, checkoutRequestId, amount)
-            } else if (attempts >= maxAttempts) {
-                stopPolling(checkoutRequestId)
-                if (!processedCheckouts.has(checkoutRequestId)) {
-                    processingMpesa.value = false
-                    paymentError.value = 'Payment verification timed out.'
-                }
-            }
-        } catch (error) {
-            console.error('Polling error:', error)
-            if (attempts >= maxAttempts) {
-                stopPolling(checkoutRequestId)
-                if (!processedCheckouts.has(checkoutRequestId)) {
-                    processingMpesa.value = false
-                    paymentError.value = 'Network error during verification.'
-                }
-            }
-        }
-    }
-
-    // Initial immediate check
-    pollStatus()
-
-    // Start interval polling
-    const intervalId = setInterval(pollStatus, 3000)
-    pollingIntervals.set(checkoutRequestId, intervalId)
-
-    // Auto-stop after max attempts
-    setTimeout(() => {
-        stopPolling(checkoutRequestId)
-    }, maxAttempts * 3000)
-}
-
-const stopPolling = (checkoutRequestId?: string) => {
-    if (checkoutRequestId) {
-        const id = pollingIntervals.get(checkoutRequestId)
-        if (id) {
-            clearInterval(id)
-            pollingIntervals.delete(checkoutRequestId)
-        }
-        activeMonitorings.delete(checkoutRequestId)
-        return
-    }
-
-    pollingIntervals.forEach((id, key) => {
-        clearInterval(id)
-        activeMonitorings.delete(key)
-    })
-    pollingIntervals.clear()
-}
-
-const closeSSE = (checkoutRequestId?: string) => {
-    if (checkoutRequestId) {
-        const sse = sseConnections.get(checkoutRequestId)
-        if (sse) {
-            try { sse.close() } catch { }
-        }
-        sseConnections.delete(checkoutRequestId)
-        return
-    }
-
-    sseConnections.forEach((sse, key) => {
-        try { sse.close() } catch { }
-        sseConnections.delete(key)
-    })
-}
-
-const handlePaymentUpdate = (data: any, checkoutRequestId: string, amount: number) => {
-    if (processedCheckouts.has(checkoutRequestId)) return
-
-    // Normalize the response data
-    let resultCode: string | null = null
-    let resultDesc: string | null = null
-    let receipt: string | null = null
-
-    // Extract data from different possible response structures
-    if (data?.data?.ResultCode !== undefined) {
-        resultCode = String(data.data.ResultCode)
-        resultDesc = data.data.ResultDesc
-        receipt = data.data.MpesaReceiptNumber
-    } else if (data?.ResultCode !== undefined) {
-        resultCode = String(data.ResultCode)
-        resultDesc = data.ResultDesc
-        receipt = data.MpesaReceiptNumber
-    } else if (data?.status) {
-        if (data.status === 'success') resultCode = '0'
-        if (data.status === 'failed') resultCode = '1'
-        receipt = data.receipt || data.mpesa_receipt
-    }
-
-    // Handle based on result code
-    const pendingCodes = ['1037', '4999']
-    const cancelledCodes = ['1032', '2029']
-
-    if (resultCode === '0') {
-        // Success
-        processedCheckouts.add(checkoutRequestId)
-        const normalized = {
-            MpesaReceiptNumber: receipt || checkoutRequestId,
-            Amount: data?.Amount || amount
-        }
-        handlePaymentSuccess(normalized, checkoutRequestId, amount)
-        stopPolling(checkoutRequestId)
-        closeSSE(checkoutRequestId)
-        activeMonitorings.delete(checkoutRequestId)
-    } else if (cancelledCodes.includes(resultCode || '')) {
-        // Cancelled
-        processedCheckouts.add(checkoutRequestId)
-        handlePaymentFailure(resultDesc || 'Payment was cancelled by user', checkoutRequestId)
-        stopPolling(checkoutRequestId)
-        closeSSE(checkoutRequestId)
-        activeMonitorings.delete(checkoutRequestId)
-    } else if (pendingCodes.includes(resultCode || '')) {
-        // Still pending - do nothing, keep monitoring
-        console.log('Payment pending:', resultDesc)
-    } else if (resultCode && !pendingCodes.includes(resultCode)) {
-        // Other failure
-        processedCheckouts.add(checkoutRequestId)
-        handlePaymentFailure(resultDesc || 'Payment failed', checkoutRequestId)
-        stopPolling(checkoutRequestId)
-        closeSSE(checkoutRequestId)
-        activeMonitorings.delete(checkoutRequestId)
-    }
-}
-
-const handlePaymentSuccess = (data: any, checkoutRequestId: string, amount: number) => {
-    if (paymentSuccess.value) return // Prevent duplicate handling
-
-    const receipt = data.receipt || data.MpesaReceiptNumber || data.mpesa_receipt || checkoutRequestId
-
-    paymentSuccessData.value = {
-        receipt,
-        amount: data.Amount || amount
-    }
-    paymentSuccess.value = true
-    processingMpesa.value = false
-    paymentError.value = null
-
-    // Show success for 3 seconds, then reload
-    setTimeout(() => {
-        showPaymentModal.value = false
-        form.reset()
-        paymentSuccess.value = false
-        paymentSuccessData.value = null
-        window.location.reload()
-    }, 3000)
-}
-
-const handlePaymentFailure = (errorMessage: string, checkoutRequestId: string) => {
-    if (processedCheckouts.has(checkoutRequestId)) return
-
-    processingMpesa.value = false
-    paymentError.value = errorMessage
-    activeMonitorings.delete(checkoutRequestId)
-}
-
-// Submit payment based on selected method
 const submitPayment = () => {
     form.billing_cycle = billingCycle.value
 
@@ -640,6 +480,11 @@ const isCurrentPlan = (planId: number) => {
                             <h3 class="text-2xl font-black text-slate-900">{{ props.pendingSubscription.plan_name }} Tier Payment</h3>
                             <p class="text-slate-500 text-sm font-medium">
                                 We are verifying your <span class="text-slate-900 font-black uppercase">{{ props.pendingSubscription.payment_method }}</span> transaction.
+                            </p>
+                            <p class="text-slate-500 text-sm font-medium mt-2">
+                                <span class="text-[11px] font-black uppercase text-slate-400">M-Pesa Receipt:</span>
+                                <span v-if="props.pendingSubscription.mpesa_receipt || props.pendingSubscription.transaction_id" class="text-green-700 font-bold ml-2">{{ props.pendingSubscription.mpesa_receipt || props.pendingSubscription.transaction_id }}</span>
+                                <span v-else class="text-gray-400 ml-2">N/A</span>
                             </p>
                         </div>
                     </div>

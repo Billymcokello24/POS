@@ -3,7 +3,8 @@ import { MessageCircle, Send, Sparkles, TrendingUp, Package, DollarSign, BarChar
 import { ref, onMounted, nextTick, computed } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
-import axios from 'axios'
+import axios from '@/axios'
+
 
 onMounted(() => {})
 

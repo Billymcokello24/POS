@@ -1,33 +1,31 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import { Head, useForm, router } from '@inertiajs/vue3'
 import { debounce } from 'lodash'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import {
-    CreditCard,
     Plus,
     Calendar,
     DollarSign,
-    History,
     TrendingUp,
-    Users,
     Zap,
     Search,
     Filter,
     ArrowUpRight,
-    ArrowDownRight,
     Loader2,
-    Building2,
-    Crown,
-    Info,
-    CheckCircle2,
-    XCircle
+    CheckCircle2
 } from 'lucide-vue-next'
+import { ref, watch } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -36,14 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     subscriptions: {
@@ -55,12 +46,14 @@ const props = defineProps<{
             status: string
             transaction_id: string
             payment_method: string
+            payment_details?: any
             starts_at: string
             ends_at: string | null
             created_at: string
             business: {
                 name: string
             }
+            auto_verified?: boolean
         }>
         links: any
     }
@@ -104,8 +97,11 @@ watch([search, planFilter, dateFrom, dateTo], debounce(() => {
 
 const showAddModal = ref(false)
 const processingId = ref<number | null>(null)
+const reconcileLoading = ref(false)
+const reconcileResult = ref<any | null>(null)
+const showReconcileModal = ref(false)
 
-const form = useForm({
+const form: any = (useForm as any)({
     business_id: '',
     plan_id: '',
     amount: '',
@@ -123,9 +119,10 @@ const submitPayment = () => {
     })
 }
 
-const approveSubscription = (id: number) => {
-    processingId.value = id
-    router.post(`/admin/subscriptions/${id}/approve`, {}, {
+const approveSubscription = (subscriptionId: number | null) => {
+    if (!subscriptionId) return;
+    processingId.value = subscriptionId;
+    router.post(`/admin/subscriptions/${subscriptionId}/approve`, {}, {
         preserveScroll: true,
         onFinish: () => {
             processingId.value = null
@@ -148,6 +145,44 @@ const formatDate = (date: string | null) => {
         day: 'numeric',
         year: 'numeric'
     })
+}
+
+const runReconcile = async () => {
+    reconcileLoading.value = true
+    reconcileResult.value = null
+    showReconcileModal.value = true
+
+    try {
+        const resp = await fetch('/admin/subscriptions/reconcile', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({})
+        })
+
+        reconcileResult.value = await resp.json()
+    } catch (err) {
+        reconcileResult.value = { success: false, message: (err as any).message }
+    } finally {
+        reconcileLoading.value = false
+    }
+}
+
+const getMpesaStk = (sub: any) => {
+    try {
+        // Prefer explicit mpesa_receipt field
+        if (sub.mpesa_receipt) return sub.mpesa_receipt
+        // Some APIs use mpesa_stk or payment_details.mpesa_receipt
+        if (sub.mpesa_stk) return sub.mpesa_stk
+        const pd = sub.payment_details || sub.paymentDetails || null
+        if (pd && pd.mpesa_receipt) return pd.mpesa_receipt
+        // Fallback to transaction id
+        if (sub.transaction_id) return sub.transaction_id
+    } catch { /* ignore */ }
+    return null
 }
 </script>
 
@@ -306,7 +341,9 @@ const formatDate = (date: string | null) => {
                                             <div class="size-1.5 rounded-full" :class="sub.status === 'active' ? 'bg-emerald-500 animate-pulse' : (sub.status === 'pending' ? 'bg-amber-500 animate-bounce' : 'bg-slate-300')"></div>
                                             <span :class="sub.status === 'active' ? 'text-emerald-700' : (sub.status === 'pending' ? 'text-amber-700' : 'text-slate-500')">{{ sub.status }}</span>
                                         </div>
-                                        <div class="text-[9px] text-slate-400 font-mono tracking-tighter uppercase">{{ sub.payment_method || 'MPESA' }}: {{ sub.transaction_id || 'N/A' }}</div>
+                                        <div class="text-[9px] text-slate-400 font-mono tracking-tighter uppercase">
+                                            Method & Status
+                                        </div>
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -321,16 +358,17 @@ const formatDate = (date: string | null) => {
                                     </div>
                                 </TableCell>
                                 <TableCell class="text-right pr-10">
-                                    <div v-if="sub.status === 'pending'" class="flex items-center justify-end gap-2">
+                                    <div v-if="sub.status !== 'active'" class="flex items-center justify-end gap-2">
                                         <Button
-                                            @click="approveSubscription(sub.id)"
-                                            :disabled="processingId === sub.id"
+                                            @click="approveSubscription(sub.subscription_id)"
+                                            :disabled="processingId === sub.subscription_id || !sub.subscription_id"
                                             class="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest gap-2 disabled:opacity-70"
                                         >
-                                            <Loader2 v-if="processingId === sub.id" class="size-4 animate-spin" />
+                                            <Loader2 v-if="processingId === sub.subscription_id" class="size-4 animate-spin" />
                                             <CheckCircle2 v-else class="size-4" />
-                                            {{ processingId === sub.id ? 'Processing...' : 'Verify & Activate' }}
+                                            {{ processingId === sub.subscription_id ? 'Processing...' : (sub.status === 'pending_verification' || sub.status === 'pending' ? 'Verify & Activate' : 'Verify & Activate') }}
                                         </Button>
+                                        <Badge v-if="sub.auto_verified" class="ml-2 bg-emerald-50 text-emerald-700 font-black text-[9px] px-2 py-1 uppercase tracking-widest">Auto-verified</Badge>
                                     </div>
                                     <div v-else class="space-y-0.5">
                                         <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ formatDate(sub.created_at) }}</div>
@@ -402,6 +440,34 @@ const formatDate = (date: string | null) => {
                         Authorize Sub
                     </Button>
                 </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="showReconcileModal">
+            <DialogContent class="sm:max-w-[600px] p-0 border-none shadow-3xl bg-white overflow-hidden rounded-[2.5rem]">
+                <div class="p-10 space-y-8">
+                    <div class="space-y-1">
+                        <DialogTitle class="text-3xl font-black text-slate-900 tracking-tighter">Run Reconciliation</DialogTitle>
+                        <DialogDescription class="text-slate-500 font-medium pt-1">Fetch and display reconciliation results.</DialogDescription>
+                    </div>
+
+                    <div class="space-y-4">
+                        <Button @click="runReconcile" :disabled="reconcileLoading" class="w-full h-12 rounded-xl bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-slate-200 transition-all">
+                            <Loader2 v-if="reconcileLoading" class="size-4 animate-spin mr-2" />
+                            Run Reconcile
+                        </Button>
+
+                        <div v-if="reconcileResult" class="p-4 rounded-lg border" :class="reconcileResult.success ? 'border-emerald-500 bg-emerald-50' : 'border-red-500 bg-red-50'">
+                            <div class="text-sm font-bold" v-html="reconcileResult.success ? 'Reconciliation Successful' : 'Reconciliation Failed'"></div>
+                            <div class="text-xs text-slate-500" v-if="reconcileResult.data">
+                                <pre class="whitespace-pre-wrap">{{ JSON.stringify(reconcileResult.data, null, 2) }}</pre>
+                            </div>
+                            <div class="text-xs text-slate-500" v-else>
+                                {{ reconcileResult.message }}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

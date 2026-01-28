@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Head, usePage } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import {
   BarChart3,
   TrendingUp,
@@ -16,6 +12,12 @@ import {
   FileText,
   PieChart
 } from 'lucide-vue-next'
+import { computed } from 'vue'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import AppLayout from '@/layouts/AppLayout.vue'
+
 
 // Get currency from page props
 const page = usePage()

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3'
+import { ShoppingCart, User, Mail, Lock, ArrowRight, CheckCircle } from 'lucide-vue-next'
+
 import InputError from '@/components/InputError.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { login } from '@/routes'
-import { ShoppingCart, User, Mail, Lock, ArrowRight, CheckCircle } from 'lucide-vue-next'
 </script>
 
 <template>

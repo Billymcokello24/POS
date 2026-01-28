@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import { Head, usePage } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import {
   Package,
   AlertTriangle,
@@ -17,6 +11,14 @@ import {
   ArrowUpDown,
   FileText
 } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import AppLayout from '@/layouts/AppLayout.vue'
+
 
 // Get currency from page props
 const page = usePage()

@@ -1,22 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import { Search, BarChart3, Clock, Zap } from 'lucide-vue-next'
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
 
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import axios from '@/axios'
 
-// Configure axios to send CSRF token and cookies for same-origin session-protected routes
-onMounted(() => {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-    if (csrfToken) {
-        axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken
-    }
-    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest'
-    axios.defaults.withCredentials = true
-})
+// axios is centrally configured (baseURL, withCredentials, CSRF token & 419 retry)
+// no per-page axios configuration required
 
 const query = ref('')
 const range = ref('last_30_days')

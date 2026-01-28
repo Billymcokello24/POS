@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
-import { 
-    LayoutDashboard, 
-    Building2, 
-    CreditCard, 
-    Wrench, 
-    ShieldCheck, 
-    MessageSquare, 
-    Settings, 
+import {
+    LayoutDashboard,
+    Building2,
+    CreditCard,
+    Wrench,
+    ShieldCheck,
+    MessageSquare,
+    Settings,
     LogOut,
     Menu,
     X,
@@ -16,6 +15,9 @@ import {
     Activity,
     Sparkles
 } from 'lucide-vue-next'
+import { ref } from 'vue'
+
+import LogoutButton from '@/components/LogoutButton.vue'
 
 const isOpen = ref(false)
 const page = usePage()
@@ -37,7 +39,7 @@ const isActive = (href: string) => page.url.startsWith(href)
 <template>
     <div class="min-h-screen bg-slate-50 flex">
         <!-- Sidebar -->
-        <aside 
+        <aside
             :class="[
                 'fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
                 isOpen ? 'translate-x-0' : '-translate-x-full'
@@ -53,7 +55,7 @@ const isActive = (href: string) => page.url.startsWith(href)
                 <!-- Nav -->
                 <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                     <div v-for="item in navigation" :key="item.name">
-                         <Link 
+                         <Link
                             :href="item.href"
                             :class="[
                                 'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors group',
@@ -67,15 +69,7 @@ const isActive = (href: string) => page.url.startsWith(href)
                 </nav>
 
                 <div class="p-4 border-t border-slate-800">
-                    <Link 
-                        href="/logout" 
-                        method="post" 
-                        as="button"
-                        class="flex w-full items-center px-3 py-2 text-sm font-medium text-slate-400 rounded-lg hover:text-white hover:bg-slate-800 transition-colors"
-                    >
-                        <LogOut class="mr-3 h-5 w-5" />
-                        Sign Out
-                    </Link>
+                    <LogoutButton />
                 </div>
             </div>
         </aside>
@@ -88,12 +82,12 @@ const isActive = (href: string) => page.url.startsWith(href)
                     <Menu v-if="!isOpen" class="h-6 w-6" />
                     <X v-else class="h-6 w-6" />
                 </button>
-                
+
                 <div class="flex-1 px-4 flex justify-between">
                     <h2 class="text-lg font-semibold text-slate-800 self-center">
                         {{ $page.props.title || 'Platform Dashboard' }}
                     </h2>
-                    
+
                     <div class="flex items-center gap-4">
                         <div class="text-right hidden sm:block">
                             <div class="text-sm font-bold text-slate-900">Billy Admin</div>

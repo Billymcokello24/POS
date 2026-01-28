@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { LogOut, Settings } from 'lucide-vue-next';
 
 import {
@@ -9,20 +9,67 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import UserInfo from '@/components/UserInfo.vue';
-import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
+
+import axios from '@/axios';
+
+import { ensureSanctum } from '@/lib/sanctum';
+
 
 interface Props {
     user?: User | null;
 }
 
-const handleLogout = () => {
-    router.post(logout(), {}, {
-        onFinish: () => {
-            router.flushAll();
-        }
-    });
+// Use the server-rendered hidden logout form if available, otherwise create one.
+const handleLogout = async (e?: Event) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const serverForm = document.getElementById('logout-form') as HTMLFormElement | null;
+
+    // If on a business route, redirect to business login after logout
+    const redirectTo = window.location.pathname.startsWith('/business') ? '/login' : '/';
+
+    if (serverForm) {
+        const redirectInput = serverForm.querySelector('input[name="redirect_to"]') as HTMLInputElement | null;
+        if (redirectInput) redirectInput.value = redirectTo;
+        serverForm.submit();
+        return;
+    }
+
+    // Fallback: use axios with Sanctum to perform logout
+    try {
+        await ensureSanctum();
+        // axios is configured with withCredentials and XSRF in resources/js/axios.ts
+        await axios.post('/logout', { redirect_to: redirectTo });
+
+        // Redirect after logout
+        window.location.href = redirectTo;
+    } catch (e) {
+        console.warn('Logout via axios failed, falling back to form submit', e);
+        // Fallback to programmatic form if axios fails
+        const tokenMeta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null;
+        const token = tokenMeta?.getAttribute('content') || '';
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/logout';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_token';
+        input.value = token;
+        form.appendChild(input);
+
+        const redirect = document.createElement('input');
+        redirect.type = 'hidden';
+        redirect.name = 'redirect_to';
+        redirect.value = redirectTo;
+        form.appendChild(redirect);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
 };
 
 defineProps<Props>();

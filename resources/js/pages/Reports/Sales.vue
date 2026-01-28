@@ -1,13 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import { Head, router, usePage } from '@inertiajs/vue3'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   TrendingUp,
   TrendingDown,
@@ -21,6 +13,16 @@ import {
   FileText,
   BarChart3
 } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import AppLayout from '@/layouts/AppLayout.vue'
+
 
 // Get currency from page props
 const page = usePage()

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3'
 import { ShoppingCart, ArrowRight, Search, Menu, ArrowUpRight, ShieldCheck, CheckCircle2, BarChart3, Users, Zap } from 'lucide-vue-next'
-
-
 import { toRef } from 'vue'
 
 import { dashboard, login } from '@/routes'

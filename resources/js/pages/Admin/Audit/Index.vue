@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import { debounce } from 'lodash'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { 
     Activity, 
     Search, 
@@ -16,6 +12,10 @@ import {
     Building2,
     Lock
 } from 'lucide-vue-next'
+import { ref, watch } from 'vue'
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     logs: {
