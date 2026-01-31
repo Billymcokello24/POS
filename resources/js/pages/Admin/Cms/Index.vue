@@ -1,50 +1,47 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3'
 import { ref, watch, onMounted } from 'vue'
+import { 
+    Layout, 
+    Image as ImageIcon, 
+    Type, 
+    Settings2, 
+    Eye, 
+    Save, 
+    Info, 
+    Globe, 
+    Megaphone,
+    Search,
+    PenLine
+} from 'lucide-vue-next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 
-const props = defineProps({ cms: Object })
+const props = defineProps<{
+    cms: Record<string, any>
+}>()
 
-// default background used if none provided (plain string for template binding)
-const defaultBg: string = props.cms?.hero_bg_image || 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=2069&auto=format&fit=crop'
+// default background used if none provided
+const defaultBg = props.cms?.hero_bg_image || 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=2069&auto=format&fit=crop'
 
 const form = useForm({
-  // Hero
   hero_title: props.cms?.hero_title || '',
   hero_subtitle: props.cms?.hero_subtitle || '',
   hero_bg_image: props.cms?.hero_bg_image || '',
   announcement_text: props.cms?.announcement_text || '',
-  // About
   about_title: props.cms?.about_title || '',
   about_content: props.cms?.about_content || '',
-  // SEO
   seo_site_title: props.cms?.seo_site_title || '',
   seo_meta_description: props.cms?.seo_meta_description || '',
-  // Media
   media_logo_url: props.cms?.media_logo_url || '',
   media_favicon_url: props.cms?.media_favicon_url || '',
-  // MPESA platform defaults (nested object)
-  mpesa: {
-    consumer_key: props.cms?.mpesa?.consumer_key || '',
-    consumer_secret: props.cms?.mpesa?.consumer_secret || '',
-    shortcode: props.cms?.mpesa?.shortcode || '',
-    passkey: props.cms?.mpesa?.passkey || '',
-    environment: props.cms?.mpesa?.environment || 'sandbox',
-    callback_url: props.cms?.mpesa?.callback_url || '',
-    result_url: props.cms?.mpesa?.result_url || '',
-    head_office_shortcode: props.cms?.mpesa?.head_office_shortcode || '',
-    head_office_passkey: props.cms?.mpesa?.head_office_passkey || '',
-    initiator_name: props.cms?.mpesa?.initiator_name || '',
-    initiator_password: props.cms?.mpesa?.initiator_password || '',
-    security_credential: props.cms?.mpesa?.security_credential || '',
-    simulate: !!props.cms?.mpesa?.simulate,
-  }
 })
 
-const page: any = usePage()
+const page = usePage()
 const successFlash = ref<string | null>(null)
 
 watch(() => (page.props as any).flash?.success, (v: any) => {
@@ -63,28 +60,10 @@ onMounted(() => {
 })
 
 function save() {
-  // Resolve JS route helper safely; fallback to literal URL if it's not present
-  let url = '/admin/cms'
-  try {
-    const r = (globalThis as any).route
-    if (typeof r !== 'undefined') {
-      url = r('admin.cms.update')
-    }
-  } catch {
-    // keep fallback
-    console.warn('route() helper not available, falling back to /admin/cms')
-  }
-
-  console.debug('Saving CMS to', url, form)
-
+  // @ts-ignore
+  let url = typeof route !== 'undefined' ? route('admin.cms.update') : '/admin/cms'
   form.put(url, {
     preserveScroll: true,
-    onSuccess: () => {
-      // server will set flash; watch will pick it up
-    },
-    onError: (errors) => {
-      console.warn('CMS save errors', errors)
-    }
   })
 }
 </script>
@@ -93,209 +72,244 @@ function save() {
   <Head title="Platform CMS - Welcome Page" />
 
   <AdminLayout>
-    <div class="space-y-8">
-      <!-- Header -->
-      <div class="flex items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-        <div>
-          <h1 class="text-2xl font-bold text-slate-900">Welcome Page CMS</h1>
-          <p class="text-slate-500 text-sm mt-1">Edit the public welcome page content for the platform. Changes apply immediately to the public welcome page.</p>
-        </div>
-        <div>
-          <Button class="bg-slate-900 hover:bg-black text-white font-bold" @click="save">Save Changes</Button>
-        </div>
+    <div class="space-y-8 max-w-[90%] mx-auto pb-12">
+      <!-- Premium Header -->
+      <div class="relative overflow-hidden bg-slate-900 rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-slate-800">
+          <div class="absolute top-0 right-0 p-12 opacity-10 blur-2xl flex gap-4 pointer-events-none">
+              <div class="w-32 h-32 bg-indigo-500 rounded-full"></div>
+              <div class="w-48 h-48 bg-purple-500 rounded-full translate-y-12"></div>
+              <div class="w-24 h-24 bg-blue-500 rounded-full -translate-x-12"></div>
+          </div>
+
+          <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div class="space-y-2">
+                  <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+                      <Layout class="h-3 w-3" />
+                      Frontend Experience
+                  </div>
+                  <h1 class="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+                      Welcome Page CMS
+                  </h1>
+                  <p class="text-slate-400 font-medium max-w-xl text-sm md:text-base leading-relaxed">
+                      Craft the first impression of your platform. Update hero sections, about details, and SEO metadata in real-time.
+                  </p>
+              </div>
+
+              <div class="shrink-0 flex items-center gap-3">
+                  <Button 
+                      @click="save" 
+                      :disabled="form.processing"
+                      class="h-14 px-8 bg-white hover:bg-slate-100 text-slate-900 font-black rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-2"
+                  >
+                      <Save class="h-5 w-5" />
+                      {{ form.processing ? 'Saving...' : 'Save Changes' }}
+                  </Button>
+              </div>
+          </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div class="lg:col-span-7">
-          <Card class="border-none shadow-sm bg-white">
-            <CardHeader>
-              <div class="flex items-center justify-between">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-7 space-y-8">
+          <!-- Hero Section Card -->
+          <Card class="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden group">
+            <CardHeader class="p-8 pb-4">
+              <div class="flex items-center gap-4">
+                <div class="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                  <ImageIcon class="h-6 w-6" />
+                </div>
                 <div>
-                  <CardTitle class="text-lg font-bold">Hero Section</CardTitle>
-                  <CardDescription>Update the hero title, subtitle and background image URL.</CardDescription>
+                  <CardTitle class="text-xl font-black text-slate-900">Hero Section</CardTitle>
+                  <CardDescription>Main banner and introductory content.</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div class="grid grid-cols-1 gap-4">
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Hero Title (HTML allowed)</span>
-                  <input v-model="form.hero_title" class="mt-2 block w-full rounded border p-3" />
-                </label>
+            <CardContent class="p-8 pt-4 space-y-6">
+              <div class="grid grid-cols-1 gap-6">
+                <div class="space-y-2">
+                  <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Landing Title (HTML allowed)</Label>
+                  <div class="relative">
+                      <Input v-model="form.hero_title" class="h-14 bg-slate-50 border-slate-200 rounded-2xl px-4 font-bold pr-10 focus:ring-2 focus:ring-indigo-500" placeholder="e.g. POWER YOUR COMMERCE" />
+                      <Type class="absolute right-4 top-4.5 h-4 w-4 text-slate-300" />
+                  </div>
+                </div>
 
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Hero Subtitle</span>
-                  <textarea v-model="form.hero_subtitle" class="mt-2 block w-full rounded border p-3" rows="4"></textarea>
-                </label>
+                <div class="space-y-2">
+                  <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Hero Subtitle</Label>
+                  <textarea v-model="form.hero_subtitle" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all min-h-[100px]" placeholder="Briefly describe your platform's value proposition..."></textarea>
+                </div>
 
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Hero Background Image URL</span>
-                  <input v-model="form.hero_bg_image" class="mt-2 block w-full rounded border p-3" />
-                </label>
-
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Announcement Text</span>
-                  <input v-model="form.announcement_text" class="mt-2 block w-full rounded border p-3" />
-                </label>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card class="border-none shadow-sm bg-white mt-6">
-            <CardHeader>
-              <CardTitle class="text-lg font-bold">About Section</CardTitle>
-              <CardDescription>Short about blurb displayed on the welcome page.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <label class="block">
-                <span class="text-sm font-medium text-slate-700">Title</span>
-                <input v-model="form.about_title" class="mt-2 block w-full rounded border p-3" />
-              </label>
-              <label class="block mt-4">
-                <span class="text-sm font-medium text-slate-700">Content</span>
-                <textarea v-model="form.about_content" class="mt-2 block w-full rounded border p-3" rows="6"></textarea>
-              </label>
-            </CardContent>
-          </Card>
-
-          <Card class="border-none shadow-sm bg-white mt-6">
-            <CardHeader>
-              <CardTitle class="text-lg font-bold">SEO & Media</CardTitle>
-              <CardDescription>Site title, meta description, logo and favicon URLs.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <label class="block">
-                <span class="text-sm font-medium text-slate-700">Site Title (SEO)</span>
-                <input v-model="form.seo_site_title" class="mt-2 block w-full rounded border p-3" />
-              </label>
-              <label class="block mt-2">
-                <span class="text-sm font-medium text-slate-700">Meta Description</span>
-                <textarea v-model="form.seo_meta_description" class="mt-2 block w-full rounded border p-3" rows="3"></textarea>
-              </label>
-              <div class="grid grid-cols-2 gap-4 mt-4">
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Logo URL</span>
-                  <input v-model="form.media_logo_url" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Favicon URL</span>
-                  <input v-model="form.media_favicon_url" class="mt-2 block w-full rounded border p-3" />
-                </label>
-              </div>
-            </CardContent>
-          </Card>
-
-          <!-- MPESA Platform Defaults -->
-          <Card class="border-none shadow-sm bg-white mt-6">
-            <CardHeader>
-              <CardTitle class="text-lg font-bold">MPESA Platform Defaults</CardTitle>
-              <CardDescription>Default MPESA credentials used when a business has not provided theirs (used for subscription/payment fallbacks).</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Consumer Key</span>
-                  <input v-model="form.mpesa.consumer_key" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Consumer Secret</span>
-                  <input type="password" v-model="form.mpesa.consumer_secret" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Shortcode</span>
-                  <input v-model="form.mpesa.shortcode" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Passkey</span>
-                  <input type="password" v-model="form.mpesa.passkey" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Environment</span>
-                  <select v-model="form.mpesa.environment" class="mt-2 block w-full rounded border p-3">
-                    <option value="sandbox">Sandbox</option>
-                    <option value="production">Production</option>
-                    <option value="live">Live</option>
-                  </select>
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Callback URL</span>
-                  <input v-model="form.mpesa.callback_url" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Result URL</span>
-                  <input v-model="form.mpesa.result_url" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Head Office Shortcode</span>
-                  <input v-model="form.mpesa.head_office_shortcode" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Head Office Passkey</span>
-                  <input type="password" v-model="form.mpesa.head_office_passkey" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Initiator Name</span>
-                  <input v-model="form.mpesa.initiator_name" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Initiator Password</span>
-                  <input type="password" v-model="form.mpesa.initiator_password" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block col-span-2">
-                  <span class="text-sm font-medium text-slate-700">Security Credential</span>
-                  <input type="password" v-model="form.mpesa.security_credential" class="mt-2 block w-full rounded border p-3" />
-                </label>
-                <label class="block col-span-2">
-                </label>
-                <div class="col-span-2">
-                  <label class="flex items-center gap-2">
-                    <input type="checkbox" v-model="form.mpesa.simulate" />
-                    <span class="text-sm font-medium text-slate-700">Simulate Mode</span>
-                  </label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 font-black">Background Image URL</Label>
+                        <div class="relative">
+                            <Input v-model="form.hero_bg_image" class="h-14 bg-slate-50 border-slate-200 rounded-2xl px-4 font-bold pr-10 focus:ring-2 focus:ring-indigo-500" placeholder="https://..." />
+                            <ImageIcon class="absolute right-4 top-4.5 h-4 w-4 text-slate-300" />
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Announcement Text</Label>
+                        <div class="relative">
+                            <Input v-model="form.announcement_text" class="h-14 bg-slate-50 border-slate-200 rounded-2xl px-4 font-bold pr-10 focus:ring-2 focus:ring-indigo-500" placeholder="e.g. New features available!" />
+                            <Megaphone class="absolute right-4 top-4.5 h-4 w-4 text-slate-300" />
+                        </div>
+                    </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          <!-- About Section -->
+          <Card class="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden group">
+            <CardHeader class="p-8 pb-4">
+              <div class="flex items-center gap-4">
+                <div class="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
+                  <Info class="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle class="text-xl font-black text-slate-900">About Section</CardTitle>
+                  <CardDescription>Mission statement or value overview.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent class="p-8 pt-4 space-y-6">
+              <div class="space-y-2">
+                  <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Section Title</Label>
+                  <div class="relative">
+                      <Input v-model="form.about_title" class="h-14 bg-slate-50 border-slate-200 rounded-2xl px-4 font-bold pr-10 focus:ring-2 focus:ring-indigo-500" />
+                      <PenLine class="absolute right-4 top-4.5 h-4 w-4 text-slate-300" />
+                  </div>
+              </div>
+              <div class="space-y-2">
+                <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Main Content</Label>
+                <textarea v-model="form.about_content" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all min-h-[150px]"></textarea>
+              </div>
+            </CardContent>
+          </Card>
+
+          <!-- SEO & Media -->
+          <Card class="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden group">
+            <CardHeader class="p-8 pb-4">
+              <div class="flex items-center gap-4">
+                <div class="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                  <Globe class="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle class="text-xl font-black text-slate-900">SEO & Identity</CardTitle>
+                  <CardDescription>Search engine presence and branding.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent class="p-8 pt-4 space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                  <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Site Title (SEO)</Label>
+                  <Input v-model="form.seo_site_title" class="h-14 bg-slate-50 border-slate-200 rounded-2xl px-4 font-bold focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div class="space-y-2">
+                  <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Meta Description</Label>
+                  <textarea v-model="form.seo_meta_description" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all" rows="2"></textarea>
+                </div>
+                <div class="space-y-2">
+                  <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Brand Logo URL</Label>
+                  <Input v-model="form.media_logo_url" class="h-14 bg-slate-50 border-slate-200 rounded-2xl px-4 font-bold focus:ring-2 focus:ring-indigo-500" placeholder="https://..." />
+                </div>
+                <div class="space-y-2">
+                  <Label class="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Favicon URL</Label>
+                  <Input v-model="form.media_favicon_url" class="h-14 bg-slate-50 border-slate-200 rounded-2xl px-4 font-bold focus:ring-2 focus:ring-indigo-500" placeholder="https://..." />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div class="lg:col-span-5">
-          <Card class="border-none shadow-sm bg-white h-full sticky top-24">
-            <CardHeader>
-              <CardTitle class="text-lg font-bold">Live Preview</CardTitle>
-              <CardDescription>Preview of the public welcome page using current form values.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div class="rounded-lg overflow-hidden border">
-                <div class="bg-cover bg-center p-8" :style="{ backgroundImage: `url(${form.hero_bg_image || defaultBg})` }">
-                  <div class="bg-black/40 p-8 rounded-lg">
-                    <h2 class="text-3xl font-extrabold text-white" v-html="form.hero_title || 'POWER YOUR <br> COMMERCE'"></h2>
-                    <p class="text-white/80 mt-3">{{ form.hero_subtitle || 'The complete retail operating system.' }}</p>
-                  </div>
-                </div>
-                <div class="p-6">
-                  <h3 class="text-xl font-bold">{{ form.about_title || 'Designed for every role' }}</h3>
-                  <p class="text-slate-600 mt-2">{{ form.about_content || 'Strict role-based access control ensures your data is secure.' }}</p>
+          <!-- Real-time Preview -->
+          <div class="sticky top-24 space-y-6">
+            <div class="flex items-center justify-between px-6">
+                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Eye class="h-5 w-5 text-indigo-500" />
+                    Live Preview
+                </h3>
+                <span class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest">Real-time</span>
+            </div>
 
-                 <div class="mt-4 p-3 border rounded bg-slate-50">
-                    <h4 class="font-bold text-sm">MPESA Defaults (platform)</h4>
-                    <p class="text-xs text-slate-600">Shortcode: <strong>{{ form.mpesa.shortcode || '—' }}</strong></p>
-                    <p class="text-xs text-slate-600">Environment: <strong>{{ form.mpesa.environment }}</strong></p>
-                 </div>
+            <Card class="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+                <div class="relative min-h-[400px] flex flex-col">
+                    <!-- Virtual Hero -->
+                    <div class="relative bg-cover bg-center p-8 min-h-[300px] transition-all duration-700" :style="{ backgroundImage: `url(${form.hero_bg_image || defaultBg})` }">
+                        <div class="absolute inset-0 bg-gradient-to-br from-black/70 via-black/40 to-transparent"></div>
+                        <div class="relative z-10 space-y-4">
+                            <div class="inline-flex px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[9px] text-white font-black uppercase tracking-widest border border-white/20">
+                                {{ form.announcement_text || 'Premium SaaS Platform' }}
+                            </div>
+                            <h2 class="text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-2xl" v-html="form.hero_title || 'POWER YOUR <br> COMMERCE'"></h2>
+                            <p class="text-white/80 text-lg font-medium max-w-sm line-clamp-3 leading-relaxed drop-shadow-lg">
+                                {{ form.hero_subtitle || 'The complete retail operating system for modern business.' }}
+                            </p>
+                        </div>
+                    </div>
 
+                    <!-- Virtual Content -->
+                    <div class="p-8 space-y-6 bg-white flex-1">
+                        <div class="space-y-2">
+                            <h4 class="text-2xl font-black text-slate-900">{{ form.about_title || 'Designed for every role' }}</h4>
+                            <p class="text-slate-500 font-medium leading-relaxed italic text-sm">
+                                "{{ form.about_content || 'Strict role-based access control ensures your data is secure.' }}"
+                            </p>
+                        </div>
+
+                        <div class="flex items-center gap-4 pt-4 border-t border-slate-100">
+                            <div v-if="form.media_logo_url" class="h-10 w-auto bg-slate-50 rounded px-3 flex items-center">
+                                <img :src="form.media_logo_url" alt="Logo" class="max-h-6 w-auto grayscale" />
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Global SEO Title</div>
+                                <div class="text-sm font-bold text-slate-900 line-clamp-1 mt-1">{{ form.seo_site_title || 'Platform Name' }}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+            </Card>
+
+            <div class="bg-indigo-50/50 p-6 rounded-[2rem] flex items-start gap-4 ring-1 ring-indigo-100 border border-white shadow-sm">
+                <div class="h-10 w-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center shrink-0">
+                    <Settings2 class="h-5 w-5 text-indigo-500 animate-spin-slow" />
+                </div>
+                <div class="space-y-1">
+                    <h4 class="text-sm font-black text-slate-900">Synchronization Active</h4>
+                    <p class="text-xs text-slate-500 font-medium leading-relaxed">
+                        Changes made here are instantly available on your public welcome page. Use valid image URLs to ensure optimal rendering.
+                    </p>
+                </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Success Banner -->
-      <div v-if="successFlash" class="fixed top-0 inset-x-0 p-4 z-50">
-        <div class="bg-green-500 text-white text-center py-2 px-4 rounded-lg shadow-md">
-          {{ successFlash }}
-        </div>
-      </div>
+      <!-- Compact Toast -->
+      <Transition
+          enter-active-class="transition duration-300 ease-out"
+          enter-from-class="translate-y-4 opacity-0"
+          enter-to-class="translate-y-0 opacity-100"
+          leave-active-class="transition duration-200 ease-in"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+      >
+          <div v-if="successFlash" class="fixed bottom-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-3 z-[100] border border-slate-800 backdrop-blur-xl">
+              <div class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span class="text-sm font-black tracking-tight">{{ successFlash }}</span>
+          </div>
+      </Transition>
     </div>
   </AdminLayout>
 </template>
+
+<style scoped>
+.animate-spin-slow {
+    animation: spin 8s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>

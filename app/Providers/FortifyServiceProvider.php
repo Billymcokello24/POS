@@ -34,6 +34,32 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+
+        // Custom authentication logic to enforce business suspension
+        \Laravel\Fortify\Fortify::authenticateUsing(function ($request) {
+            $user = \App\Models\User::where('email', $request->email)->first();
+
+            if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+                // Check if business is active (Super Admins are exempt)
+                if (!$user->is_super_admin && $user->current_business_id) {
+                    $business = $user->currentBusiness;
+                    if ($business && !$business->is_active) {
+                        $reason = $business->suspension_reason ? ": {$business->suspension_reason}" : "";
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            \Laravel\Fortify\Fortify::username() => ["ACCOUNT SUSPENDED{$reason}. CONTACT THE SYSTEM ADMIN FOR ASSISTANCE"],
+                        ]);
+                    }
+                }
+
+                if ($user->is_active === false) {
+                     throw \Illuminate\Validation\ValidationException::withMessages([
+                        \Laravel\Fortify\Fortify::username() => ['User account is deactivated.'],
+                    ]);
+                }
+
+                return $user;
+            }
+        });
     }
 
     /**

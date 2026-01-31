@@ -130,62 +130,55 @@ class PaymentController extends Controller
 
         $checkout = $validated['checkout_request_id'];
 
-        // New: Prefer subscription_payments check first — authoritative for subscription activations
+        // 1. Authoritative check against MpesaPayment Ledger (Canonical Truth)
+        try {
+            $mp = \App\Models\MpesaPayment::where('checkout_request_id', $checkout)
+                ->orWhere('receipt', $checkout)
+                ->latest()
+                ->first();
+
+            if ($mp && $mp->status === \App\Models\MpesaPayment::STATUS_SUCCESS) {
+                // If it's successful, ensure activation service is triggered (idempotent)
+                $finalizer = app(\App\Http\Controllers\Api\SubscriptionPaymentController::class);
+                $finalizer->finalizeFromCallback([
+                    'checkout_request_id' => $mp->checkout_request_id,
+                    'mpesa_receipt' => $mp->receipt,
+                    'result_code' => $mp->result_code,
+                    'phone' => $mp->phone,
+                    'amount' => $mp->amount,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'ResultCode' => '0',
+                        'MpesaReceiptNumber' => $mp->receipt,
+                        'ResultDesc' => 'Payment successful',
+                        'auto_activated' => true,
+                    ]
+                ]);
+            }
+        } catch (\Throwable $_) {}
+
+        // 2. Fallback to SubscriptionPayment check
         try {
             $sp = \App\Models\SubscriptionPayment::where(function($q) use ($checkout) {
                 $q->where('checkout_request_id', $checkout)
-                  ->orWhere('mpesa_receipt', $checkout)
-                  ->orWhere('checkout_request_id', $checkout);
+                  ->orWhere('mpesa_receipt', $checkout);
             })->whereIn('status', ['completed', 'success'])->latest()->first();
 
             if ($sp) {
-                // If linked subscription exists and is active, or we can auto-activate, return success
-                $subscription = null;
-                try {
-                    if ($sp->subscription_id) $subscription = \App\Models\Subscription::find($sp->subscription_id);
-                } catch (\Throwable $_) { }
-
-                if ($subscription && $subscription->status === 'active' && $subscription->mpesa_receipt) {
-                    return response()->json([
-                        'success' => true,
-                        'data' => [
-                            'ResultCode' => '0',
-                            'MpesaReceiptNumber' => $subscription->mpesa_receipt,
-                            'ResultDesc' => 'Payment completed successfully',
-                            'subscription_id' => $subscription->id,
-                            'auto_activated' => true,
-                        ]
-                    ]);
-                }
-
-                // If subscription not active but payment exists, try to finalize activation using SubscriptionPaymentController
-                try {
-                    $finalizer = app(\App\Http\Controllers\Api\SubscriptionPaymentController::class);
-                    $ok = $finalizer->finalizeFromCallback([
-                        'checkout_request_id' => $sp->checkout_request_id,
-                        'mpesa_receipt' => $sp->mpesa_receipt,
-                        'phone' => $sp->phone ?? null,
-                        'amount' => $sp->amount ?? null,
-                        'merchant_request_id' => $sp->merchant_request_id ?? null,
-                        'raw_callback' => $sp->raw_response ?? null,
-                    ]);
-
-                    if ($ok) {
-                        $subscription = $subscription ?? ( $sp->subscription_id ? \App\Models\Subscription::find($sp->subscription_id) : null );
-                        return response()->json([
-                            'success' => true,
-                            'data' => [
-                                'ResultCode' => '0',
-                                'MpesaReceiptNumber' => $sp->mpesa_receipt,
-                                'ResultDesc' => 'Payment completed successfully',
-                                'subscription_id' => $subscription->id ?? null,
-                                'auto_activated' => true,
-                            ]
-                        ]);
-                    }
-                } catch (\Throwable $_) { /* ignore and continue */ }
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'ResultCode' => '0',
+                        'MpesaReceiptNumber' => $sp->mpesa_receipt,
+                        'ResultDesc' => 'Payment completed successfully',
+                        'auto_activated' => true,
+                    ]
+                ]);
             }
-        } catch (\Throwable $_) { /* ignore DB errors and fallback to API query */ }
+        } catch (\Throwable $_) { }
 
         // Existing logic below remains unchanged
         // First check database for already processed payment
@@ -241,44 +234,33 @@ class PaymentController extends Controller
             $mpesaReceipt = $data['MpesaReceiptNumber'] ?? $data['MpesaReceipt'] ?? null;
 
             if ($result['success'] && $resultCode === '0' && $mpesaReceipt) {
-                $subscription = \App\Models\Subscription::where('transaction_id', $checkout)
-                    ->orWhere('transaction_id', $mpesaReceipt)
-                    ->orWhere('checkout_request_id', $checkout)
-                    ->first();
+                // Centralize activation via SubscriptionPaymentController
+                $finalizer = app(\App\Http\Controllers\Api\SubscriptionPaymentController::class);
+                $ok = $finalizer->finalizeFromCallback([
+                    'checkout_request_id' => $checkout,
+                    'mpesa_receipt' => $mpesaReceipt,
+                    'phone' => $data['PhoneNumber'] ?? null,
+                    'amount' => $data['Amount'] ?? null,
+                    'merchant_request_id' => $data['MerchantRequestID'] ?? null,
+                    'raw_callback' => $data,
+                ]);
 
-                if ($subscription && $subscription->status !== 'active') {
-                    $endsAt = ($subscription->payment_details['billing_cycle'] ?? 'monthly') === 'yearly' ? now()->addYear() : now()->addMonth();
-                    $subscription->update([
-                        'mpesa_receipt' => $mpesaReceipt,
-                        'mpesa_stk' => $mpesaReceipt,
-                        'transaction_id' => $mpesaReceipt,
-                        'status' => 'active',
-                        'verified_at' => now(),
-                        'activated_at' => now(),
-                        'ends_at' => $endsAt,
-                    ]);
+                if ($ok) {
+                    $subscription = \App\Models\Subscription::where('transaction_id', $checkout)
+                        ->orWhere('transaction_id', $mpesaReceipt)
+                        ->orWhere('checkout_request_id', $checkout)
+                        ->first();
 
-                    // Update business plan
-                    $business = \App\Models\Business::find($subscription->business_id);
-                    if ($business) {
-                        try {
-                            // assign directly to avoid guarded mass-assignment warnings
-                            $business->plan_id = $subscription->plan_id;
-                            $business->plan_ends_at = $subscription->ends_at;
-                            $business->save();
-                        } catch (\Throwable $_) {}
+                    if ($subscription) {
+                        // augment result with subscription id and auto_activated flag for frontend convenience
+                        $result['data']['subscription_id'] = $subscription->id;
+                        $result['data']['auto_activated'] = true;
+                        Log::info('checkMpesaStatus: subscription auto-activated via polling sync', ['subscription_id' => $subscription->id, 'receipt' => $mpesaReceipt]);
                     }
-
-                    try { \App\Services\SseService::pushBusinessEvent($subscription->business_id, 'subscription.activated', ['id' => $subscription->id, 'status' => 'active']); } catch (\Throwable $_) {}
-                    \Illuminate\Support\Facades\Log::info('checkMpesaStatus: subscription auto-activated from status poll', ['subscription_id' => $subscription->id, 'receipt' => $mpesaReceipt]);
-
-                    // augment result with subscription id and auto_activated flag for frontend convenience
-                    $result['data']['subscription_id'] = $subscription->id;
-                    $result['data']['auto_activated'] = true;
                 }
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('checkMpesaStatus: auto-activation failed', ['error' => $e->getMessage()]);
+            Log::error('checkMpesaStatus: auto-activation failed', ['error' => $e->getMessage()]);
         }
 
         return response()->json($result);
@@ -437,113 +419,9 @@ class PaymentController extends Controller
     }
 
     /**
-     * M-Pesa Callback Handler
+     * M-Pesa Callback Handler (Deprecated - logic moved to MpesaController@stkCallback and ProcessMpesaCallback)
      */
-    public function mpesaCallback(Request $request)
-    {
-        Log::info('M-Pesa Callback Received', $request->all());
-
-        $callbackData = $request->all();
-
-        // Extract callback metadata
-        $resultCode = $callbackData['Body']['stkCallback']['ResultCode'] ?? null;
-        $resultDesc = $callbackData['Body']['stkCallback']['ResultDesc'] ?? null;
-        $checkoutRequestID = $callbackData['Body']['stkCallback']['CheckoutRequestID'] ?? null;
-
-        // Parse metadata items
-        $metadataItems = $callbackData['Body']['stkCallback']['CallbackMetadata']['Item'] ?? [];
-        $mpesaReceiptNumber = null;
-        $amount = null;
-        $phoneNumber = null;
-
-        foreach ($metadataItems as $item) {
-            if (!is_array($item)) continue;
-            if (($item['Name'] ?? '') === 'MpesaReceiptNumber') $mpesaReceiptNumber = $item['Value'] ?? null;
-            if (($item['Name'] ?? '') === 'Amount') $amount = $item['Value'] ?? null;
-            if (($item['Name'] ?? '') === 'PhoneNumber') $phoneNumber = $item['Value'] ?? null;
-        }
-
-        // If STK success and we have both checkout id and receipt, auto-activate subscription if pending
-        if ($resultCode === 0 && $mpesaReceiptNumber && $checkoutRequestID) {
-            try {
-                // Delegate to centralized finalizer
-                $finalizer = app(\App\Http\Controllers\Api\SubscriptionPaymentController::class);
-                $ok = $finalizer->finalizeFromCallback([
-                    'checkout_request_id' => $checkoutRequestID,
-                    'mpesa_receipt' => $mpesaReceiptNumber,
-                    'phone' => $phoneNumber,
-                    'amount' => $amount,
-                    'merchant_request_id' => $callbackData['Body']['stkCallback']['MerchantRequestID'] ?? null,
-                    'raw_callback' => $callbackData,
-                ]);
-
-                if ($ok) {
-                    return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Success']);
-                }
-            } catch (\Throwable $e) {
-                Log::error('mpesaCallback: auto-activation error', ['error' => $e->getMessage()]);
-                // continue to fallback behavior
-            }
-        }
-
-        // Existing sale/payment update behavior (fallback)
-        if ($resultCode === 0) {
-            // Payment successful
-            $metadata = $callbackData['Body']['stkCallback']['CallbackMetadata']['Item'] ?? [];
-
-            $mpesaReceiptNumber = $mpesaReceiptNumber ?? null;
-            $amount = $amount ?? null;
-            $phoneNumber = $phoneNumber ?? null;
-
-            // Find and update payment
-            $payment = Payment::where('reference_number', $checkoutRequestID)
-                ->where('status', 'pending')
-                ->first();
-
-            if ($payment) {
-                $payment->update([
-                    'status' => 'completed',
-                    'reference_number' => $mpesaReceiptNumber,
-                    'metadata' => [
-                        'mpesa_receipt' => $mpesaReceiptNumber,
-                        'amount' => $amount,
-                        'phone_number' => $phoneNumber,
-                        'callback_data' => $callbackData,
-                    ],
-                ]);
-
-                $this->updateSaleStatus($payment->sale_id);
-
-                Log::info('M-Pesa Payment Completed', [
-                    'payment_id' => $payment->id,
-                    'receipt' => $mpesaReceiptNumber
-                ]);
-            }
-        } else {
-            // Payment failed
-            $payment = Payment::where('reference_number', $checkoutRequestID)
-                ->where('status', 'pending')
-                ->first();
-
-            if ($payment) {
-                $payment->update([
-                    'status' => 'failed',
-                    'metadata' => [
-                        'result_code' => $resultCode,
-                        'result_desc' => $resultDesc,
-                        'callback_data' => $callbackData,
-                    ],
-                ]);
-
-                Log::warning('M-Pesa Payment Failed', [
-                    'payment_id' => $payment->id,
-                    'reason' => $resultDesc
-                ]);
-            }
-        }
-
-        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Success']);
-    }
+    // public function mpesaCallback(Request $request) { ... }
 
     /**
      * Update sale status based on payments

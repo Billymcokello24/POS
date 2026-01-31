@@ -9,13 +9,14 @@ import { initializeTheme } from './composables/useAppearance';
 import { ensureSanctum, attachSanctumToAxios } from './lib/sanctum';
 import { startBusinessSse } from './lib/sse';
 import { startRealtimePolling } from './lib/realtime';
+import './echo'; // Initialize Laravel Echo for WebSocket support
 
 // Defensive wrapper: intercept 'keydown' listeners and wrap them in a try/catch so
 // a single faulty handler (e.g. reading .length on undefined) doesn't throw an
 // uncaught exception and break other code. This logs the error and allows the
 // application to continue running. Useful for debugging unknown third-party
 // bundles that attach global keydown handlers.
-;(function () {
+; (function () {
     const proto: any = EventTarget && (EventTarget.prototype as any);
     if (!proto) return;
 
@@ -100,7 +101,7 @@ import { startRealtimePolling } from './lib/realtime';
 })();
 
 // Initialize Sanctum (fetch csrf cookie) and attach to axios defaults
-;(async () => {
+; (async () => {
     try {
         // Import the helpers that ensure the XSRF cookie is available and attach axios interceptors
         await ensureSanctum()
@@ -148,8 +149,8 @@ createInertiaApp({
                     startRealtimePolling(5000);
                 }
             }
-         } catch {
-             // Start it anyway as a fallback
+        } catch {
+            // Start it anyway as a fallback
             try {
                 // Fallback: start polling if SSE flag not enabled
                 const sseEnabled = import.meta.env.VITE_ENABLE_SSE === 'true' || import.meta.env.VITE_ENABLE_SSE === true;
@@ -159,8 +160,8 @@ createInertiaApp({
                     startRealtimePolling(5000);
                 }
             } catch { }
-         }
-     },
+        }
+    },
     progress: {
         color: '#4B5563',
     },

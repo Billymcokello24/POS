@@ -9,9 +9,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class Business extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasFactory;
 
     protected $fillable = [
         'name',
@@ -26,6 +28,9 @@ class Business extends Model
         'timezone',
         'is_active',
         'plan_id',
+        'plan_ends_at',
+        'subscription_updated_at',
+        'active_features',
         'suspension_reason',
         'settings',
     ];
@@ -33,6 +38,9 @@ class Business extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'settings' => 'array',
+        'active_features' => 'array',
+        'subscription_updated_at' => 'datetime',
+        'plan_ends_at' => 'datetime',
     ];
 
     /**
@@ -183,6 +191,11 @@ class Business extends Model
             return [];
         }
 
+        // If we have cached features, use them for speed
+        if ($this->active_features && is_array($this->active_features)) {
+            return $this->active_features;
+        }
+
         return \App\Models\Feature::where(function ($query) {
             $query->whereHas('businesses', function ($q) {
                 $q->where('businesses.id', $this->id)
@@ -195,6 +208,30 @@ class Business extends Model
                 });
             }
         })->pluck('key')->unique()->values()->toArray();
+    }
+
+    public function refreshFeatures(): void
+    {
+        $plan = $this->plan;
+        if (!$plan) {
+            // If no plan, clear features
+            $this->features()->detach();
+            $this->update(['active_features' => []]);
+            return;
+        }
+
+        $features = $plan->features;
+        $featureIds = $features->pluck('id')->toArray();
+        $slugs = $features->pluck('key')->toArray(); // 'key' is used in hasFeature
+
+        $sync = [];
+        $now = now();
+        foreach ($featureIds as $id) {
+            $sync[$id] = ['is_enabled' => true, 'created_at' => $now, 'updated_at' => $now];
+        }
+        
+        $this->features()->sync($sync);
+        $this->update(['active_features' => $slugs]);
     }
 
     public function activateSubscription(Subscription $subscription, ?string $receipt = null, array $metadata = []): void
@@ -217,59 +254,82 @@ class Business extends Model
         $activatedAt = $now;
         $verifiedAt = $now;
 
-        DB::transaction(function () use ($subscription, $receipt, $metadata, $plan, $duration, $activatedAt, $verifiedAt, $now) {
-            // Expire any existing active subscriptions for this business (except this one)
-            try {
-                $this->subscriptions()->where('status', 'active')->where('id', '!=', $subscription->id)->get()->each(function ($old) use ($now) {
-                    try {
-                        $old->update(['status' => 'expired', 'ends_at' => $now]);
-                    } catch (\Throwable $_) { /* ignore per-subscription failures */ }
-                });
-            } catch (\Throwable $_) {
-                // ignore
+        DB::transaction(function () use ($subscription, $receipt, $metadata, $plan, $duration, $activatedAt, $now) {
+            // 1. Comparison logic for Scheduled Downgrades
+            $currentPlan = $this->plan;
+            $currentPrice = $currentPlan ? (float)$currentPlan->price_monthly : 0;
+            $newPrice = (float)$plan->price_monthly;
+            $isUpgrade = $newPrice >= $currentPrice;
+
+            // 2. Transition OLD attempts
+            $this->subscriptions()
+                ->where('id', '!=', $subscription->id)
+                ->whereIn('status', [Subscription::STATUS_PENDING])
+                ->update([
+                    'status' => 'expired', 
+                    'ends_at' => $now,
+                    'is_active' => false
+                ]);
+
+            // 3. Handle Plan Transition Date (Point 11: Schedule downgrades at boundary)
+            if ($isUpgrade) {
+                // Upgrades are immediate: Expire current active SUBSCR
+                $this->subscriptions()
+                    ->where('id', '!=', $subscription->id)
+                    ->whereIn('status', ['active', 'trialing'])
+                    ->update(['status' => 'expired', 'ends_at' => $now, 'is_active' => false]);
+                
+                $subscriptionStarts = $now;
+                $subscriptionEnds = $now->copy()->addDays($duration);
+                
+                // Switch business plan immediately
+                $this->update([
+                    'plan_id' => $plan->id,
+                    'plan_ends_at' => $subscriptionEnds
+                ]);
+                $this->refreshFeatures();
+            } else {
+                // Downgrades are scheduled: current remains active until it ends
+                $activeSub = $this->subscriptions()
+                    ->where('id', '!=', $subscription->id)
+                    ->whereIn('status', ['active', 'trialing'])
+                    ->orderBy('ends_at', 'desc')
+                    ->first();
+
+                if ($activeSub && $activeSub->ends_at?->isFuture()) {
+                    $subscriptionStarts = $activeSub->ends_at; // Start when previous ends
+                    $subscriptionEnds = $subscriptionStarts->copy()->addDays($duration);
+                } else {
+                    $subscriptionStarts = $now;
+                    $subscriptionEnds = $now->copy()->addDays($duration);
+                    $this->update([
+                        'plan_id' => $plan->id,
+                        'plan_ends_at' => $subscriptionEnds
+                    ]);
+                    $this->refreshFeatures();
+                }
             }
 
-            // Update subscription with MPESA receipt and verification timestamps when available
+            // 4. Update core subscription record
             $subscription->update([
                 'status' => 'active',
+                'is_active' => true,
+                'is_verified' => true,
                 'transaction_id' => $receipt ?? $subscription->transaction_id,
                 'mpesa_receipt' => $receipt ?? $subscription->mpesa_receipt ?? null,
-                'starts_at' => $now,
-                'verified_at' => $receipt ? $verifiedAt : ($subscription->verified_at ?? null),
-                'activated_at' => $receipt ? $activatedAt : ($subscription->activated_at ?? null),
-                'ends_at' => $now->copy()->addDays($duration),
+                'starts_at' => $subscriptionStarts,
+                'ends_at' => $subscriptionEnds,
+                'verified_at' => $now,
+                'verified_by' => $metadata['approved_by'] ?? 'system',
+                'payment_confirmed_at' => $now,
+                'activated_at' => $now,
                 'payment_details' => array_merge($subscription->payment_details ?? [], $metadata, [
-                    'activated_at' => $activatedAt->toDateTimeString(),
-                    'mpesa_receipt' => $receipt ?? ($subscription->mpesa_receipt ?? null),
+                    'activated_at' => $now->toDateTimeString(),
+                    'auto_verified' => true,
+                    'saas_synced' => true,
+                    'logic' => $isUpgrade ? 'immediate_upgrade' : 'scheduled_downgrade'
                 ])
             ]);
-
-            // Update business plan and plan_ends_at
-            try {
-                $this->plan_id = $plan->id;
-                if (isset($subscription->ends_at) && $subscription->ends_at) {
-                    $this->plan_ends_at = $subscription->ends_at;
-                } else {
-                    $this->plan_ends_at = $subscription->ends_at ?? $subscription->activated_at ?? $subscription->starts_at ?? $now->copy()->addDays($duration);
-                }
-                $this->save();
-            } catch (\Throwable $_) {
-                // ignore
-            }
-
-            // Sync features: enable features that belong to the new plan and remove previous feature mappings
-            try {
-                $featureIds = $plan->features()->pluck('features.id')->toArray();
-                // Build sync array to set is_enabled = true for current plan features
-                $sync = [];
-                foreach ($featureIds as $fid) {
-                    $sync[$fid] = ['is_enabled' => 1, 'created_at' => now(), 'updated_at' => now()];
-                }
-                // Replace pivot entries with new mapping (this will remove previously enabled features not in this plan)
-                $this->features()->sync($sync);
-            } catch (\Throwable $_) {
-                // ignore
-            }
         });
     }
 

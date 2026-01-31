@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Notifications\UserAccountCreated;
 use Inertia\Inertia;
 
 class UsersController extends Controller
@@ -107,7 +108,7 @@ class UsersController extends Controller
             return back()->with('error', 'Your current plan limit for employees (' . $business->plan->max_users . ') has been reached. Please upgrade to add more.');
         }
 
-        DB::transaction(function () use ($validated, $currentBusinessId) {
+        DB::transaction(function () use ($validated, $currentBusinessId, $business) {
             $role = \App\Models\Role::findOrFail($validated['role_id']);
 
             $user = User::create([
@@ -120,6 +121,9 @@ class UsersController extends Controller
             ]);
 
             $user->roles()->attach($role->id, ['business_id' => $currentBusinessId]);
+
+            // Notify the new user of their credentials
+            $user->notify(new UserAccountCreated($validated['password'], $business->name));
         });
 
         return redirect()->route('users.index')->with('success', 'User created successfully');

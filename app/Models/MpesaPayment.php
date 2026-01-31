@@ -12,6 +12,10 @@ class MpesaPayment extends Model
     use HasFactory;
 
     protected $table = 'mpesa_payments';
+    
+    const STATUS_PENDING = 'pending';
+    const STATUS_SUCCESS = 'success';
+    const STATUS_FAILED = 'failed';
 
     protected $casts = [
         'metadata' => 'array',
@@ -20,6 +24,7 @@ class MpesaPayment extends Model
 
     protected $fillable = [
         'business_id',
+        'subscription_id', // SaaS Link
         'sale_id',
         'checkout_request_id',
         'merchant_request_id',
@@ -29,6 +34,7 @@ class MpesaPayment extends Model
         'reference',
         'account_reference',
         'status',
+        'result_code', // SaaS Truth
         'metadata',
         'raw_response',
     ];
@@ -38,52 +44,44 @@ class MpesaPayment extends Model
         return $this->belongsTo(Business::class);
     }
 
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(Subscription::class);
+    }
+
+    public static function resolveStatusFromCode($code): string
+    {
+        if ($code === null) return self::STATUS_PENDING;
+        // Blueprint Point 1 & 9: Zero is success, non-zero is failed
+        return (int)$code === 0 ? self::STATUS_SUCCESS : self::STATUS_FAILED;
+    }
+
     protected static function booted()
     {
+        static::saving(function (MpesaPayment $mp) {
+            // Re-resolve status if result_code is set or changed (Financial Truth)
+            if ($mp->result_code !== null) {
+                $mp->status = self::resolveStatusFromCode($mp->result_code);
+            }
+        });
+
         static::saved(function (MpesaPayment $mp) {
-            // Only act on finalized receipts
-            if (! in_array($mp->status, ['success', 'completed'])) return;
-            $receipt = $mp->receipt ?? null;
-            if (! $receipt) return;
-
-            try {
-                // try to resolve subscription id from account_reference SUB-<id>
-                $acct = $mp->account_reference ?? null;
-                $subscriptionId = null;
-                if ($acct && preg_match('/SUB-(\d+)/', $acct, $m)) {
-                    $subscriptionId = (int) $m[1];
+            // Activation Logic (Point 6: Automate subscription handling) 
+            // Only trigger on definitive success (result_code === 0)
+            if ($mp->isDirty('result_code') && (int)$mp->result_code === 0) {
+                try {
+                    $service = app(\App\Services\SubscriptionActivationService::class);
+                    $service->finalizeFromPayment([
+                        'checkout_request_id' => $mp->checkout_request_id,
+                        'mpesa_receipt' => $mp->receipt,
+                        'result_code' => $mp->result_code,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::error('MpesaPayment Observer: Activation failed', [
+                        'error' => $e->getMessage(),
+                        'mpesa_payment_id' => $mp->id
+                    ]);
                 }
-
-                // if we found id, dispatch activation job
-                if ($subscriptionId) {
-                    \App\Jobs\AttemptSubscriptionActivation::dispatch($subscriptionId, $receipt, ['source' => 'mpesa_payment_observer']);
-                    Log::info('MpesaPayment observer: dispatched activation job', ['mpesa_payment_id' => $mp->id, 'subscription_id' => $subscriptionId, 'receipt' => $receipt]);
-                    return;
-                }
-
-                // fallback: attempt to find a subscription_payment linking this receipt
-                $found = \App\Models\SubscriptionPayment::where('mpesa_receipt', $receipt)->first();
-                if ($found && $found->subscription_id) {
-                    \App\Jobs\AttemptSubscriptionActivation::dispatch($found->subscription_id, $receipt, ['source' => 'mpesa_payment_observer']);
-                    Log::info('MpesaPayment observer: dispatched activation job via subscription_payment', ['mpesa_payment_id' => $mp->id, 'subscription_payment_id' => $found->id, 'receipt' => $receipt]);
-                    return;
-                }
-
-                // last-resort: find a pending subscription for this business and amount
-                if ($mp->business_id) {
-                    $sub = \App\Models\Subscription::where('business_id', $mp->business_id)
-                        ->where('amount', $mp->amount)
-                        ->whereIn('status', ['initiated','pending','pending_verification'])
-                        ->orderBy('created_at', 'desc')
-                        ->first();
-                    if ($sub) {
-                        \App\Jobs\AttemptSubscriptionActivation::dispatch($sub->id, $receipt, ['source' => 'mpesa_payment_observer']);
-                        Log::info('MpesaPayment observer: dispatched activation job via business/amount heuristic', ['mpesa_payment_id' => $mp->id, 'subscription_id' => $sub->id, 'receipt' => $receipt]);
-                        return;
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::error('MpesaPayment observer exception', ['error' => $e->getMessage(), 'mpesa_payment_id' => $mp->id]);
             }
         });
     }

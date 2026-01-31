@@ -11,9 +11,14 @@ import {
     Filter,
     ArrowUpRight,
     Loader2,
-    CheckCircle2
+    CheckCircle2,
+    Trash2,
+    MoreVertical,
+    CheckCircle,
+    XCircle,
+    Clock
 } from 'lucide-vue-next'
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,16 +39,28 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     subscriptions: {
         data: Array<{
             id: number
+            subscription_id: number | null
+            payment_id: number | null
             plan_name: string
             amount: number
             currency: string
             status: string
+            subscription_status?: string
+            approval_status?: string
+            billing_cycle?: string
+            mpesa_receipt?: string
             transaction_id: string
             payment_method: string
             payment_details?: any
@@ -67,6 +84,7 @@ const props = defineProps<{
         this_month: number
         this_year: number
         total: number
+        conversion_rate: number
         monthly_trend: Array<any>
     }
     filters: {
@@ -95,40 +113,19 @@ watch([search, planFilter, dateFrom, dateTo], debounce(() => {
     )
 }, 500))
 
-const showAddModal = ref(false)
-const processingId = ref<number | null>(null)
+// Removed: Manual activation functions (violates payment-as-truth)
+// const showAddModal = ref(false)
+// const processingId = ref<number | null>(null)
+// const approveSubscription = () => { ... }
+
 const reconcileLoading = ref(false)
 const reconcileResult = ref<any | null>(null)
 const showReconcileModal = ref(false)
 
-const form: any = (useForm as any)({
-    business_id: '',
-    plan_id: '',
-    amount: '',
-    currency: 'KES',
-    starts_at: new Date().toISOString().split('T')[0],
-    ends_at: '',
-})
+// Removed: Manual subscription creation (violates payment-as-truth)
+// const form = useForm({ ... })
+// const submitPayment = () => { ... }
 
-const submitPayment = () => {
-    form.post('/admin/subscriptions', {
-        onSuccess: () => {
-            form.reset()
-            showAddModal.value = false
-        }
-    })
-}
-
-const approveSubscription = (subscriptionId: number | null) => {
-    if (!subscriptionId) return;
-    processingId.value = subscriptionId;
-    router.post(`/admin/subscriptions/${subscriptionId}/approve`, {}, {
-        preserveScroll: true,
-        onFinish: () => {
-            processingId.value = null
-        }
-    })
-}
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -184,6 +181,109 @@ const getMpesaStk = (sub: any) => {
     } catch { /* ignore */ }
     return null
 }
+
+// Selection state for bulk delete
+const selectedIds = ref<number[]>([])
+const isSelected = (id: number) => selectedIds.value.includes(id)
+const toggleSelect = (id: number) => {
+    if (isSelected(id)) {
+        selectedIds.value = selectedIds.value.filter(i => i !== id)
+    } else {
+        selectedIds.value = [...selectedIds.value, id]
+    }
+}
+
+// Computed property for select all checkbox
+const allSelected = computed({
+    get() {
+        return props.subscriptions.data.length > 0 && 
+               selectedIds.value.length === props.subscriptions.data.length
+    },
+    set(value: boolean) {
+        if (value) {
+            selectedIds.value = props.subscriptions.data.map(s => s.id)
+        } else {
+            selectedIds.value = []
+        }
+    }
+})
+
+const deletePayment = async (id: number, businessName: string, planName: string) => {
+    if (!confirm(`⚠️ Delete subscription payment for "${businessName}" - ${planName}?\n\nThis will permanently delete the payment record and related subscription.\n\nThis action CANNOT be undone!`)) return
+    
+    await router.delete(`/admin/subscriptions/payments/${id}`)
+    router.reload()
+}
+
+const bulkDelete = async () => {
+    if (selectedIds.value.length === 0) return
+    if (!confirm(`⚠️ DANGER: Permanently delete ${selectedIds.value.length} subscription payment(s)?\n\nThis will delete:\n• All selected payment records\n• Related subscription records\n• All associated data\n\nThis action CANNOT be undone!`)) return
+    
+    try {
+        await router.post('/admin/subscriptions/bulk-delete', {
+            ids: selectedIds.value
+        })
+        selectedIds.value = []
+        router.reload()
+    } catch (e) {
+        console.error('Bulk delete failed:', e)
+        alert('Bulk delete failed')
+    }
+}
+
+// Approve subscription
+const approveSubscription = async (paymentId: number, businessName: string, planName: string) => {
+    if (!confirm(`✅ Approve subscription for "${businessName}" - ${planName}?\n\nThis will:\n• Activate the subscription\n• Unlock plan features\n• Set billing dates\n\nContinue?`)) return
+    
+    try {
+        await router.post(`/admin/subscriptions/payments/${paymentId}/approve`, {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.reload()
+            }
+        })
+    } catch (e) {
+        console.error('Approval failed:', e)
+        alert('Approval failed')
+    }
+}
+
+// Reject subscription
+const rejectReason = ref('')
+const showRejectModal = ref(false)
+const rejectingPaymentId = ref<number | null>(null)
+
+const openRejectModal = (paymentId: number) => {
+    rejectingPaymentId.value = paymentId
+    rejectReason.value = ''
+    showRejectModal.value = true
+}
+
+const confirmReject = async () => {
+    if (!rejectReason.value.trim()) {
+        alert('Please provide a rejection reason')
+        return
+    }
+    
+    if (!rejectingPaymentId.value) return
+    
+    try {
+        await router.post(`/admin/subscriptions/payments/${rejectingPaymentId.value}/reject`, {
+            reason: rejectReason.value
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                showRejectModal.value = false
+                rejectingPaymentId.value = null
+                rejectReason.value = ''
+                router.reload()
+            }
+        })
+    } catch (e) {
+        console.error('Rejection failed:', e)
+        alert('Rejection failed')
+    }
+}
 </script>
 
 <template>
@@ -206,13 +306,26 @@ const getMpesaStk = (sub: any) => {
                     <p class="text-slate-500 font-medium">Subscription performance, revenue flow, and tenant billing lifecycle.</p>
                 </div>
                 <div class="flex gap-3 relative z-10">
+                    <Button 
+                        v-if="selectedIds.length > 0" 
+                        @click="bulkDelete" 
+                        variant="destructive" 
+                        class="h-12 px-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[10px] gap-2"
+                    >
+                        <Trash2 class="size-4" />
+                        Delete {{ selectedIds.length }} Selected
+                    </Button>
                     <Button variant="outline" class="h-12 px-6 rounded-xl border-slate-200 font-black uppercase tracking-widest text-[10px] gap-2 hover:bg-slate-50">
                         <TrendingUp class="size-4" />
                         Export Ledger
                     </Button>
-                    <Button @click="showAddModal = true" class="h-12 px-6 rounded-xl bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-[10px] gap-2 shadow-xl shadow-slate-200/50">
+                    <Button 
+                        disabled 
+                        class="h-12 px-6 rounded-xl bg-slate-300 text-slate-500 font-black uppercase tracking-widest text-[10px] gap-2 cursor-not-allowed opacity-60"
+                        title="Manual subscription creation disabled - all subscriptions must originate from confirmed payments"
+                    >
                         <Plus class="size-4" />
-                        Record Transaction
+                        Manual Entry Disabled
                     </Button>
                 </div>
             </div>
@@ -265,12 +378,12 @@ const getMpesaStk = (sub: any) => {
                     <div class="absolute inset-0 bg-gradient-to-br from-emerald-500 to-emerald-600"></div>
                     <CardContent class="pt-8 relative z-10">
                         <div class="flex items-center justify-between opacity-70 mb-3">
-                            <span class="text-[10px] font-black uppercase tracking-[0.2em]">Annual Run Rate</span>
+                            <span class="text-[10px] font-black uppercase tracking-[0.2em]">Conversion Efficiency</span>
                             <TrendingUp class="size-4" />
                         </div>
-                        <div class="text-3xl font-black tracking-tight">{{ formatCurrency(props.revenue.this_year) }}</div>
+                        <div class="text-3xl font-black tracking-tight">{{ props.revenue.conversion_rate }}%</div>
                         <div class="mt-4 flex items-center gap-1.5 text-xs text-white/80 font-bold uppercase tracking-tight text-white">
-                            Year-to-Date Growth
+                            Transaction Success Rate
                         </div>
                     </CardContent>
                 </Card>
@@ -309,16 +422,23 @@ const getMpesaStk = (sub: any) => {
                     <Table>
                         <TableHeader class="bg-slate-50/50">
                             <TableRow>
+                                <TableHead class="w-12 px-4">
+                                    <input type="checkbox" v-model="allSelected" class="h-4 w-4" />
+                                </TableHead>
                                 <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px] pl-10 py-5">Origin (Business)</TableHead>
                                 <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px]">Subscription Tier</TableHead>
-                                <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px]">Method & Status</TableHead>
+                                <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px]">Billing Cycle</TableHead>
+                                <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px]">M-Pesa Ref</TableHead>
                                 <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px]">Amount</TableHead>
-                                <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px]">Billing Window</TableHead>
-                                <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px] text-right pr-10">Timeline / Actions</TableHead>
+                                <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px]">Approval Status</TableHead>
+                                <TableHead class="font-black text-slate-900 uppercase tracking-widest text-[9px] text-right pr-10">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow v-for="sub in props.subscriptions.data" :key="sub.id" class="group hover:bg-slate-50/50 transition-colors border-b border-slate-50">
+                                <TableCell class="py-4 px-4">
+                                    <input type="checkbox" :checked="isSelected(sub.id)" @change="toggleSelect(sub.id)" class="h-4 w-4" />
+                                </TableCell>
                                 <TableCell class="pl-10 py-6">
                                     <div class="flex items-center gap-4">
                                         <div class="size-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-400 border border-slate-200 uppercase group-hover:bg-slate-900 group-hover:text-white group-hover:border-slate-900 transition-all">
@@ -335,44 +455,97 @@ const getMpesaStk = (sub: any) => {
                                         {{ sub.plan_name }}
                                     </Badge>
                                 </TableCell>
+                                
+                                <!-- Billing Cycle -->
                                 <TableCell>
-                                    <div class="space-y-1">
-                                        <div class="flex items-center gap-1.5 font-black text-[10px] uppercase">
-                                            <div class="size-1.5 rounded-full" :class="sub.status === 'active' ? 'bg-emerald-500 animate-pulse' : (sub.status === 'pending' ? 'bg-amber-500 animate-bounce' : 'bg-slate-300')"></div>
-                                            <span :class="sub.status === 'active' ? 'text-emerald-700' : (sub.status === 'pending' ? 'text-amber-700' : 'text-slate-500')">{{ sub.status }}</span>
-                                        </div>
-                                        <div class="text-[9px] text-slate-400 font-mono tracking-tighter uppercase">
-                                            Method & Status
-                                        </div>
-                                    </div>
+                                    <Badge class="bg-blue-50 text-blue-700 px-3 py-1 font-black uppercase text-[9px] tracking-widest border-none">
+                                        {{ sub.billing_cycle || 'monthly' }}
+                                    </Badge>
                                 </TableCell>
+                                
+                                <!-- M-Pesa Receipt -->
+                                <TableCell>
+                                    <div class="font-mono text-xs font-bold text-slate-700">{{ sub.mpesa_receipt || 'N/A' }}</div>
+                                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">M-Pesa Ref</div>
+                                </TableCell>
+                                
+                                <!-- Amount -->
                                 <TableCell>
                                     <div class="font-black text-slate-900">{{ formatCurrency(sub.amount) }}</div>
-                                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Revenue Ledger</div>
+                                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Revenue</div>
                                 </TableCell>
+                                
+                                <!-- Approval Status -->
                                 <TableCell>
-                                    <div class="flex items-center gap-2 text-xs font-bold text-slate-600">
-                                        <span>{{ sub.starts_at ? formatDate(sub.starts_at) : '...' }}</span>
-                                        <TrendingUp class="size-3 text-slate-300" />
-                                        <span>{{ sub.ends_at ? formatDate(sub.ends_at) : '...' }}</span>
+                                    <div v-if="sub.subscription_status === 'active'" class="flex items-center gap-1.5">
+                                        <CheckCircle class="size-3.5 text-emerald-500" />
+                                        <span class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Active</span>
+                                    </div>
+                                    <div v-else-if="sub.subscription_status === 'rejected' || sub.approval_status === 'rejected'" class="flex items-center gap-1.5">
+                                        <XCircle class="size-3.5 text-red-500" />
+                                        <span class="text-[10px] font-black text-red-700 uppercase tracking-widest">Rejected</span>
+                                    </div>
+                                    <div v-else-if="sub.approval_status === 'pending'" class="flex items-center gap-1.5">
+                                        <Clock class="size-3.5 text-amber-500 animate-pulse" />
+                                        <span class="text-[10px] font-black text-amber-700 uppercase tracking-widest">Pending</span>
+                                    </div>
+                                    <div v-else class="flex items-center gap-1.5">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ sub.subscription_status || sub.approval_status || 'N/A' }}</span>
                                     </div>
                                 </TableCell>
+                                
+                                <!-- Actions -->
                                 <TableCell class="text-right pr-10">
-                                    <div v-if="sub.status !== 'active'" class="flex items-center justify-end gap-2">
-                                        <Button
-                                            @click="approveSubscription(sub.subscription_id)"
-                                            :disabled="processingId === sub.subscription_id || !sub.subscription_id"
-                                            class="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest gap-2 disabled:opacity-70"
-                                        >
-                                            <Loader2 v-if="processingId === sub.subscription_id" class="size-4 animate-spin" />
-                                            <CheckCircle2 v-else class="size-4" />
-                                            {{ processingId === sub.subscription_id ? 'Processing...' : (sub.status === 'pending_verification' || sub.status === 'pending' ? 'Verify & Activate' : 'Verify & Activate') }}
-                                        </Button>
-                                        <Badge v-if="sub.auto_verified" class="ml-2 bg-emerald-50 text-emerald-700 font-black text-[9px] px-2 py-1 uppercase tracking-widest">Auto-verified</Badge>
-                                    </div>
-                                    <div v-else class="space-y-0.5">
-                                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ formatDate(sub.created_at) }}</div>
-                                        <div class="text-[9px] text-slate-300 font-medium">Recorded by System</div>
+                                    <div class="flex items-center justify-end gap-2">
+                                        <!-- Approve/Reject buttons for pending subscriptions -->
+                                        <div v-if="sub.approval_status === 'pending' && (sub.status === 'SUCCESS' || sub.status === 'PENDING')" class="flex gap-2">
+                                            <Button 
+                                                @click="approveSubscription(sub.id, sub.business.name, sub.plan_name)" 
+                                                size="sm"
+                                                class="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-widest rounded-lg"
+                                            >
+                                                <CheckCircle class="size-3 mr-1" />
+                                                Approve
+                                            </Button>
+                                            <Button 
+                                                @click="openRejectModal(sub.id)" 
+                                                size="sm"
+                                                variant="outline"
+                                                class="h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 font-bold text-[10px] uppercase tracking-widest rounded-lg"
+                                            >
+                                                <XCircle class="size-3 mr-1" />
+                                                Reject
+                                            </Button>
+                                        </div>
+                                        
+                                        <!-- Status for approved/rejected -->
+                                        <div v-else-if="sub.approval_status === 'approved'" class="flex items-center gap-1.5">
+                                            <CheckCircle2 class="size-3.5 text-emerald-500" />
+                                            <span class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Activated</span>
+                                        </div>
+                                        <div v-else-if="sub.approval_status === 'rejected'" class="flex items-center gap-1.5">
+                                            <Badge variant="outline" class="border-red-200 text-red-600 bg-red-50 font-black text-[9px] uppercase tracking-widest px-2 py-1">
+                                                Rejected
+                                            </Badge>
+                                        </div>
+                                        
+                                        <!-- Timestamp -->
+                                        <div class="text-[9px] text-slate-400 font-medium">{{ formatDate(sub.created_at) }}</div>
+
+                                        <!-- Actions dropdown -->
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger as-child>
+                                                <Button variant="ghost" class="h-8 w-8 p-0 text-slate-400 hover:text-slate-900">
+                                                    <MoreVertical class="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" class="w-48">
+                                                <DropdownMenuItem @click="deletePayment(sub.id, sub.business.name, sub.plan_name)" class="cursor-pointer text-red-600 font-bold">
+                                                    <Trash2 class="mr-2 h-4 w-4" />
+                                                    Delete Payment
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -390,59 +563,6 @@ const getMpesaStk = (sub: any) => {
             </div>
         </div>
 
-        <Dialog v-model:open="showAddModal">
-            <DialogContent class="sm:max-w-[500px] p-0 border-none shadow-3xl bg-white overflow-hidden rounded-[2.5rem]">
-                <div class="max-h-[90vh] overflow-y-auto custom-scrollbar">
-                    <div class="p-10 space-y-8 border-b border-slate-50 bg-[#f8fafc]">
-                    <div class="space-y-1">
-                        <Badge variant="outline" class="bg-indigo-50 text-indigo-700 border-indigo-100 px-3 py-1 font-black uppercase text-[9px] tracking-widest">Admin Intervention</Badge>
-                        <DialogTitle class="text-3xl font-black text-slate-900 tracking-tighter">Record Payment</DialogTitle>
-                        <DialogDescription class="text-slate-500 font-medium pt-1">Manually authorize a subscription for a tenant business.</DialogDescription>
-                    </div>
-
-                    <div class="space-y-5">
-                        <div class="space-y-2">
-                            <Label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Participating Business</Label>
-                            <select v-model="form.business_id" class="h-12 w-full px-4 rounded-xl border border-slate-200 bg-white font-bold text-sm">
-                                <option value="" disabled>Select business...</option>
-                                <option v-for="b in props.businesses" :key="b.id" :value="b.id">{{ b.name }}</option>
-                            </select>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-2">
-                                <Label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Subscription Tier</Label>
-                                <select v-model="form.plan_id" class="h-12 w-full px-4 rounded-xl border border-slate-200 bg-white font-bold text-sm">
-                                    <option value="" disabled>Select plan...</option>
-                                    <option v-for="p in props.plans" :key="p.id" :value="p.id">{{ p.name }}</option>
-                                </select>
-                            </div>
-                            <div class="space-y-2">
-                                <Label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount (KES)</Label>
-                                <Input v-model="form.amount" type="number" class="h-12 rounded-xl border-slate-200 font-bold" />
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-2">
-                                <Label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Start Date</Label>
-                                <Input v-model="form.starts_at" type="date" class="h-12 rounded-xl border-slate-200 font-bold" />
-                            </div>
-                            <div class="space-y-2">
-                                <Label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Expiry Date</Label>
-                                <Input v-model="form.ends_at" type="date" class="h-12 rounded-xl border-slate-200 font-bold" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="p-10 flex gap-4">
-                    <Button @click="showAddModal = false" variant="ghost" class="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-400 border-none">Cancel</Button>
-                    <Button @click="submitPayment" :disabled="form.processing" class="flex-1 h-14 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-slate-200 transition-all">
-                        <Loader2 v-if="form.processing" class="size-4 animate-spin mr-2" />
-                        Authorize Sub
-                    </Button>
-                </div>
-                </div>
-            </DialogContent>
-        </Dialog>
 
         <Dialog v-model:open="showReconcileModal">
             <DialogContent class="sm:max-w-[600px] p-0 border-none shadow-3xl bg-white overflow-hidden rounded-[2.5rem]">
@@ -468,6 +588,43 @@ const getMpesaStk = (sub: any) => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Rejection Modal -->
+        <Dialog :open="showRejectModal" @update:open="showRejectModal = $event">
+            <DialogContent class="sm:max-w-md">
+                <DialogTitle class="text-xl font-bold text-slate-900">Reject Subscription</DialogTitle>
+                <DialogDescription class="text-slate-600">
+                    Please provide a reason for rejecting this subscription payment.
+                </DialogDescription>
+                
+                <div class="space-y-4 py-4">
+                    <div>
+                        <Label class="text-sm font-bold text-slate-700">Rejection Reason</Label>
+                        <textarea 
+                            v-model="rejectReason" 
+                            placeholder="e.g., Duplicate payment, Invalid business details, etc."
+                            class="w-full mt-2 p-3 border border-slate-200 rounded-lg focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px] text-sm"
+                        ></textarea>
+                    </div>
+                </div>
+                
+                <div class="flex gap-3 justify-end">
+                    <Button 
+                        variant="outline" 
+                        @click="showRejectModal = false"
+                        class="px-4 font-bold"
+                    >
+                        Cancel
+                    </Button>
+                    <Button 
+                        @click="confirmReject"
+                        class="px-4 bg-red-600 hover:bg-red-700 text-white font-bold"
+                    >
+                        Confirm Rejection
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>

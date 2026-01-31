@@ -59,6 +59,7 @@ Route::middleware([])->group(function () {
 // Protected route for M-Pesa STK push (requires authentication)
 Route::middleware('auth:sanctum')->post('/payments/mpesa/stk-push', [MpesaController::class, 'initiateMpesaPayment']);
 Route::post('/payments/mpesa/check-status', [MpesaController::class, 'checkMpesaStatus']);
+Route::post('/subscription/payment/status', [MpesaController::class, 'checkMpesaStatus']);
 Route::post('/payments/mpesa/till-payment', [MpesaController::class, 'recordTillPayment']);
 Route::post('/card', [PaymentController::class, 'processCardPayment']);
 

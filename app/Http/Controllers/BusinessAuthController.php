@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
+use App\Notifications\BusinessRegistered;
 use Inertia\Inertia;
 
 class BusinessAuthController extends Controller
@@ -60,6 +61,9 @@ class BusinessAuthController extends Controller
 
             // 4. Login
             Auth::login($user);
+
+            // 5. Notify the user
+            $user->notify(new BusinessRegistered($business));
         });
 
         return redirect()->route('dashboard');

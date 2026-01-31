@@ -12,20 +12,29 @@ use Illuminate\Support\Facades\Log;
 
 class SubscriptionController extends Controller
 {
+    protected $revenueService;
+    protected $activationService;
+
+    public function __construct(\App\Services\RevenueService $revenueService, \App\Services\SubscriptionActivationService $activationService)
+    {
+        $this->revenueService = $revenueService;
+        $this->activationService = $activationService;
+    }
+
     public function index(Request $request)
     {
-        // Run a lightweight reconciliation for super-admins: try auto-activating pending subscriptions
+        // Run a lightweight reconciliation for super-admins: try auto-activating pending payments
         try {
             $user = $request->user();
             if ($user && ($user->is_super_admin ?? false)) {
                 $this->reconcileCandidates();
             }
         } catch (\Throwable $e) {
-            // swallow errors so page still loads
             Log::error('SubscriptionController@index reconcile error: ' . $e->getMessage());
         }
 
-        // Build admin ledger from authoritative SubscriptionPayment table
+        // CRITICAL: Query from subscriptions_payments (The Single Source of Truth)
+        // This is the SAME table that /subscription writes to
         $paymentsQuery = SubscriptionPayment::with(['subscription.plan', 'subscription.business', 'business'])
             ->orderBy('created_at', 'desc');
 
@@ -33,10 +42,15 @@ class SubscriptionController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $paymentsQuery->where(function ($q) use ($search) {
-                $q->whereHas('business', function ($qb) use ($search) { $qb->where('name', 'like', '%'.$search.'%'); })
-                  ->orWhereHas('subscription', function ($qb2) use ($search) { $qb2->where('plan_name', 'like', '%'.$search.'%')->orWhere('transaction_id', 'like', '%'.$search.'%'); })
-                  ->orWhere('checkout_request_id', 'like', '%'.$search.'%')
-                  ->orWhere('mpesa_receipt', 'like', '%'.$search.'%');
+                $q->whereHas('business', function ($qb) use ($search) { 
+                    $qb->where('name', 'like', '%'.$search.'%'); 
+                })
+                ->orWhereHas('subscription', function ($qb2) use ($search) { 
+                    $qb2->where('plan_name', 'like', '%'.$search.'%')
+                        ->orWhere('transaction_id', 'like', '%'.$search.'%'); 
+                })
+                ->orWhere('checkout_request_id', 'like', '%'.$search.'%')
+                ->orWhere('mpesa_receipt', 'like', '%'.$search.'%');
             });
         }
 
@@ -57,46 +71,57 @@ class SubscriptionController extends Controller
 
         $payments = $paymentsQuery->paginate(15)->withQueryString();
 
-        // Transform to the shape the frontend expects (use arrays for stability)
+        // Transform to the shape the frontend expects
         $payments->getCollection()->transform(function ($pay) {
             $sub = $pay->subscription ?? null;
-            $business = $sub->business ?? $pay->business ?? null;
+            $business = $pay->business ?? ($sub ? $sub->business : null);
 
-            $planName = $sub->plan_name ?? ($sub->plan->name ?? null) ?? '';
-            $amount = $pay->amount ?? ($sub->amount ?? 0);
-            $currency = $sub->currency ?? ($business->currency ?? 'KES');
-            $status = $sub->status ?? ($pay->status ?? 'pending');
-            $transactionId = $sub->transaction_id ?? $pay->mpesa_receipt ?? $pay->checkout_request_id ?? null;
+            $planName = $sub->plan_name ?? ($sub->plan->name ?? null) ?? 'Unknown Plan';
+            $amount = (float)($pay->amount ?? ($sub->amount ?? 0));
+            $currency = $pay->currency ?? ($sub->currency ?? 'KES');
+            
+            // Definitively determine status from subscriptions_payments (Financial Truth)
+            $status = 'PENDING_PAYMENT';
+            if ($pay->status === 'completed' || $pay->status === 'success' || ($sub && $sub->status === 'active')) {
+                $status = 'ACTIVE';
+            } elseif ($pay->status === 'failed' || $pay->status === 'cancelled') {
+                $status = 'FAILED';
+            } elseif ($sub && $sub->status === 'cancelled') {
+                $status = 'CANCELLED';
+            }
+
+            $transactionId = $pay->mpesa_receipt ?? $pay->checkout_request_id ?? ($sub ? $sub->transaction_id : null);
+            $autoVerified = ($pay->status === 'completed' || $pay->status === 'success');
 
             return [
-                'id' => $sub->id ?? null,
+                'id' => $pay->id,
                 'subscription_id' => $sub->id ?? null,
-                'payment_id' => $pay->id ?? null,
+                'payment_id' => $pay->id,
                 'plan_name' => $planName,
                 'amount' => $amount,
                 'currency' => $currency,
                 'status' => $status,
                 'transaction_id' => $transactionId,
-                'payment_method' => $sub->payment_method ?? 'MPESA_STK',
-                'payment_details' => $sub->payment_details ?? ['phone' => $pay->phone ?? null],
+                'payment_method' => $pay->payment_method ?? ($sub->payment_method ?? 'MPESA_STK'),
                 'starts_at' => $sub->starts_at ?? null,
                 'ends_at' => $sub->ends_at ?? null,
-                'created_at' => $sub->created_at ?? $pay->created_at,
+                'created_at' => $pay->created_at->toDateTimeString(),
                 'business' => ['name' => $business->name ?? 'Unknown'],
-                'mpesa_receipt' => $pay->mpesa_receipt ?? $sub->mpesa_receipt ?? null,
-                'auto_verified' => ($pay->status === 'completed') || ($sub && $sub->status === 'active'),
-                'raw_payment' => $pay,
+                'auto_verified' => $autoVerified,
             ];
         });
 
         $businesses = Business::select('id', 'name', 'plan_id')->with('plan')->orderBy('name')->get();
         $plans = \App\Models\Plan::all();
 
+        // SaaS Intelligence Metrics (Authoritative Ledger)
         $revenue = [
-            'today' => Subscription::where('status', 'active')->whereDate('created_at', now())->sum('amount'),
-            'this_month' => Subscription::where('status', 'active')->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('amount'),
-            'this_year' => Subscription::where('status', 'active')->whereYear('created_at', now()->year)->sum('amount'),
-            'total' => Subscription::where('status', 'active')->sum('amount'),
+            'today' => $this->revenueService->getRevenueByPeriod(now()->startOfDay(), now()->endOfDay()),
+            'this_month' => $this->revenueService->getRevenueByPeriod(now()->startOfMonth(), now()->endOfMonth()),
+            'this_year' => $this->revenueService->getRevenueByPeriod(now()->startOfYear(), now()->endOfYear()),
+            'total' => $this->revenueService->getTotalRevenue(),
+            'mrr' => $this->revenueService->getMRR(),
+            'conversion_rate' => $this->revenueService->getConversionMetrics()['conversion_rate'],
             'monthly_trend' => $this->getMonthlyTrend(),
         ];
 
@@ -107,6 +132,14 @@ class SubscriptionController extends Controller
             'revenue' => $revenue,
             'filters' => $request->only(['search', 'plan', 'date_from', 'date_to']),
         ]);
+    }
+
+    protected function getConversionRate()
+    {
+        $total = SubscriptionPayment::count();
+        if ($total === 0) return 100;
+        $success = SubscriptionPayment::whereIn('status', ['completed', 'success'])->count();
+        return round(($success / $total) * 100, 1);
     }
 
     protected function getMonthlyTrend()
@@ -127,49 +160,20 @@ class SubscriptionController extends Controller
         return back()->with('success', "Business '{$business->name}' moved to NEW plan.");
     }
 
+    /**
+     * REMOVED: Manual subscription creation violates payment-as-truth principle.
+     * 
+     * Admins should NOT create subscriptions manually.
+     * All subscriptions must originate from confirmed M-Pesa payments.
+     * 
+     * If you need to grant a business access:
+     * 1. Simulate a payment via the payment system
+     * 2. Or create a special "admin grant" payment type
+     * 3. But NEVER create a subscription without a payment record
+     */
     public function store(Request $request)
     {
-        $request->validate([
-            'business_id' => 'required|exists:businesses,id',
-            'plan_id' => 'required|exists:plans,id',
-            'amount' => 'required|numeric|min:0',
-            'currency' => 'required|string|size:3',
-            'starts_at' => 'required|date',
-            'ends_at' => 'nullable|date|after:starts_at',
-        ]);
-
-        $plan = \App\Models\Plan::findOrFail($request->plan_id);
-
-        $subscription = Subscription::create([
-            'business_id' => $request->business_id,
-            'plan_id' => $plan->id,
-            'plan_name' => $plan->name,
-            'amount' => $request->amount,
-            'currency' => $request->currency,
-            'status' => 'active',
-            'starts_at' => $request->starts_at,
-            'ends_at' => $request->ends_at,
-        ]);
-
-        // Ensure a ledger row exists
-        try {
-            SubscriptionPayment::create([
-                'subscription_id' => $subscription->id,
-                'business_id' => $subscription->business_id,
-                'checkout_request_id' => $subscription->transaction_id ?? null,
-                'merchant_request_id' => null,
-                'mpesa_receipt' => $subscription->mpesa_receipt ?? null,
-                'phone' => null,
-                'amount' => $subscription->amount,
-                'status' => 'completed',
-                'metadata' => ['created_by_admin' => auth()->id(), 'note' => 'manually created by admin'],
-                'raw_response' => null,
-            ]);
-        } catch (\Throwable $_) {
-            Log::warning('Admin store: failed to persist subscription_payment', ['subscription_id' => $subscription->id]);
-        }
-
-        return back()->with('success', 'Subscription logged successfully.');
+        return back()->with('error', 'Manual subscription creation is disabled. All subscriptions must originate from confirmed payments.');
     }
 
     public function cancel(Subscription $subscription)
@@ -182,47 +186,24 @@ class SubscriptionController extends Controller
     public function approve(Subscription $subscription)
     {
         try {
-            $subscription->business->activateSubscription($subscription, null, [
+            // Centralize activation via SubscriptionPaymentController for consistent ledger sync
+            $finalizer = app(\App\Http\Controllers\Api\SubscriptionPaymentController::class);
+            $ok = $finalizer->finalizeFromCallback([
+                'subscription_id' => $subscription->id,
+                'mpesa_receipt' => $subscription->mpesa_receipt ?? $subscription->transaction_id ?? null,
+                'checkout_request_id' => $subscription->transaction_id ?? null,
+                'amount' => $subscription->amount,
+                'source' => 'admin_manual_approve',
                 'approved_by' => auth()->id(),
-                'approval_method' => 'manual',
             ]);
 
-            // Update/create ledger row
-            try {
-                $sp = SubscriptionPayment::where('subscription_id', $subscription->id)
-                    ->orWhere('checkout_request_id', $subscription->transaction_id)
-                    ->orWhere('mpesa_receipt', $subscription->mpesa_receipt)
-                    ->latest()
-                    ->first();
-
-                if ($sp) {
-                    $sp->status = 'completed';
-                    $sp->mpesa_receipt = $sp->mpesa_receipt ?? $subscription->mpesa_receipt ?? $subscription->transaction_id;
-                    $sp->metadata = array_merge($sp->metadata ?? [], ['approved_by' => auth()->id(), 'approval_method' => 'manual', 'auto_reconcile' => true]);
-                    $sp->save();
-                } else {
-                    SubscriptionPayment::create([
-                        'subscription_id' => $subscription->id,
-                        'business_id' => $subscription->business_id,
-                        'checkout_request_id' => $subscription->transaction_id ?? null,
-                        'merchant_request_id' => null,
-                        'mpesa_receipt' => $subscription->mpesa_receipt ?? $subscription->transaction_id ?? null,
-                        'phone' => null,
-                        'amount' => $subscription->amount,
-                        'status' => 'completed',
-                        'metadata' => ['approved_by' => auth()->id(), 'approval_method' => 'manual', 'auto_reconcile' => true],
-                        'raw_response' => null,
-                    ]);
-                }
-            } catch (\Throwable $_) {
-                Log::warning('Admin approve: failed to update/create subscription_payment', ['subscription_id' => $subscription->id]);
+            if ($ok) {
+                return redirect()->back()->with('success', 'Subscription approved and activated successfully.');
             }
-
-            try { \App\Services\SseService::pushBusinessEvent($subscription->business_id, 'subscription.approved', ['id' => $subscription->id, 'status' => 'active']); } catch (\Throwable $_) {}
-
-            return back()->with('success', "Subscription for {$subscription->business->name} approved and activated.");
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            throw new \Exception("Centralized activation failed.");
+        } catch (\Throwable $e) {
+            Log::error('Admin approve failed', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'Approval failed: ' . $e->getMessage());
         }
     }
 
@@ -247,66 +228,19 @@ class SubscriptionController extends Controller
      */
     protected function reconcileCandidates()
     {
-        $processed = [];
+        try {
+            // Find successful M-Pesa payments with no subscription linked (Gated logic)
+            $pendingPayments = \App\Models\MpesaPayment::where('status', \App\Models\MpesaPayment::STATUS_SUCCESS)
+                ->where('result_code', 0)
+                ->whereNull('subscription_id')
+                ->where('created_at', '>=', now()->subDays(7))
+                ->get();
 
-        $subPayments = SubscriptionPayment::whereIn('status', ['completed', 'success'])->with('subscription.business')->get();
-        $mpesaPayments = \App\Models\MpesaPayment::whereIn('status', ['success', 'completed'])->whereNotNull('checkout_request_id')->get();
-
-        $candidates = $subPayments->concat($mpesaPayments);
-
-        foreach ($candidates as $c) {
-            try {
-                $checkout = $c->checkout_request_id ?? $c->mpesa_receipt ?? null;
-                if ($checkout && in_array($checkout, $processed)) continue;
-                if ($checkout) $processed[] = $checkout;
-
-                // Resolve subscription
-                $subscription = null;
-                if ($c instanceof SubscriptionPayment && ! empty($c->subscription_id)) {
-                    $subscription = Subscription::find($c->subscription_id);
-                }
-
-                if (! $subscription) {
-                    $accountRef = $c->account_reference ?? ($c->metadata['account_reference'] ?? null) ?? null;
-                    if ($accountRef && preg_match('/^SUB-(\d+)/', $accountRef, $m)) {
-                        $sid = (int) $m[1];
-                        $subscription = Subscription::where('id', $sid)->whereIn('status', ['initiated','pending','pending_verification'])->first();
-                    }
-                }
-
-                if (! $subscription && $checkout) {
-                    $subscription = Subscription::where('transaction_id', $checkout)->whereIn('status', ['initiated','pending','pending_verification'])->first();
-                }
-
-                if (! $subscription && isset($c->business_id) && isset($c->amount)) {
-                    $subscription = Subscription::where('business_id', $c->business_id)->where('amount', $c->amount)->whereIn('status', ['initiated','pending','pending_verification'])->orderBy('created_at','desc')->first();
-                }
-
-                if (! $subscription) {
-                    Log::info('Reconcile: could not resolve subscription for candidate', ['checkout' => $checkout, 'candidate_id' => $c->id ?? null]);
-                    continue;
-                }
-
-                if ($subscription->status === 'active') continue;
-
-                // Resolve plan
-                $plan = $subscription->plan;
-                if (! $plan && $subscription->plan_id) $plan = \App\Models\Plan::find($subscription->plan_id);
-                if (! $plan && ! empty($subscription->plan_name)) $plan = \App\Models\Plan::where('name', 'like', $subscription->plan_name)->first();
-                if (! $plan) { Log::warning('Reconcile: plan missing for subscription', ['subscription_id' => $subscription->id]); continue; }
-
-                $receipt = $c->mpesa_receipt ?? $c->checkout_request_id ?? null;
-
-                // Activate
-                if (method_exists($subscription->business, 'activateSubscription')) {
-                    $subscription->business->activateSubscription($subscription, $receipt, ['auto_reconcile' => true, 'source' => 'admin_reconcile']);
-                    try { $c->metadata = array_merge($c->metadata ?? [], ['auto_reconcile' => true]); $c->save(); } catch (\Throwable $_) {}
-                    try { \App\Services\SseService::pushBusinessEvent($subscription->business_id, 'subscription.activated', ['id' => $subscription->id, 'status' => 'active']); } catch (\Throwable $_) {}
-                }
-
-            } catch (\Throwable $e) {
-                Log::error('Reconcile candidate failed: ' . $e->getMessage());
+            foreach ($pendingPayments as $p) {
+                $this->activationService->finalizeFromPayment(['checkout_request_id' => $p->checkout_request_id]);
             }
+        } catch (\Throwable $e) {
+            Log::error('Admin Reconcile failed', ['error' => $e->getMessage()]);
         }
     }
 }

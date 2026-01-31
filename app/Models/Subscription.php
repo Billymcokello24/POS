@@ -10,6 +10,12 @@ class Subscription extends Model
 {
     use HasFactory;
 
+    const STATUS_PENDING = 'pending';
+    const STATUS_ACTIVE = 'active';
+    const STATUS_EXPIRED = 'expired';
+    const STATUS_SUSPENDED = 'suspended';
+    const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         'business_id',
         'plan_id',
@@ -25,15 +31,24 @@ class Subscription extends Model
         'mpesa_receipt',
         'mpesa_stk',
         'verified_at',
+        'verified_by',
         'activated_at',
+        'payment_confirmed_at',
         'checkout_request_id',
+        'is_active', // SaaS
+        'is_verified', // SaaS
     ];
 
     protected $casts = [
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
+        'verified_at' => 'datetime',
+        'activated_at' => 'datetime',
+        'payment_confirmed_at' => 'datetime',
         'amount' => 'decimal:2',
         'payment_details' => 'array',
+        'is_active' => 'boolean',
+        'is_verified' => 'boolean',
     ];
 
     public function business()
@@ -51,36 +66,16 @@ class Subscription extends Model
         return $this->status === 'active' && ($this->ends_at === null || $this->ends_at->isFuture());
     }
 
-    protected static function booted()
-    {
-        static::created(function (Subscription $subscription) {
-            // When a subscription is created in an initial state, ensure a ledger row exists so admin can verify it.
-            try {
-                if (! in_array($subscription->status, ['initiated', 'pending', 'pending_verification', 'pending'])) {
-                    return;
-                }
-
-                // If a SubscriptionPayment already exists for this subscription, do nothing
-                if (class_exists(\App\Models\SubscriptionPayment::class)) {
-                    $exists = \App\Models\SubscriptionPayment::where('subscription_id', $subscription->id)->exists();
-                    if ($exists) return;
-
-                    \App\Models\SubscriptionPayment::create([
-                        'subscription_id' => $subscription->id,
-                        'business_id' => $subscription->business_id,
-                        'checkout_request_id' => $subscription->checkout_request_id ?? $subscription->transaction_id ?? null,
-                        'merchant_request_id' => null,
-                        'mpesa_receipt' => $subscription->mpesa_receipt ?? null,
-                        'phone' => $subscription->payment_details['phone'] ?? null,
-                        'amount' => $subscription->amount,
-                        'status' => $subscription->status === 'pending' ? 'pending' : 'pending',
-                        'metadata' => ['auto_created_from_subscription' => true],
-                        'raw_response' => null,
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Failed to create SubscriptionPayment from Subscription created event', ['error' => $e->getMessage(), 'subscription_id' => $subscription->id]);
-            }
-        });
-    }
+    /**
+     * REMOVED: Observer that created SubscriptionPayment records for pending subscriptions.
+     * 
+     * This violated the payment-as-truth principle.
+     * Subscriptions should ONLY exist AFTER payment confirmation.
+     * 
+     * The correct flow is:
+     * 1. User initiates payment → MpesaPayment record created
+     * 2. Callback received → MpesaPayment updated
+     * 3. If successful → Subscription created by SubscriptionActivationService
+     * 4. SubscriptionPayment created as ledger entry
+     */
 }

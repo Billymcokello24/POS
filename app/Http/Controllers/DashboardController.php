@@ -43,8 +43,8 @@ class DashboardController extends Controller
         $yesterday = Carbon::yesterday();
         $startOfMonth = Carbon::now()->startOfMonth();
 
-        // Sales queries with RBAC filtering
-        $salesQuery = Sale::where('status', 'completed');
+        // Sales queries with RBAC filtering and business scoping
+        $salesQuery = Sale::where('status', 'completed')->where('business_id', $businessId);
 
         // RBAC: Cashiers can only see their own sales
         if ($user->isCashier()) {
@@ -67,7 +67,8 @@ class DashboardController extends Controller
         $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
 
         $lastMonthSalesQuery = Sale::whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
-            ->where('status', 'completed');
+            ->where('status', 'completed')
+            ->where('business_id', $businessId);
 
         // RBAC: Cashiers can only see their own sales for growth calculation
         if ($user->isCashier()) {
@@ -80,8 +81,8 @@ class DashboardController extends Controller
             ? (($thisMonthSales - $lastMonthSales) / $lastMonthSales) * 100
             : 0;
 
-        // Recent sales (last 10) - apply RBAC filtering
-        $recentSalesQuery = Sale::with(['customer', 'items']);
+        // Recent sales (last 10) - apply RBAC filtering and business scoping
+        $recentSalesQuery = Sale::with(['customer', 'items'])->where('business_id', $businessId);
 
         // RBAC: Cashiers can only see their own recent sales
         if ($user->isCashier()) {
@@ -101,17 +102,20 @@ class DashboardController extends Controller
                 ];
             });
 
-        // Total active products (not filtered by user role)
+        // Total active products for this business
         $totalProducts = Product::where('is_active', true)
+            ->where('business_id', $businessId)
             ->count();
 
-        // Low stock items count (not filtered by user role)
+        // Low stock items count (for this business)
         $lowStockItems = Product::where('track_inventory', true)
+            ->where('business_id', $businessId)
             ->whereColumn('quantity', '<=', 'reorder_level')
             ->count();
 
-        // Low stock products (not filtered by user role)
+        // Low stock products (for this business)
         $lowStockProducts = Product::where('track_inventory', true)
+            ->where('business_id', $businessId)
             ->whereColumn('quantity', '<=', 'reorder_level')
             ->orderBy('quantity', 'asc')
             ->limit(6)

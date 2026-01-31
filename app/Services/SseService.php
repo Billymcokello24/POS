@@ -48,6 +48,50 @@ class SseService
             // Publish to channel for immediate delivery
             $channel = "business_sse_channel:{$businessId}";
             $redis->publish($channel, $json);
+
+            // If this is a subscription activation/finalization, also write a quick cache
+            if (is_string($type) && str_starts_with($type, 'subscription.')) {
+                try {
+                    // If payload includes enough subscription details, prefer that
+                    $cached = null;
+                    if (! empty($payload['plan_name']) || ! empty($payload['id'])) {
+                        // attempt to build cache from payload
+                        $cached = [
+                            'id' => $payload['id'] ?? null,
+                            'plan_name' => $payload['plan_name'] ?? ($payload['plan'] ?? null),
+                            'starts_at' => $payload['starts_at'] ?? null,
+                            'ends_at' => $payload['ends_at'] ?? null,
+                            'status' => $payload['status'] ?? null,
+                        ];
+                    }
+
+                    // If we still don't have plan_name/ends_at, try to hydrate from DB using subscription id
+                    if (empty($cached['plan_name']) && ! empty($payload['id'])) {
+                        try {
+                            $sub = \App\Models\Subscription::find($payload['id']);
+                            if ($sub) {
+                                $cached = [
+                                    'id' => $sub->id,
+                                    'plan_name' => $sub->plan_name ?? null,
+                                    'starts_at' => $sub->starts_at?->toDateTimeString() ?? null,
+                                    'ends_at' => $sub->ends_at?->toDateTimeString() ?? null,
+                                    'status' => $sub->status ?? null,
+                                ];
+                            }
+                        } catch (\Throwable $_) {
+                            // ignore DB lookup failures
+                        }
+                    }
+
+                    if (! empty($cached) && is_array($cached)) {
+                        $cacheKey = "business_current_subscription:{$businessId}";
+                        // set shorter TTL (30 minutes) to allow quick retrieval
+                        $redis->setex($cacheKey, 1800, json_encode($cached));
+                    }
+                } catch (\Throwable $_) {
+                    // Don't fail the main push if caching fails
+                }
+            }
         } catch (\Throwable $e) {
             // ignore write failures
         }

@@ -138,4 +138,42 @@ class MpesaService
 
         return ['response' => $response, 'payload' => $payload];
     }
+
+    public function queryStkStatus(string $checkoutRequestId)
+    {
+        $mpesa = $this->business->mpesa();
+        if (!$mpesa) {
+            throw new \Exception('MPESA not configured for business');
+        }
+
+        // Handle simulation
+        if (config('mpesa.simulate', false) || ($mpesa['simulate'] ?? false)) {
+            return [
+                'ResponseCode' => '0',
+                'ResponseDescription' => 'The service request has been accepted successfully',
+                'MerchantRequestID' => 'SIM-MERCHANT-' . strtoupper(uniqid()),
+                'CheckoutRequestID' => $checkoutRequestId,
+                'ResultCode' => '0',
+                'ResultDesc' => 'The service request is processed successfully.'
+            ];
+        }
+
+        $timestamp = now()->format('YmdHis');
+        $businessShortcode = $mpesa['shortcode'];
+        $passkey = $mpesa['passkey'];
+        $password = base64_encode($businessShortcode . $passkey . $timestamp);
+
+        $payload = [
+            'BusinessShortCode' => $businessShortcode,
+            'Password' => $password,
+            'Timestamp' => $timestamp,
+            'CheckoutRequestID' => $checkoutRequestId,
+        ];
+
+        $response = Http::withToken($this->token())
+            ->timeout(config('mpesa.timeout', 60))
+            ->post($this->baseUrl . '/mpesa/stkpushquery/v1/query', $payload);
+
+        return $response->json();
+    }
 }

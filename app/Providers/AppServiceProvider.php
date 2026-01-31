@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
+// add observer import
+use App\Models\Subscription;
+use App\Observers\SubscriptionObserver;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -23,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register the subscription observer
+        Subscription::observe(SubscriptionObserver::class);
+
         $this->configureDefaults();
     }
 

@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Http\Controllers\Auth\LogoutController;
 use Illuminate\Support\Facades\Log;
 
+
 Route::get('/', function (\App\Services\CmsService $cmsService) {
     return Inertia::render('Welcome', [
         'cms' => $cmsService->getContent(),
@@ -143,27 +144,36 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('AI/Chat');
     })->name('ai.chat');
 
+    Route::post('/admin/businesses/stop-impersonating', [\App\Http\Controllers\Admin\BusinessController::class, 'stopImpersonating'])
+        ->name('admin.businesses.stop-impersonating');
+
+    // Support Tickets
+    Route::post('/api/support/tickets', [\App\Http\Controllers\Api\SupportTicketController::class, 'store'])->name('api.support.tickets');
+    Route::post('/api/support/tickets/{ticket}/verify', [\App\Http\Controllers\Api\SupportTicketController::class, 'verify'])->name('api.support.tickets.verify');
+    Route::get('/api/support/tickets/{ticket}/messages', [\App\Http\Controllers\Api\SupportTicketController::class, 'getMessages'])->name('api.support.tickets.messages');
+    Route::post('/api/support/tickets/{ticket}/messages', [\App\Http\Controllers\Api\SupportTicketController::class, 'sendMessage'])->name('api.support.tickets.send-message');
+    Route::post('/api/support/tickets/{ticket}/typing', [\App\Http\Controllers\Api\SupportTicketController::class, 'typing'])->name('api.support.tickets.typing');
 });
 
 require __DIR__.'/settings.php';
 
-// Public endpoint for M-Pesa STK callback (Safaricom will POST here).
-// Intentionally kept outside auth middleware so external callbacks can reach it.
-Route::post('/api/payments/mpesa/callback', [\App\Http\Controllers\Api\PaymentController::class, 'mpesaCallback']);
+// M-Pesa Callback (Deprecated: use api.php route to avoid CSRF issues)
+// Route::post('/api/payments/mpesa/callback', [\App\Http\Controllers\Api\PaymentController::class, 'mpesaCallback']);
 
 Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
     Route::get('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'index'])->name('admin.cms.index');
     Route::put('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'update'])->name('admin.cms.update');
     // Test platform MPESA credentials (super-admin only)
-    Route::post('/cms/test-mpesa', [\App\Http\Controllers\Admin\CmsController::class, 'testPlatformMpesa'])->name('admin.cms.test_mpesa');
 
-    // Admin subscriptions routes
-    Route::get('/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'index'])->name('admin.subscriptions.index');
-    Route::post('/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'store'])->name('admin.subscriptions.store');
-    Route::post('/subscriptions/{subscription}/approve', [\App\Http\Controllers\Admin\SubscriptionController::class, 'approve'])->name('admin.subscriptions.approve');
-    Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\Admin\SubscriptionController::class, 'cancel'])->name('admin.subscriptions.cancel');
-    // Manual reconcile endpoint for superadmins to trigger auto-activation check
-    Route::post('/subscriptions/reconcile', [\App\Http\Controllers\Admin\SubscriptionController::class, 'reconcile'])->name('admin.subscriptions.reconcile');
+    // Admin subscriptions routes (Authoritative MpesaPayment Ledger)
+    Route::get('/subscriptions', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'index'])->name('admin.subscriptions.index');
+    Route::post('/subscriptions', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'store'])->name('admin.subscriptions.store');
+    Route::post('/subscriptions/payments/{subscriptionPayment}/approve', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'approve'])->name('admin.subscriptions.approve');
+    Route::post('/subscriptions/payments/{subscriptionPayment}/reject', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'reject'])->name('admin.subscriptions.reject');
+    Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'cancel'])->name('admin.subscriptions.cancel');
+    Route::post('/subscriptions/reconcile', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'reconcile'])->name('admin.subscriptions.reconcile');
+    Route::delete('/subscriptions/payments/{subscriptionPayment}', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'destroy'])->name('admin.subscriptions.destroy');
+    Route::post('/subscriptions/bulk-delete', [\App\Http\Controllers\Admin\AdminSubscriptionController::class, 'bulkDestroy'])->name('admin.subscriptions.bulk-destroy');
 
     // Admin features routes
     // Features index (render UI)
@@ -183,10 +193,11 @@ Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
 
     // Admin businesses routes
     Route::get('/businesses', [\App\Http\Controllers\Admin\BusinessController::class, 'index'])->name('admin.businesses.index');
+    Route::get('/businesses/{business}', [\App\Http\Controllers\Admin\BusinessController::class, 'show'])->name('admin.businesses.show');
     Route::post('/businesses/{business}/toggle-status', [\App\Http\Controllers\Admin\BusinessController::class, 'toggleStatus'])->name('admin.businesses.toggle-status');
     Route::post('/businesses/{business}/reset-admin-password', [\App\Http\Controllers\Admin\BusinessController::class, 'resetAdminPassword'])->name('admin.businesses.reset-password');
     Route::post('/businesses/{business}/impersonate', [\App\Http\Controllers\Admin\BusinessController::class, 'impersonate'])->name('admin.businesses.impersonate');
-    Route::post('/businesses/stop-impersonating', [\App\Http\Controllers\Admin\BusinessController::class, 'stopImpersonating'])->name('admin.businesses.stop-impersonating');
+    Route::delete('/businesses/{business}', [\App\Http\Controllers\Admin\BusinessController::class, 'destroy'])->name('admin.businesses.destroy');
 
     // Admin plans routes
     Route::get('/plans', [\App\Http\Controllers\Admin\PlanController::class, 'index'])->name('admin.plans.index');
@@ -198,10 +209,28 @@ Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
     Route::get('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('admin.roles.index');
     Route::post('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('admin.roles.store');
     Route::put('/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'update'])->name('admin.roles.update');
-    Route::delete('/roles/{role}', [\AppHttp\Controllers\Admin\RoleController::class, 'destroy'])->name('admin.roles.destroy');
+    Route::delete('/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'destroy'])->name('admin.roles.destroy');
+
+    // Subscription payment status check (Unique route to avoid collision)
+    Route::post('/api/subscription/payment/status', [\App\Http\Controllers\Api\MpesaController::class, 'checkMpesaStatus'])->name('subscription.payment.status');
 
     // Admin audit logs
     Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditController::class, 'index'])->name('admin.audit.index');
+
+    // Admin Users Management
+    Route::resource('admin-users', \App\Http\Controllers\Admin\AdminUserController::class)->names('admin.users');
+
+    // System Settings Management
+    Route::get('/settings', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('admin.settings.index');
+    Route::put('/settings', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'update'])->name('admin.settings.update');
+
+    // Admin bulk email routes
+    Route::get('/bulk-email', [\App\Http\Controllers\Admin\BulkEmailController::class, 'index'])->name('admin.bulk-email.index');
+    Route::post('/bulk-email/send', [\App\Http\Controllers\Admin\BulkEmailController::class, 'send'])->name('admin.bulk-email.send');
+
+    // Admin Support Tickets
+    Route::get('/support', [\App\Http\Controllers\Admin\AdminSupportController::class, 'index'])->name('admin.support.index');
+    Route::get('/support/{ticket}', [\App\Http\Controllers\Admin\AdminSupportController::class, 'show'])->name('admin.support.show');
 });
 
 // Lightweight SSE endpoint for MPESA checkout streaming. Uses a short-lived token generated by the server
@@ -357,42 +386,8 @@ Route::post('/api/payments/mpesa/sse-token', function (\Illuminate\Http\Request 
 // Persist SubscriptionPayment
 Route::post('/api/subscription/finalize', [\App\Http\Controllers\Api\SubscriptionPaymentController::class, 'finalize'])->middleware(['auth']);
 
-// Ensure our debug-logging logout route is available (will be used for troubleshooting 419)
-Route::post('/logout', [LogoutController::class, 'destroy'])->name('logout.debug');
-
-// Debug route: accept POST and bypass CSRF to inspect cookies/session for troubleshooting logout 419
-Route::post('/debug/logout-no-csrf', function (Request $request) {
-    $payload = [
-        'session_id' => $request->session()->getId(),
-        'session_token' => $request->session()->token(),
-        'csrf_meta' => csrf_token(),
-        'request_input_token' => $request->input('_token'),
-        'cookies' => $request->cookies->all(),
-        'headers_cookie' => $request->headers->get('cookie'),
-        'headers' => $request->headers->all(),
-        'url' => $request->fullUrl(),
-    ];
-
-    Log::info('Debug logout-no-csrf called', $payload);
-
-    return response()->json($payload);
-})->middleware('auth')->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)->name('debug.logout_no_csrf');
-
-// Lightweight CSRF cookie endpoint (Sanctum-like) — ensures frontend can fetch XSRF token
-Route::get('/sanctum/csrf-cookie', function (Request $request) {
-    // Return a 204 and set the XSRF-TOKEN cookie using Laravel's csrf_token()
-    $response = response()->noContent();
-    // Make cookie accessible to JS (httpOnly = false) so frontend can read it and set the X-XSRF-TOKEN header
-    $cookie = cookie('XSRF-TOKEN', urlencode(csrf_token()), 120, '/', null, config('session.secure'), false, false, 'Lax');
-    return $response->withCookie($cookie);
-});
-
-Route::post('/test-csrf', function (Illuminate\Http\Request $request) {
-    return response()->json([
-        'csrf_token' => csrf_token(),
-        'session_id' => session()->getId(),
-    ]);
-});
+// Logout route is handled by Auth controllers
+Route::post('/logout', [LogoutController::class, 'destroy'])->name('logout');
 
 // SSE endpoint for business-specific updates (authenticated)
 Route::middleware(['auth'])->get('/sse/business-stream', [\App\Http\Controllers\SseController::class, 'businessStream'])->name('sse.business_stream');
@@ -469,35 +464,9 @@ Route::post('/debug/products/create', function (\Illuminate\Http\Request $reques
 })->middleware('auth')->name('debug.product_create');
 
 // Polling endpoint: return current/pending subscription status for the authenticated business
-Route::match(['get','post'], '/api/business/{business}/subscription-status', function (\Illuminate\Http\Request $request, \App\Models\Business $business) {
-    $user = $request->user();
-    if (! $user) return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+Route::match(['get','post'], '/api/business/{business}/subscription-status', [\App\Http\Controllers\Business\SubscriptionController::class, 'getSubscriptionStatus'])->middleware(['auth']);
 
-    // Ensure user belongs to this business (or is super admin)
-    if (! $user->is_super_admin && ! $user->businesses()->where('businesses.id', $business->id)->exists()) {
-        return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-    }
-
-    $active = $business->activeSubscription()->first();
-    $pending = $business->subscriptions()->where('status', 'pending_verification')->latest()->first();
-
-    return response()->json([
-        'success' => true,
-        'active' => $active ? [
-            'id' => $active->id,
-            'plan_name' => $active->plan_name,
-            'starts_at' => $active->starts_at?->toDateTimeString(),
-            'ends_at' => $active->ends_at?->toDateTimeString(),
-            'status' => $active->status,
-        ] : null,
-        'pending' => $pending ? [
-            'id' => $pending->id,
-            'plan_name' => $pending->plan_name,
-            'created_at' => $pending->created_at?->toDateTimeString(),
-            'status' => $pending->status,
-        ] : null,
-    ]);
-})->middleware(['auth']);
+// NOTE: The old inline closure provided a Redis fast-path; logic now lives in Business\SubscriptionController::getSubscriptionStatus for consistency and logging.
 
 // Debug helper: force-activate a subscription (owner or super-admin) — safe for local use
 Route::post('/api/subscription/{subscription}/force-activate', function (\Illuminate\Http\Request $request, \App\Models\Subscription $subscription) {

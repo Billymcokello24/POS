@@ -15,7 +15,17 @@ class RealtimeController extends Controller
         if (! $user) return response()->json(['error' => 'Unauthorized'], 401);
 
         $businessId = $user->current_business_id;
-        if (! $businessId) return response()->json(['error' => 'No business context'], 400);
+        if (! $businessId) {
+            return response()->json([
+                'products_last' => 0,
+                'products_count' => 0,
+                'subscriptions_last' => 0,
+                'subscriptions_last_final' => 0,
+                'subscriptions_count' => 0,
+                'timestamp' => time(),
+                'admin_context' => true
+            ]);
+        }
 
         // Get latest updated timestamps (as unix timestamps) and counts
         $productsLast = Product::where('business_id', $businessId)->max('updated_at');

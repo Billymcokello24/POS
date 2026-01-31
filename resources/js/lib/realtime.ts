@@ -14,7 +14,7 @@ export function startRealtimePolling(interval = 5000) {
       const res = await axios.get('/realtime/status', { withCredentials: true })
       const data = res.data
 
-      if (! lastState) {
+      if (!lastState) {
         lastState = data
         failingCount = 0
         return

@@ -35,6 +35,12 @@ class FeatureController extends Controller
             $request->feature_id => ['is_enabled' => $request->is_enabled],
         ]);
 
+        \App\Models\AuditLog::log(
+            'feature.toggle',
+            "Super Admin toggled feature '{$request->feature_id}' for business '{$business->name}' to " . ($request->is_enabled ? 'ENABLED' : 'DISABLED'),
+            $request->only(['business_id', 'feature_id', 'is_enabled'])
+        );
+
         return back()->with('success', 'Feature visibility updated.');
     }
 }

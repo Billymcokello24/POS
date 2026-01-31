@@ -13,7 +13,9 @@ import {
     X,
     Monitor,
     Activity,
-    Sparkles
+    Sparkles,
+    Users,
+    Settings as SettingsIcon
 } from 'lucide-vue-next'
 import { ref } from 'vue'
 
@@ -30,6 +32,9 @@ const navigation = [
     { name: 'Global User Roles', href: '/admin/roles', icon: ShieldCheck },
     { name: 'Platform Command (CMS)', href: '/admin/cms', icon: Monitor },
     { name: 'Plan Management', href: '/admin/plans', icon: Sparkles },
+    { name: 'Support Tickets', href: '/admin/support', icon: MessageSquare },
+    { name: 'Platform Admins', href: '/admin/admin-users', icon: Users },
+    { name: 'System Settings', href: '/admin/settings', icon: SettingsIcon },
     { name: 'System Audit Trails', href: '/admin/audit-logs', icon: Activity },
 ]
 
@@ -84,17 +89,20 @@ const isActive = (href: string) => page.url.startsWith(href)
                 </button>
 
                 <div class="flex-1 px-4 flex justify-between">
-                    <h2 class="text-lg font-semibold text-slate-800 self-center">
+                    <h2 class="text-lg font-black text-slate-900 self-center tracking-tight">
                         {{ $page.props.title || 'Platform Dashboard' }}
                     </h2>
 
                     <div class="flex items-center gap-4">
                         <div class="text-right hidden sm:block">
-                            <div class="text-sm font-bold text-slate-900">Billy Admin</div>
-                            <div class="text-xs text-slate-500 font-medium">Head of Platform</div>
+                            <!-- @ts-ignore -->
+                            <div class="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">{{ $page.props.auth?.user?.name || 'Super Admin' }}</div>
+                            <!-- @ts-ignore -->
+                            <div class="text-[10px] text-slate-400 font-bold mt-1">{{ $page.props.auth?.user?.email || 'Authority' }}</div>
                         </div>
-                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border-2 border-blue-200">
-                            BA
+                        <div class="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black text-xs border border-slate-800 shadow-xl ring-4 ring-slate-100 transition-all active:scale-95 cursor-pointer">
+                            <!-- @ts-ignore -->
+                            {{ ($page.props.auth?.user?.name || 'SA').split(' ').map(n => n[0]).join('').substring(0, 2) }}
                         </div>
                     </div>
                 </div>
