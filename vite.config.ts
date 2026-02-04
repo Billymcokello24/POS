@@ -24,6 +24,9 @@ export default defineConfig({
             },
         }),
     ].filter(Boolean),
+    resolve: {
+        extensions: ['.ts', '.tsx', '.js', '.jsx', '.vue', '.json'],
+    },
     // Dev server config to support Vite HMR and cross-origin requests from the frontend
     server: {
         hmr: {

@@ -3,8 +3,8 @@ import { Head, Link } from '@inertiajs/vue3'
 import { ShoppingCart, ArrowRight, Search, Menu, ArrowUpRight, ShieldCheck, CheckCircle2, BarChart3, Users, Zap } from 'lucide-vue-next'
 import { toRef } from 'vue'
 
-import { dashboard, login } from '@/routes/index'
-import { register as registerBusiness } from '@/routes/business/index'
+import { dashboard, login } from '@/routes'
+import { register as registerBusiness } from '@/routes/business'
 
 // Receive CMS content from the server (Inertia).
 const props = defineProps<{
