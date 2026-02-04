@@ -28,7 +28,7 @@ class SubscriptionActivated extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database', 'broadcast'];
     }
 
     /**
@@ -57,7 +57,14 @@ class SubscriptionActivated extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            //
+            'type' => 'subscription.activated',
+            'title' => 'Subscription Activated',
+            'message' => "Your {$this->subscription->plan_name} subscription has been activated successfully",
+            'plan_name' => $this->subscription->plan_name,
+            'amount' => $this->subscription->amount,
+            'currency' => $this->subscription->currency,
+            'expires_at' => $this->subscription->ends_at->toIso8601String(),
+            'icon' => '✅',
         ];
     }
 }

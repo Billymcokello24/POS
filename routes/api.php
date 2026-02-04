@@ -4,6 +4,10 @@ use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\MpesaController;
+use Illuminate\Support\Facades\Broadcast;
+
+// Broadcasting auth is configured in bootstrap/app.php with withBroadcasting()
+// No need to register it here again
 
 // M-Pesa Callback (no auth required - public endpoint for Safaricom)
 Route::post('/payments/mpesa/callback', [MpesaController::class, 'stkCallback']);

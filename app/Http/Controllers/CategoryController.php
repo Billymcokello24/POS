@@ -76,6 +76,14 @@ class CategoryController extends Controller
 
         $category = Category::create($validated);
 
+        // Notify all users in the business
+        $business = \App\Models\Business::find($businessId);
+        if ($business) {
+            foreach ($business->users as $user) {
+                $user->notify(new \App\Notifications\CategoryCreatedNotification($category));
+            }
+        }
+
         return back()->with('success', 'Category created successfully');
     }
 

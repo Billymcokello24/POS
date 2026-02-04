@@ -34,11 +34,19 @@ export function startRealtimePolling(interval = 5000) {
 
       lastState = data
       failingCount = 0
-    } catch (e) {
+    } catch (e: any) {
+      // If 401 or 403, user is not authenticated - stop polling
+      if (e.response?.status === 401 || e.response?.status === 403) {
+        console.log('[Realtime] Not authenticated, stopping polling')
+        stopRealtimePolling()
+        return
+      }
+
       failingCount += 1
-      console.warn('[Realtime] poll failed', e)
+      console.log('[Realtime] poll failed', e.response?.status || e.message)
       // Exponential backoff: if failures pile up, stop polling to avoid hammering
       if (failingCount > 10) {
+        console.log('[Realtime] Too many failures, stopping polling')
         stopRealtimePolling()
       }
     }

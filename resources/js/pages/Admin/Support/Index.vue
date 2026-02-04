@@ -91,9 +91,9 @@ const scrollToBottom = async () => {
 // Subscribe to Echo channel for real-time updates
 const subscribeToChannel = () => {
     if (!selectedTicket.value || !window.Echo) return
-    
+
     leaveChannel() // Clean up any existing subscription
-    
+
     echoChannel = window.Echo.private(`support.ticket.${selectedTicket.value.id}`)
         .listen('.message.sent', (data: any) => {
             // Check if message already exists to avoid duplicates
@@ -110,7 +110,7 @@ const subscribeToChannel = () => {
             if (!data.is_admin) {
                 otherUserTyping.value = data.is_typing
                 otherUserName.value = data.user_name
-                
+
                 // Auto-clear typing after 3 seconds
                 if (typingTimeout) clearTimeout(typingTimeout)
                 if (data.is_typing) {
@@ -137,7 +137,7 @@ const openTicket = async (ticket: Ticket) => {
     selectedTicket.value = ticket
     isPanelOpen.value = true
     isLoading.value = true
-    
+
     try {
         const response = await axios.get(`/admin/support/${ticket.id}`)
         messages.value = response.data.ticket.messages || []
@@ -161,19 +161,26 @@ const closePanel = () => {
 
 const sendMessage = async () => {
     if (!newMessage.value.trim() || !selectedTicket.value) return
-    
+
     const msg = newMessage.value
     newMessage.value = ''
     isSending.value = true
-    
+
     // Stop typing indicator
     sendTypingIndicator(false)
-    
+
     try {
         const response = await axios.post(`/api/support/tickets/${selectedTicket.value.id}/messages`, {
             message: msg
         })
-        messages.value.push(response.data.message)
+        // Don't add to messages here - wait for broadcast from Pusher
+        // The message will come through the Echo channel listener with .toOthers() not applying to own messages
+        // Actually, we need to add it since .toOthers() excludes the sender
+        // But check if it's not already there (race condition prevention)
+        const messageExists = messages.value.some((m: any) => m.id === response.data.message.id)
+        if (!messageExists) {
+            messages.value.push(response.data.message)
+        }
         scrollToBottom()
     } catch (error) {
         console.error('Failed to send message', error)
@@ -198,9 +205,9 @@ const sendTypingIndicator = async (isTyping: boolean) => {
 // Handle input changes for typing indicator
 const onInputChange = () => {
     if (typingDebounce) clearTimeout(typingDebounce)
-    
+
     sendTypingIndicator(true)
-    
+
     // Send stop typing after 2 seconds of no input
     typingDebounce = setTimeout(() => {
         sendTypingIndicator(false)
@@ -267,9 +274,9 @@ const getStatusColor = (status: string) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            <tr 
-                                v-for="ticket in tickets.data" 
-                                :key="ticket.id" 
+                            <tr
+                                v-for="ticket in tickets.data"
+                                :key="ticket.id"
                                 class="group hover:bg-slate-50/50 transition-colors cursor-pointer"
                                 @click="openTicket(ticket)"
                             >
@@ -341,7 +348,7 @@ const getStatusColor = (status: string) => {
                 <div v-if="isPanelOpen" class="fixed inset-0 z-50 flex justify-end">
                     <!-- Backdrop -->
                     <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="closePanel"></div>
-                    
+
                     <!-- Panel -->
                     <div class="relative w-full max-w-lg bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         <!-- Panel Header -->
@@ -363,7 +370,7 @@ const getStatusColor = (status: string) => {
                                 <X class="h-5 w-5" />
                             </button>
                         </div>
-                        
+
                         <!-- Business Info Bar -->
                         <div class="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-3 shrink-0">
                             <Building2 class="h-4 w-4 text-slate-400" />
@@ -379,9 +386,9 @@ const getStatusColor = (status: string) => {
                                 <Loader2 class="h-8 w-8 text-indigo-600 animate-spin" />
                             </div>
                             <template v-else>
-                                <div 
-                                    v-for="msg in messages" 
-                                    :key="msg.id" 
+                                <div
+                                    v-for="msg in messages"
+                                    :key="msg.id"
                                     :class="['flex', msg.is_from_admin ? 'justify-start' : 'justify-end']"
                                 >
                                     <div :class="['max-w-[80%] rounded-2xl px-4 py-3 shadow-sm', msg.is_from_admin ? 'bg-white text-slate-900 rounded-bl-none ring-1 ring-slate-100' : 'bg-indigo-600 text-white rounded-br-none']">
@@ -395,7 +402,7 @@ const getStatusColor = (status: string) => {
                                     </div>
                                 </div>
                             </template>
-                            
+
                             <!-- Typing Indicator -->
                             <div v-if="otherUserTyping" class="flex items-center gap-2 px-2 py-1">
                                 <div class="flex space-x-1">
@@ -417,14 +424,14 @@ const getStatusColor = (status: string) => {
                             </div>
                             <form @submit.prevent="sendMessage" class="flex items-center gap-2">
                                 <div class="flex-1 relative">
-                                    <input 
+                                    <input
                                         v-model="newMessage"
                                         @input="onInputChange"
-                                        placeholder="Type your reply..." 
+                                        placeholder="Type your reply..."
                                         class="w-full h-12 bg-slate-100 border-none rounded-2xl px-4 pr-12 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-400"
                                     />
-                                    <button 
-                                        type="submit" 
+                                    <button
+                                        type="submit"
                                         :disabled="isSending || !newMessage.trim()"
                                         class="absolute right-2 top-1.5 h-9 w-9 bg-indigo-600 text-white rounded-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                                     >

@@ -10,7 +10,8 @@ import {
   AlertTriangle,
   Zap,
   FileText,
-  PieChart
+  PieChart,
+  Sparkles
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 
@@ -134,7 +135,7 @@ const props = defineProps<{
         </div>
 
         <!-- Report Modules -->
-        <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           <!-- Sales Reports -->
           <Card class="border-0 shadow-2xl bg-white hover:shadow-3xl transition-all group overflow-hidden relative">
             <div class="absolute inset-0 bg-gradient-to-br from-blue-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -247,10 +248,53 @@ const props = defineProps<{
               </div>
               <Button
                 class="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 gap-2"
-                disabled
+                @click="$inertia.visit('/reports/financial')"
               >
                 <BarChart3 class="h-4 w-4" />
-                Coming Soon
+                View Financial Reports
+              </Button>
+            </CardContent>
+          </Card>
+
+          <!-- AI-Powered Business Intelligence (NEW) -->
+          <Card class="border-0 shadow-2xl bg-white hover:shadow-3xl transition-all group overflow-hidden relative ring-2 ring-purple-400">
+            <div class="absolute inset-0 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="absolute top-2 right-2 px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-xs font-bold text-white rounded-full shadow-lg">
+              AI-POWERED ✨
+            </div>
+            <CardHeader class="relative z-10">
+              <div class="flex items-center justify-between mb-4">
+                <div class="rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 p-4 shadow-lg group-hover:scale-110 transition-transform">
+                  <Sparkles class="h-10 w-10 text-white" />
+                </div>
+                <Button variant="ghost" size="sm" class="gap-2">
+                  <Download class="h-4 w-4" />
+                </Button>
+              </div>
+              <CardTitle class="text-2xl">AI Business Intelligence</CardTitle>
+              <CardDescription class="text-base">
+                Database metrics analyzed by AI for deeper insights
+              </CardDescription>
+            </CardHeader>
+            <CardContent class="relative z-10 space-y-3">
+              <div class="flex items-center gap-3 text-sm">
+                <Sparkles class="h-4 w-4 text-purple-600" />
+                <span>AI-interpreted metrics</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <TrendingUp class="h-4 w-4 text-pink-600" />
+                <span>Intelligent insights</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <FileText class="h-4 w-4 text-orange-600" />
+                <span>Executive summaries</span>
+              </div>
+              <Button
+                class="w-full mt-6 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 hover:from-purple-700 hover:via-pink-700 hover:to-orange-700 gap-2 shadow-lg"
+                @click="$inertia.visit('/reports/business-intelligence')"
+              >
+                <Sparkles class="h-4 w-4" />
+                View AI Report
               </Button>
             </CardContent>
           </Card>

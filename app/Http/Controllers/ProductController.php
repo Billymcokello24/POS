@@ -194,6 +194,14 @@ class ProductController extends Controller
                 // don't block normal flow on SSE errors
             }
 
+            // Notify all users in the business
+            $business = \App\Models\Business::find($businessId);
+            if ($business) {
+                foreach ($business->users as $user) {
+                    $user->notify(new \App\Notifications\ProductCreatedNotification($product));
+                }
+            }
+
             return redirect()->route('products.index')
                 ->with('success', 'Product created successfully.');
         } catch (\Illuminate\Validation\ValidationException $ve) {

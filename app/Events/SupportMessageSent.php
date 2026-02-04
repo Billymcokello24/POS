@@ -31,7 +31,7 @@ class SupportMessageSent implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('support.ticket.' . $this->message->support_ticket_id),
+            new PrivateChannel('private-chat.' . $this->message->support_ticket_id),
         ];
     }
 

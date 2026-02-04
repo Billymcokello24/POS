@@ -14,11 +14,13 @@ import {
     Sparkles,
     ChevronRight,
     Crown,
+    Bell,
     MessageCircle
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import NavUser from '@/components/NavUser.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 import {
     Sidebar,
     SidebarContent,
@@ -51,16 +53,20 @@ const mainNavItems: NavItem[] = [
         title: 'Subscription',
         href: '/subscription',
         icon: Crown,
+        feature: 'subscriptions',
+    },
+    {
+        title: 'Notifications',
+        href: '/notifications',
+        icon: Bell,
     },
 ]
 
 const filteredMainNavItems = computed(() => {
     return mainNavItems.filter(item => {
-        if (item.title === 'Subscription' && (page.props.auth as any).user.is_super_admin) {
-            return false;
-        }
-        return true;
-    });
+        // Apply permission and feature checks
+        return hasAccess(item)
+    })
 })
 
 // Sales & Orders - Permission gated
@@ -116,8 +122,8 @@ const reportsNavItems: NavItem[] = [
         feature: 'reports',
     },
     {
-        title: 'AI Agent',
-        href: '/ai',
+        title: 'Business Intelligence',
+        href: '/reports/business-intelligence',
         icon: Sparkles,
         permission: 'view_reports',
         feature: 'reports',

@@ -195,8 +195,8 @@ class AdminSubscriptionController extends Controller
             // Calculate billing dates based on billing cycle
             $billingCycle = $subscriptionPayment->billing_cycle ?? 'monthly';
             $startDate = now();
-            $endDate = $billingCycle === 'yearly' 
-                ? now()->addYear() 
+            $endDate = $billingCycle === 'yearly'
+                ? now()->addYear()
                 : now()->addMonth();
 
             // Update subscription with active status and billing dates
@@ -236,6 +236,18 @@ class AdminSubscriptionController extends Controller
                 ]
             );
 
+            // Notify business admin
+            $businessAdmin = $business->users()->wherePivot('role_id', function ($q) {
+                $q->select('id')->from('roles')->where('name', 'admin');
+            })->first() ?: $business->users()->first();
+
+            if ($businessAdmin) {
+                $businessAdmin->notify(new \App\Notifications\SubscriptionActivated($subscription));
+            }
+
+            // Notify super admin
+            auth()->user()->notify(new \App\Notifications\SubscriptionCreatedNotification($subscription));
+
             return back()->with('success', "Subscription approved and activated for {$business->name}! Active until {$endDate->format('M d, Y')}.");
         } catch (\Exception $e) {
             Log::error('Subscription approval failed', [
@@ -265,7 +277,7 @@ class AdminSubscriptionController extends Controller
                 ->whereNull('subscription_id')
                 ->whereNotNull('checkout_request_id')
                 ->get();
-            
+
             $count = 0;
             foreach ($pendingPayments as $p) {
                 if ($this->activationService->finalizeFromPayment(['checkout_request_id' => $p->checkout_request_id])) {

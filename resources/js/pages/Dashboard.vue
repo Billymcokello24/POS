@@ -13,7 +13,8 @@ import {
     Users,
     Activity,
     ShoppingBag,
-    Zap
+    Zap,
+    Sparkles
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 
@@ -388,6 +389,20 @@ const hasFeature = (feature: string) => {
                                 <div class="text-left flex-1">
                                     <div class="font-semibold text-gray-900">View Reports</div>
                                     <div class="text-xs text-gray-600">Analytics & insights</div>
+                                </div>
+                                <ArrowUpRight class="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                                v-if="(page.props.auth as any).permissions?.includes('view_reports') && hasFeature('reports')"
+                                @click="router.visit('/reports/business-intelligence')"
+                                variant="outline"
+                                class="w-full justify-start gap-3 h-auto py-4 border-2 hover:bg-purple-50 hover:border-purple-300 transition-all"
+                            >
+                                <Sparkles class="h-5 w-5 text-purple-600" />
+                                <div class="text-left flex-1">
+                                    <div class="font-semibold text-gray-900">AI Business Intelligence</div>
+                                    <div class="text-xs text-gray-600">AI-powered insights & analysis</div>
                                 </div>
                                 <ArrowUpRight class="h-4 w-4" />
                             </Button>

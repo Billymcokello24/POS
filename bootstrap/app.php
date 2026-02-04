@@ -21,10 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->group(base_path('routes/admin.php'));
         },
     )
-    ->withBroadcasting(
-        __DIR__.'/../routes/channels.php',
-        ['prefix' => 'api', 'middleware' => ['web', 'auth']],
-    )
+    // Broadcasting routes are now registered in routes/web.php with Broadcast::routes()
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectUsersTo(function (Request $request) {
             return $request->user()->is_super_admin ? '/admin/dashboard' : '/dashboard';

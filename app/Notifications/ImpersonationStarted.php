@@ -30,7 +30,7 @@ class ImpersonationStarted extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database', 'broadcast'];
     }
 
     /**
@@ -51,14 +51,16 @@ class ImpersonationStarted extends Notification implements ShouldQueue
 
     /**
      * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array
     {
         return [
-            'reason' => $this->reason,
+            'type' => 'impersonation.started',
+            'title' => 'Account Impersonation Alert',
+            'message' => "SuperAdmin {$this->adminName} has started impersonating your account",
             'admin_name' => $this->adminName,
+            'reason' => $this->reason,
+            'icon' => '🔒',
         ];
     }
 }
