@@ -17,6 +17,7 @@ use App\Observers\SubscriptionObserver;
 use App\Observers\SupportTicketObserver;
 use App\Observers\ProductObserver;
 use App\Observers\CategoryObserver;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
+
         // Register the subscription observer
         Subscription::observe(SubscriptionObserver::class);
 
