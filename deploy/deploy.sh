@@ -74,7 +74,7 @@ composer install --optimize-autoloader --no-dev --no-interaction
 cp .env.production .env
 echo "IMPORTANT: Edit /var/www/POS/.env to set correct database password, M-Pesa keys, etc."
 echo "Press Enter to continue after editing (or continue without editing)..."
-read -p "" CONTINUE
+read -p ""
 
 # Generate application key if not set
 php artisan key:generate --force
@@ -103,7 +103,6 @@ php artisan cache:clear
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-php artisan optimize
 
 # Set permissions
 chown -R www-data:www-data /var/www/POS

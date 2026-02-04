@@ -36,7 +36,6 @@ composer install --no-dev --optimize-autoloader
 npm ci
 npm run build
 php artisan migrate --force
-php artisan optimize
 ```
 
 **Verify deployment:**
@@ -64,7 +63,7 @@ Access to script at 'http://localhost:5173/@vite/client' from origin 'https://po
 1. Ensure `APP_ENV=production` in `.env`
 2. Run `npm run build`
 3. Verify `public/build/` directory exists
-4. Clear caches: `php artisan optimize:clear`
+4. Clear caches: `php artisan config:clear && php artisan cache:clear`
 
 See [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) for detailed troubleshooting.
 

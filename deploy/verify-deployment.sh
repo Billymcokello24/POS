@@ -176,7 +176,7 @@ echo ""
 echo "11. Checking APP_URL configuration..."
 if [ -f ".env" ]; then
     APP_URL=$(grep "^APP_URL=" .env | cut -d '=' -f2)
-    if echo "$APP_URL" | grep -q "pos.digiprojects.co.ke"; then
+    if echo "$APP_URL" | grep -qE '^https?://pos\.digiprojects\.co\.ke/?$'; then
         print_success "APP_URL is set to production domain"
     else
         print_warning "APP_URL is '$APP_URL'"

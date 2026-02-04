@@ -92,7 +92,6 @@ php artisan cache:clear
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-php artisan optimize
 ```
 
 #### Step 3.8: Set Proper Permissions
@@ -148,7 +147,6 @@ After deployment, verify that:
    php artisan route:clear
    php artisan view:clear
    php artisan cache:clear
-   php artisan optimize:clear
    ```
 
 4. **Check .env file**:
@@ -196,10 +194,10 @@ php artisan env
 NODE_ENV=production npm run build
 
 # Clear all caches
-php artisan optimize:clear
-
-# Optimize for production
-php artisan optimize
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+php artisan cache:clear
 
 # Check if build succeeded
 ls -la public/build/manifest.json
