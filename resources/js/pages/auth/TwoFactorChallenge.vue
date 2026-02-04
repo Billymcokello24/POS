@@ -11,7 +11,7 @@ import {
     InputOTPSlot,
 } from '@/components/ui/input-otp';
 import AuthLayout from '@/layouts/AuthLayout.vue';
-import { store } from '@/routes/two-factor/login';
+import { store } from '@/routes/two-factor/login/index';
 
 interface AuthConfigContent {
     title: string;

@@ -4,7 +4,7 @@ import { Form, Head } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
-import { send } from '@/routes/verification';
+import { send } from '@/routes/verification/index';
 
 defineProps<{
     status?: string;

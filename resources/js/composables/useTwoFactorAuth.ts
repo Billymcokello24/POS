@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import axios from '@/axios';
 import { postJsonWithSanctum } from '@/lib/sanctum';
 
-import { qrCode, recoveryCodes, secretKey } from '@/routes/two-factor';
+import { qrCode, recoveryCodes, secretKey } from '@/routes/two-factor/index';
 
 const fetchJson = async <T>(url: string): Promise<T> => {
     const response = await axios.get(url, { headers: { Accept: 'application/json' } });

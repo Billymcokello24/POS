@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { 
-    ShoppingCart, 
-    CheckCircle2, 
-    Sparkles, 
-    Building2, 
-    ArrowUpRight, 
-    Store, 
-    User, 
-    Mail, 
-    Lock, 
-    Loader2 
+import {
+    ShoppingCart,
+    CheckCircle2,
+    Sparkles,
+    Building2,
+    ArrowUpRight,
+    Store,
+    User,
+    Mail,
+    Lock,
+    Loader2
 } from 'lucide-vue-next'
 
 import InputError from '@/components/InputError.vue'
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
-import { login } from '@/routes'
+import { login } from '@/routes/index'
 
 const form = useForm({
     business_name: '',
@@ -44,12 +44,12 @@ const submit = () => {
         <!-- Visual Side -->
         <div class="hidden lg:flex lg:w-3/5 relative overflow-hidden bg-[#0A0C1B]">
             <div class="absolute inset-0 z-10 bg-gradient-to-br from-[#0A0C1B] via-transparent to-indigo-900/30"></div>
-            
+
             <!-- Animated Background Grid -->
             <div class="absolute inset-0 grid-background opacity-20"></div>
-            
-            <img 
-                src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop" 
+
+            <img
+                src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop"
                 class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay scale-105"
             />
              <div class="absolute inset-0 bg-gradient-to-t from-[#0A0C1B] to-transparent"></div>
@@ -79,11 +79,11 @@ const submit = () => {
                             <span class="bg-gradient-to-r from-indigo-400 to-blue-300 bg-clip-text text-transparent">Retail Empire.</span>
                         </h2>
                     </div>
-                    
+
                     <p class="text-white/60 text-lg font-medium leading-relaxed">
                         Create a dedicated workspace for your business. Manage multiple locations, thousands of products, and your entire staff from one central command center.
                     </p>
-                    
+
                     <div class="space-y-4">
                         <div class="flex items-center gap-4 text-white/80">
                             <div class="size-6 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">

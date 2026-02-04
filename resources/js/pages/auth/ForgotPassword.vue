@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { Head, Link, Form } from '@inertiajs/vue3';
-import { 
-    ShoppingCart, 
-    Mail, 
-    Key, 
-    CheckCircle2, 
-    ShieldCheck, 
-    ArrowUpRight, 
-    Loader2 
+import {
+    ShoppingCart,
+    Mail,
+    Key,
+    CheckCircle2,
+    ShieldCheck,
+    ArrowUpRight,
+    Loader2
 } from 'lucide-vue-next';
 
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { login } from '@/routes';
-import { email } from '@/routes/password';
+import { login } from '@/routes/index';
+import { email } from '@/routes/password/index';
 
 defineProps<{
     status?: string;
@@ -27,12 +27,12 @@ defineProps<{
         <!-- Visual Side -->
         <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#0A0C1B]">
             <div class="absolute inset-0 z-10 bg-gradient-to-br from-[#0A0C1B] via-transparent to-indigo-900/30"></div>
-            
+
             <!-- Animated Background Grid -->
             <div class="absolute inset-0 grid-background opacity-20"></div>
-            
-            <img 
-                src="https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=2070&auto=format&fit=crop" 
+
+            <img
+                src="https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=2070&auto=format&fit=crop"
                 class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay scale-105"
             />
              <div class="absolute inset-0 bg-gradient-to-t from-[#0A0C1B] to-transparent"></div>
@@ -61,7 +61,7 @@ defineProps<{
                             Security First. Always.
                         </h2>
                     </div>
-                    
+
                     <p class="text-white/60 text-lg font-medium leading-relaxed">
                         Lost your access key? No problem. Our encrypted recovery protocol ensures you get back to managing your business quickly and safely.
                     </p>
