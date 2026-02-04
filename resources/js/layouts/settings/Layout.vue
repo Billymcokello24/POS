@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useActiveUrl } from '@/composables/useActiveUrl';
 import { toUrl } from '@/lib/utils';
-import { edit as editAppearance } from '@/routes/appearance/index';
-import { edit as editProfile } from '@/routes/profile/index';
-import { show } from '@/routes/two-factor/index';
-import { edit as editPassword } from '@/routes/user-password/index';
+import { edit as editAppearance } from '@/routes/appearance';
+import { edit as editProfile } from '@/routes/profile';
+import { show } from '@/routes/two-factor';
+import { edit as editPassword } from '@/routes/user-password';
 import { type NavItem } from '@/types';
 
 const sidebarNavItems: NavItem[] = [

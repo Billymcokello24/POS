@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
-import { login } from '@/routes/index'
+import { login } from '@/routes'
 
 const form = useForm({
     business_name: '',
