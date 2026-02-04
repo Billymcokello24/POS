@@ -2,6 +2,8 @@
 
 This guide will help you deploy the POS system to a production server using Nginx, MySQL, and Redis.
 
+> **Important**: If you're experiencing CORS errors with Vite assets, see [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) for detailed troubleshooting.
+
 ## Prerequisites
 
 - Ubuntu/Debian server with root or sudo access
@@ -20,23 +22,42 @@ This guide will help you deploy the POS system to a production server using Ngin
    Note: The script assumes the code is in `/tmp/pos`. Adjust the script if needed.
 
 3. **Edit the .env file:**
-   - After running the script, edit `/var/www/pos/.env` to set:
+   - After running the script, edit `/var/www/POS/.env` to set:
      - Database password (match the one in the script or MySQL)
      - M-Pesa API keys
      - Any other production-specific settings
+   - **CRITICAL**: Ensure `APP_ENV=production` is set (script handles this automatically)
 
-4. **Set up DNS:**
+4. **Verify assets are built:**
+   - Check that `public/build/` directory exists with compiled assets
+   - If missing, run: `npm run build`
+
+5. **Set up DNS:**
    - Ensure pos.digiprojects.co.ke points to 144.91.76.140
 
-5. **Optional: Set up SSL**
+6. **Optional: Set up SSL**
    - Uncomment the certbot lines in deploy.sh and run again, or manually:
      ```bash
      sudo apt install certbot python3-certbot-nginx
      sudo certbot --nginx -d pos.digiprojects.co.ke
      ```
 
-6. **Access the application:**
+7. **Access the application:**
    - Visit https://pos.digiprojects.co.ke (if SSL is set up) or http://pos.digiprojects.co.ke
+
+## Troubleshooting CORS Errors
+
+If you see errors like:
+```
+Access to script at 'http://localhost:5173/@vite/client' from origin 'https://pos.digiprojects.co.ke' has been blocked by CORS policy
+```
+
+This means the production environment is trying to use the development Vite server. See [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) for detailed fix instructions.
+
+**Quick fix:**
+1. Ensure `APP_ENV=production` in `.env`
+2. Run `npm run build` to compile assets
+3. Restart web server: `sudo systemctl restart nginx`
 
 ## Notes
 

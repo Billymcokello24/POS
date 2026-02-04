@@ -15,6 +15,11 @@ apt update && apt upgrade -y
 echo "Installing required packages..."
 apt install -y nginx mysql-server redis-server php8.4 php8.4-fpm php8.4-mysql php8.4-xml php8.4-mbstring php8.4-curl php8.4-zip php8.4-gd php8.4-intl php8.4-bcmath php8.4-soap php8.4-readline php8.4-pcov php8.4-msgpack php8.4-igbinary php8.4-redis composer unzip curl
 
+# Install Node.js 20.x (required for Vite)
+echo "Installing Node.js..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
+
 # Start and enable services
 systemctl enable nginx
 systemctl enable mysql
@@ -67,23 +72,38 @@ composer install --optimize-autoloader --no-dev --no-interaction
 
 # Copy environment file
 cp .env.production .env
-# IMPORTANT: Edit .env to set correct database password, M-Pesa keys, etc.
-# nano .env
+echo "IMPORTANT: Edit /var/www/POS/.env to set correct database password, M-Pesa keys, etc."
+echo "Press Enter to continue after editing (or continue without editing)..."
+read -p "" CONTINUE
 
-# Generate application key
-php artisan key:generate
+# Generate application key if not set
+php artisan key:generate --force
 
 # Run migrations
 php artisan migrate --force
 
-# Optimize Laravel
+# Install Node dependencies and build production assets
+echo "Building frontend assets for production..."
+npm ci --production=false
+NODE_ENV=production npm run build
+
+# Verify build directory exists
+if [ ! -d "public/build" ]; then
+    echo "ERROR: Build directory not found. Asset compilation may have failed."
+    exit 1
+fi
+
+# Clear any previous Laravel caches before optimizing
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+php artisan cache:clear
+
+# Optimize Laravel for production
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-
-# Install Node dependencies and build assets (if using Vite)
-npm install
-npm run build
+php artisan optimize
 
 # Set permissions
 chown -R www-data:www-data /var/www/POS
