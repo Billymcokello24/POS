@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, Form } from '@inertiajs/vue3';
-import { 
-    ShoppingCart, 
-    Lock, 
-    Mail, 
-    ShieldCheck, 
-    ArrowUpRight, 
-    Loader2 
+import {
+    ShoppingCart,
+    Lock,
+    Mail,
+    ShieldCheck,
+    ArrowUpRight,
+    Loader2
 } from 'lucide-vue-next';
 import { ref } from 'vue';
 
@@ -30,12 +30,12 @@ const inputEmail = ref(props.email);
         <!-- Visual Side -->
         <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#0A0C1B]">
             <div class="absolute inset-0 z-10 bg-gradient-to-br from-[#0A0C1B] via-transparent to-indigo-900/30"></div>
-            
+
             <!-- Animated Background Grid -->
             <div class="absolute inset-0 grid-background opacity-20"></div>
-            
-            <img 
-                src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop" 
+
+            <img
+                src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop"
                 class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay scale-105"
             />
              <div class="absolute inset-0 bg-gradient-to-t from-[#0A0C1B] to-transparent"></div>
@@ -64,7 +64,7 @@ const inputEmail = ref(props.email);
                             Secure Your Workspace.
                         </h2>
                     </div>
-                    
+
                     <p class="text-white/60 text-lg font-medium leading-relaxed">
                         Establishing a new access key is a critical security event. Choose a complex password to protect your retail assets.
                     </p>
