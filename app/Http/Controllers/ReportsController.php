@@ -607,4 +607,157 @@ class ReportsController extends Controller
         $pdf = Pdf::loadHTML($html);
         return $pdf->stream($filename);
     }
+
+    public function financial(Request $request)
+    {
+        $businessId = auth()->user()->current_business_id;
+        $user = auth()->user();
+
+        $startDate = $request->input('start_date', now()->startOfMonth());
+        $endDate = $request->input('end_date', now()->endOfMonth());
+
+        // Total Revenue
+        $revenueQuery = Sale::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 'completed');
+
+        if ($user->isCashier()) {
+            $revenueQuery->where('cashier_id', $user->id);
+        }
+
+        $totalRevenue = $revenueQuery->sum('total');
+        $totalOrders = $revenueQuery->count();
+
+        // Total Cost (COGS - Cost of Goods Sold)
+        $totalCostQuery = DB::table('sale_items')
+            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->where('sales.business_id', $businessId)
+            ->whereBetween('sales.created_at', [$startDate, $endDate])
+            ->where('sales.status', 'completed');
+
+        if ($user->isCashier()) {
+            $totalCostQuery->where('sales.cashier_id', $user->id);
+        }
+
+        $totalCost = $totalCostQuery->select(DB::raw('SUM(sale_items.quantity * products.cost_price) as total_cost'))
+            ->value('total_cost') ?? 0;
+
+        // Gross Profit
+        $grossProfit = $totalRevenue - $totalCost;
+        $profitMargin = $totalRevenue > 0 ? ($grossProfit / $totalRevenue) * 100 : 0;
+
+        // Tax collected
+        $totalTax = Sale::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 'completed')
+            ->when($user->isCashier(), function($q) use ($user) {
+                return $q->where('cashier_id', $user->id);
+            })
+            ->sum('tax_amount');
+
+        // Discounts given
+        $totalDiscounts = Sale::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 'completed')
+            ->when($user->isCashier(), function($q) use ($user) {
+                return $q->where('cashier_id', $user->id);
+            })
+            ->sum('discount_amount');
+
+        // Revenue by day
+        $revenueByDay = Sale::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 'completed')
+            ->when($user->isCashier(), function($q) use ($user) {
+                return $q->where('cashier_id', $user->id);
+            })
+            ->select([
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('SUM(total) as revenue'),
+                DB::raw('SUM(tax_amount) as tax'),
+                DB::raw('SUM(discount_amount) as discount'),
+                DB::raw('COUNT(*) as orders'),
+            ])
+            ->groupBy('date')
+            ->orderBy('date', 'asc')
+            ->get()
+            ->map(function($day) use ($businessId, $user) {
+                $costQuery = DB::table('sale_items')
+                    ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+                    ->join('products', 'sale_items.product_id', '=', 'products.id')
+                    ->where('sales.business_id', $businessId)
+                    ->whereDate('sales.created_at', $day->date)
+                    ->where('sales.status', 'completed');
+
+                if ($user->isCashier()) {
+                    $costQuery->where('sales.cashier_id', $user->id);
+                }
+
+                $cost = $costQuery->select(DB::raw('SUM(sale_items.quantity * products.cost_price) as total_cost'))
+                    ->value('total_cost') ?? 0;
+
+                $day->cost = $cost;
+                $day->profit = $day->revenue - $cost;
+                return $day;
+            });
+
+        // Payment methods breakdown
+        $paymentBreakdown = DB::table('payments')
+            ->join('sales', 'payments.sale_id', '=', 'sales.id')
+            ->where('sales.business_id', $businessId)
+            ->whereBetween('sales.created_at', [$startDate, $endDate])
+            ->where('payments.status', 'completed')
+            ->when($user->isCashier(), function($q) use ($user) {
+                return $q->where('sales.cashier_id', $user->id);
+            })
+            ->select([
+                'payments.payment_method',
+                DB::raw('COUNT(*) as count'),
+                DB::raw('SUM(payments.amount) as total'),
+            ])
+            ->groupBy('payments.payment_method')
+            ->get();
+
+        // Monthly comparison (current month vs previous month)
+        $currentMonthRevenue = Sale::whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->where('status', 'completed')
+            ->when($user->isCashier(), function($q) use ($user) {
+                return $q->where('cashier_id', $user->id);
+            })
+            ->sum('total');
+
+        $previousMonthRevenue = Sale::whereMonth('created_at', now()->subMonth()->month)
+            ->whereYear('created_at', now()->subMonth()->year)
+            ->where('status', 'completed')
+            ->when($user->isCashier(), function($q) use ($user) {
+                return $q->where('cashier_id', $user->id);
+            })
+            ->sum('total');
+
+        $revenueGrowth = $previousMonthRevenue > 0
+            ? (($currentMonthRevenue - $previousMonthRevenue) / $previousMonthRevenue) * 100
+            : 0;
+
+        return Inertia::render('Reports/Financial', [
+            'summary' => [
+                'total_revenue' => (float) $totalRevenue,
+                'total_cost' => (float) $totalCost,
+                'gross_profit' => (float) $grossProfit,
+                'profit_margin' => (float) $profitMargin,
+                'total_tax' => (float) $totalTax,
+                'total_discounts' => (float) $totalDiscounts,
+                'total_orders' => (int) $totalOrders,
+                'average_order_value' => $totalOrders > 0 ? $totalRevenue / $totalOrders : 0,
+            ],
+            'revenue_by_day' => $revenueByDay,
+            'payment_breakdown' => $paymentBreakdown,
+            'growth' => [
+                'current_month' => (float) $currentMonthRevenue,
+                'previous_month' => (float) $previousMonthRevenue,
+                'growth_percentage' => (float) $revenueGrowth,
+            ],
+            'filters' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ]
+        ]);
+    }
 }

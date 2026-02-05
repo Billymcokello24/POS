@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
     Building2,
     Users,
@@ -20,6 +16,10 @@ import {
     CheckCircle2,
     XCircle
 } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     business: {

@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
-import AdminLayout from '@/layouts/AdminLayout.vue'
 import {
     Plus,
     Search,
@@ -14,8 +12,9 @@ import {
     User as UserIcon,
     Loader2
 } from 'lucide-vue-next'
+import { ref } from 'vue'
+
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
     Dialog,
     DialogContent,
@@ -31,7 +30,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 interface User {
     id: number

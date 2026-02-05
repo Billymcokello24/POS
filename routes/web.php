@@ -9,6 +9,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UsersController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Illuminate\Http\Request;
@@ -17,6 +18,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Http\Controllers\Auth\LogoutController;
 use Illuminate\Support\Facades\Log;
 
+// Broadcasting auth routes - requires web session and authentication
+Broadcast::routes(['middleware' => ['web', 'auth']]);
 
 Route::get('/', function (\App\Services\CmsService $cmsService) {
     return Inertia::render('Welcome', [
@@ -33,8 +36,27 @@ Route::get('/register', function () {
     return Inertia::render('auth/Register');
 })->name('register');
 
+// Subscription success page (public - no auth required)
+Route::get('/subscription-success', function () {
+    return Inertia::render('SubscriptionSuccess');
+})->name('subscription.success');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Notifications Page for Business Users
+    Route::get('notifications', function () {
+        return Inertia::render('Notifications');
+    })->name('notifications.index');
+
+    // Test notification route (for testing only)
+    Route::get('/test-notification', [\App\Http\Controllers\TestNotificationController::class, 'test'])->name('test.notification');
+
+    // Diagnostic route (for debugging)
+    Route::get('/diagnostic-notification', [\App\Http\Controllers\DiagnosticNotificationController::class, 'diagnose'])->name('diagnostic.notification');
+
+    // Trigger all notifications (admin testing)
+    Route::get('/trigger-all-notifications', [\App\Http\Controllers\DiagnosticNotificationController::class, 'triggerAll'])->name('trigger.all.notifications')->middleware('super_admin');
 
     // Admin dashboard for super admins (use Admin\DashboardController)
     Route::get('/admin/dashboard', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])
@@ -77,7 +99,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('reports/sales', [ReportsController::class, 'sales'])->name('reports.sales');
         Route::get('reports/inventory/export', [ReportsController::class, 'exportInventory'])->name('reports.inventory.export');
         Route::get('reports/inventory', [ReportsController::class, 'inventory'])->name('reports.inventory');
+        Route::get('reports/financial', [ReportsController::class, 'financial'])->name('reports.financial');
         Route::get('reports/export', [ReportsController::class, 'export'])->name('reports.export');
+
+        // Business Intelligence Report
+        Route::get('reports/business-intelligence', [\App\Http\Controllers\BusinessIntelligenceController::class, 'index'])
+            ->name('reports.business-intelligence');
     });
 
     // Business
@@ -132,6 +159,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/slow-moving', [\App\Http\Controllers\Api\AIAgentController::class, 'slowMovingProducts']);
         Route::get('/availability', [\App\Http\Controllers\Api\AIAgentController::class, 'productAvailability']);
         Route::post('/chat', [\App\Http\Controllers\Api\AIAgentController::class, 'chat']);
+        Route::post('/generate-pdf', [\App\Http\Controllers\Api\AIAgentController::class, 'generateBusinessPDF']);
     });
 
     // AI UI page
@@ -144,6 +172,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('AI/Chat');
     })->name('ai.chat');
 
+    // Business Intelligence Engine API
+    Route::prefix('api/bi')->group(function () {
+        Route::post('/generate', [\App\Http\Controllers\BusinessIntelligenceController::class, 'generate'])->name('api.bi.generate');
+        Route::post('/export/pdf', [\App\Http\Controllers\BusinessIntelligenceController::class, 'exportPDF'])->name('api.bi.export.pdf');
+        Route::get('/periods', [\App\Http\Controllers\BusinessIntelligenceController::class, 'getPeriods'])->name('api.bi.periods');
+    });
+
+    // Legacy Business Reports (keeping for backward compatibility)
+    Route::prefix('api/reports/business')->group(function () {
+        Route::post('/generate', [\App\Http\Controllers\BusinessIntelligenceController::class, 'generate'])->name('api.reports.business.generate');
+        Route::post('/preview', [\App\Http\Controllers\BusinessIntelligenceController::class, 'generate'])->name('api.reports.business.preview');
+        Route::post('/export/pdf', [\App\Http\Controllers\BusinessIntelligenceController::class, 'exportPDF'])->name('api.reports.business.export.pdf');
+        Route::get('/periods', [\App\Http\Controllers\BusinessIntelligenceController::class, 'getPeriods'])->name('api.reports.business.periods');
+    });
+
     Route::post('/admin/businesses/stop-impersonating', [\App\Http\Controllers\Admin\BusinessController::class, 'stopImpersonating'])
         ->name('admin.businesses.stop-impersonating');
 
@@ -153,6 +196,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/support/tickets/{ticket}/messages', [\App\Http\Controllers\Api\SupportTicketController::class, 'getMessages'])->name('api.support.tickets.messages');
     Route::post('/api/support/tickets/{ticket}/messages', [\App\Http\Controllers\Api\SupportTicketController::class, 'sendMessage'])->name('api.support.tickets.send-message');
     Route::post('/api/support/tickets/{ticket}/typing', [\App\Http\Controllers\Api\SupportTicketController::class, 'typing'])->name('api.support.tickets.typing');
+
+    // Notifications
+    Route::get('/api/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index'])->name('api.notifications.index');
+    Route::patch('/api/notifications/{notification}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead'])->name('api.notifications.mark-as-read');
+    Route::post('/api/notifications/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead'])->name('api.notifications.mark-all-as-read');
+    Route::delete('/api/notifications/{notification}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy'])->name('api.notifications.destroy');
+    Route::post('/api/notifications/clear-all', [\App\Http\Controllers\Api\NotificationController::class, 'clearAll'])->name('api.notifications.clear-all');
+
+    // Business Notifications Page
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/mark-as-read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
+    Route::post('/notifications/mark-all-as-read', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-as-read');
+    Route::get('/api/notifications/unread-count', [\App\Http\Controllers\NotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
+    Route::get('/api/notifications/recent', [\App\Http\Controllers\NotificationController::class, 'getRecent'])->name('notifications.recent');
 });
 
 require __DIR__.'/settings.php';
@@ -227,6 +284,13 @@ Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
     // Admin bulk email routes
     Route::get('/bulk-email', [\App\Http\Controllers\Admin\BulkEmailController::class, 'index'])->name('admin.bulk-email.index');
     Route::post('/bulk-email/send', [\App\Http\Controllers\Admin\BulkEmailController::class, 'send'])->name('admin.bulk-email.send');
+
+    // Admin Notifications Page
+    Route::get('/notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('admin.notifications.index');
+    Route::post('/notifications/{id}/mark-as-read', [\App\Http\Controllers\Admin\NotificationController::class, 'markAsRead'])->name('admin.notifications.mark-as-read');
+    Route::post('/notifications/mark-all-as-read', [\App\Http\Controllers\Admin\NotificationController::class, 'markAllAsRead'])->name('admin.notifications.mark-all-as-read');
+    Route::get('/api/notifications/unread-count', [\App\Http\Controllers\Admin\NotificationController::class, 'getUnreadCount'])->name('admin.notifications.unread-count');
+    Route::get('/api/notifications/recent', [\App\Http\Controllers\Admin\NotificationController::class, 'getRecent'])->name('admin.notifications.recent');
 
     // Admin Support Tickets
     Route::get('/support', [\App\Http\Controllers\Admin\AdminSupportController::class, 'index'])->name('admin.support.index');

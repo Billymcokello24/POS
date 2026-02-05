@@ -15,11 +15,13 @@ import {
     Activity,
     Sparkles,
     Users,
-    Settings as SettingsIcon
+    Settings as SettingsIcon,
+    Bell
 } from 'lucide-vue-next'
 import { ref } from 'vue'
 
 import LogoutButton from '@/components/LogoutButton.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const isOpen = ref(false)
 const page = usePage()
@@ -30,6 +32,7 @@ const navigation = [
     { name: 'Revenue & Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
     { name: 'Feature Management', href: '/admin/features', icon: Wrench },
     { name: 'Global User Roles', href: '/admin/roles', icon: ShieldCheck },
+    { name: 'Notifications', href: '/admin/notifications', icon: Bell },
     { name: 'Platform Command (CMS)', href: '/admin/cms', icon: Monitor },
     { name: 'Plan Management', href: '/admin/plans', icon: Sparkles },
     { name: 'Support Tickets', href: '/admin/support', icon: MessageSquare },
@@ -94,6 +97,7 @@ const isActive = (href: string) => page.url.startsWith(href)
                     </h2>
 
                     <div class="flex items-center gap-4">
+                        <NotificationBell />
                         <div class="text-right hidden sm:block">
                             <!-- @ts-ignore -->
                             <div class="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">{{ $page.props.auth?.user?.name || 'Super Admin' }}</div>

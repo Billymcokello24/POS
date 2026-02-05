@@ -24,6 +24,9 @@ class FortifyServiceProvider extends ServiceProvider
     {
         // Register custom login response
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
+
+        // Register custom register response
+        $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
     }
 
     /**

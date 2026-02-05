@@ -27,3 +27,4 @@ class LoginResponse implements LoginResponseContract
             : redirect()->intended($home);
     }
 }
+

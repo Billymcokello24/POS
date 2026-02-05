@@ -9,6 +9,9 @@
 /* @custom-variant dark (&:is(.dark *)); */
 
 @theme inline {
+    /* Custom breakpoint for extra small devices */
+    --breakpoint-xs: 480px;
+
     --font-sans:
         Instrument Sans, ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
@@ -137,3 +140,389 @@
         @apply bg-white text-foreground;
     }
 }
+
+/* ======================================
+   MOBILE OPTIMIZATION FOR DASHBOARD PAGES
+   ====================================== */
+
+@layer utilities {
+    /* Mobile-friendly touch targets */
+    .touch-target {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Text truncation utilities */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Mobile safe areas for notched devices */
+    .safe-top {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .safe-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .safe-left {
+        padding-left: env(safe-area-inset-left);
+    }
+
+    .safe-right {
+        padding-right: env(safe-area-inset-right);
+    }
+}
+
+@layer components {
+    /* Mobile-optimized card styles */
+    @media (max-width: 640px) {
+        .mobile-card {
+            @apply rounded-lg p-3 shadow-sm;
+        }
+
+        .mobile-card-header {
+            @apply p-3 pb-2;
+        }
+
+        .mobile-card-content {
+            @apply p-3 pt-0;
+        }
+
+        .mobile-card-footer {
+            @apply p-3 pt-2;
+        }
+    }
+
+    /* Mobile-optimized table styles */
+    @media (max-width: 768px) {
+        .responsive-table {
+            @apply block overflow-x-auto -mx-3;
+        }
+
+        .responsive-table thead {
+            @apply hidden;
+        }
+
+        .responsive-table tbody tr {
+            @apply block border-b mb-2 pb-2;
+        }
+
+        .responsive-table td {
+            @apply block text-left px-3 py-2;
+        }
+
+        .responsive-table td::before {
+            content: attr(data-label);
+            @apply font-semibold inline-block w-32 text-xs uppercase text-gray-600 mr-2;
+        }
+    }
+
+    /* Mobile-optimized stat cards */
+    @media (max-width: 640px) {
+        .stat-card {
+            @apply flex-row items-center justify-between;
+        }
+
+        .stat-card-icon {
+            @apply w-12 h-12;
+        }
+
+        .stat-card-value {
+            @apply text-2xl;
+        }
+
+        .stat-card-label {
+            @apply text-xs;
+        }
+    }
+
+    /* Mobile form optimizations */
+    @media (max-width: 640px) {
+        .mobile-form-group {
+            @apply space-y-1.5;
+        }
+
+        .mobile-input {
+            @apply h-11 text-base;
+        }
+
+        .mobile-button {
+            @apply h-11 text-base px-4;
+        }
+
+        .mobile-select {
+            @apply h-11 text-base;
+        }
+    }
+}
+
+/* Mobile-specific animations */
+@keyframes mobile-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes mobile-slide-up {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+/* Mobile scrollbar styling */
+@media (max-width: 640px) {
+    ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 2px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* Prevent text selection on mobile for better UX */
+@media (max-width: 640px) {
+    .no-mobile-select {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+/* Mobile navigation improvements */
+@media (max-width: 1024px) {
+    .mobile-nav-item {
+        @apply py-3 px-4 text-base rounded-lg;
+    }
+
+    .mobile-nav-icon {
+        @apply w-5 h-5;
+    }
+}
+
+/* Mobile-friendly spacing */
+@media (max-width: 640px) {
+    .mobile-container {
+        @apply px-3 py-4;
+    }
+
+    .mobile-section-gap {
+        @apply space-y-4;
+    }
+
+    .mobile-grid-gap {
+        @apply gap-3;
+    }
+}
+
+/* Mobile modal optimizations */
+@media (max-width: 640px) {
+    .mobile-modal {
+        @apply rounded-t-2xl rounded-b-none max-h-[90vh];
+        bottom: 0;
+        top: auto;
+    }
+
+    .mobile-modal-content {
+        @apply p-4;
+    }
+
+    .mobile-modal-header {
+        @apply p-4 pb-2 sticky top-0 bg-white z-10;
+    }
+
+    .mobile-modal-footer {
+        @apply p-4 pt-2 sticky bottom-0 bg-white border-t;
+    }
+}
+
+/* Impersonation banner mobile optimization */
+@media (max-width: 1024px) {
+    .impersonation-banner {
+        @apply flex-col items-start gap-2 py-2;
+    }
+
+    .impersonation-banner .hidden {
+        @apply lg:flex;
+    }
+}
+
+/* ======================================
+   SAFE MOBILE OPTIMIZATIONS FOR DASHBOARD
+   Targeted improvements without breaking desktop
+   ====================================== */
+
+/* Mobile Table Improvements - Safe horizontal scroll */
+@media (max-width: 768px) {
+    /* Wrap tables in scrollable container */
+    .table-container {
+        @apply overflow-x-auto -mx-3;
+        scrollbar-width: thin;
+    }
+
+    /* Slightly smaller table text on mobile */
+    table.mobile-responsive td,
+    table.mobile-responsive th {
+        @apply text-xs px-2 py-2;
+    }
+}
+
+/* Mobile Typography Helpers - Opt-in classes */
+@media (max-width: 640px) {
+    .mobile-text-sm {
+        @apply text-sm;
+    }
+
+    .mobile-text-xs {
+        @apply text-xs;
+    }
+
+    .mobile-heading-lg {
+        @apply text-2xl;
+    }
+
+    .mobile-heading-md {
+        @apply text-xl;
+    }
+
+    .mobile-heading-sm {
+        @apply text-lg;
+    }
+}
+
+/* Mobile Spacing Helpers - Opt-in classes */
+@media (max-width: 640px) {
+    .mobile-p-sm {
+        @apply p-3;
+    }
+
+    .mobile-p-xs {
+        @apply p-2;
+    }
+
+    .mobile-gap-sm {
+        @apply gap-3;
+    }
+
+    .mobile-gap-xs {
+        @apply gap-2;
+    }
+
+    .mobile-space-y-sm {
+        @apply space-y-3;
+    }
+}
+
+/* Mobile Grid Helpers - Opt-in classes */
+@media (max-width: 640px) {
+    .mobile-grid-1 {
+        @apply grid-cols-1;
+    }
+
+    .mobile-stack {
+        @apply flex-col;
+    }
+}
+
+/* Mobile Button Helpers - Opt-in classes */
+@media (max-width: 640px) {
+    .mobile-btn-compact {
+        @apply h-9 px-3 text-sm;
+    }
+
+    .mobile-btn-full {
+        @apply w-full;
+    }
+}
+
+/* Mobile Card Helpers - Opt-in classes */
+@media (max-width: 640px) {
+    .mobile-card-compact {
+        @apply p-3 rounded-lg;
+    }
+}
+
+/* Safe mobile form improvements */
+@media (max-width: 640px) {
+    /* Prevent iOS zoom on form inputs */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="tel"],
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
+/* Mobile utility classes - safe to use */
+@media (max-width: 640px) {
+    .mobile-hide {
+        @apply hidden;
+    }
+
+    .mobile-show {
+        @apply block;
+    }
+
+    .mobile-w-full {
+        @apply w-full;
+    }
+
+    .mobile-text-center {
+        @apply text-center;
+    }
+}
+
+/* Improved mobile scrollbars */
+@media (max-width: 640px) {
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+}
+

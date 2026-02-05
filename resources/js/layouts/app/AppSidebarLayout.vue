@@ -28,43 +28,44 @@ function doStopImpersonation() {
         <FlashMessage />
         <!-- Impersonation Banner -->
         <div v-if="$page.props.auth && $page.props.auth.is_impersonating"
-             class="fixed top-0 left-0 right-0 z-[100] bg-slate-900 border-b border-white/10 backdrop-blur-md py-3 px-6 shadow-2xl flex items-center justify-between animate-in slide-in-from-top duration-500 overflow-hidden">
+             class="fixed top-0 left-0 right-0 z-[100] bg-slate-900 border-b border-white/10 backdrop-blur-md py-2 sm:py-3 px-3 sm:px-6 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 animate-in slide-in-from-top duration-500 overflow-hidden">
             <!-- Animated scanline effect for "Secure Mode" feel -->
             <div class="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/10 to-transparent -translate-x-full animate-[shimmer_3s_infinite]"></div>
-            
-            <div class="flex items-center gap-5 relative z-10">
-                <div class="flex items-center gap-2 px-3 py-1 bg-indigo-500 rounded-lg shadow-inner">
-                    <ShieldAlert class="h-4 w-4 text-white animate-pulse" />
-                    <span class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Administrative Proxy Active</span>
+
+            <div class="flex flex-wrap items-center gap-2 sm:gap-5 relative z-10 w-full sm:w-auto">
+                <div class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 bg-indigo-500 rounded-lg shadow-inner">
+                    <ShieldAlert class="h-3 w-3 sm:h-4 sm:w-4 text-white animate-pulse" />
+                    <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-white">Admin Proxy</span>
                 </div>
-                
-                <div class="h-4 w-[1px] bg-white/20"></div>
-                
-                <div class="flex items-center gap-3">
+
+                <div class="h-3 sm:h-4 w-[1px] bg-white/20 hidden sm:block"></div>
+
+                <div class="flex items-center gap-2 sm:gap-3">
                     <div class="flex flex-col">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Target Account</span>
-                        <span class="text-sm font-black text-white leading-none tracking-tight">{{ $page.props.auth.user.name }}</span>
+                        <span class="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5 sm:mb-1">Target Account</span>
+                        <span class="text-xs sm:text-sm font-black text-white leading-none tracking-tight truncate max-w-[150px] sm:max-w-none">{{ $page.props.auth.user.name }}</span>
                     </div>
                 </div>
             </div>
 
-            <div class="flex items-center gap-4 relative z-10">
-                <div class="hidden lg:flex flex-col items-end px-4 border-r border-white/10">
+            <div class="flex items-center gap-2 sm:gap-4 relative z-10 w-full sm:w-auto justify-end">
+                <div class="hidden md:flex flex-col items-end px-4 border-r border-white/10">
                     <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Session Integrity</span>
-                    <span class="text-[10px] font-black text-emerald-400 leading-none">HIGHLY SECURE</span>
+                    <span class="text-[10px] font-black text-emerald-400 leading-none">SECURE</span>
                 </div>
 
                 <form @submit.prevent="doStopImpersonation">
-                    <button type="submit" class="h-10 px-6 bg-white text-slate-900 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-100 hover:scale-[1.02] transition-all active:scale-95 shadow-lg flex items-center gap-2 group">
-                        <LogOut class="h-4 w-4 text-indigo-600 transition-transform group-hover:-translate-x-1" />
-                        End Session & Return
+                    <button type="submit" class="h-8 sm:h-10 px-3 sm:px-6 bg-white text-slate-900 font-black text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-widest rounded-lg sm:rounded-xl hover:bg-slate-100 hover:scale-[1.02] transition-all active:scale-95 shadow-lg flex items-center gap-1 sm:gap-2 group whitespace-nowrap">
+                        <LogOut class="h-3 w-3 sm:h-4 sm:w-4 text-indigo-600 transition-transform group-hover:-translate-x-1" />
+                        <span class="hidden xs:inline">End Session</span>
+                        <span class="xs:hidden">Exit</span>
                     </button>
                 </form>
             </div>
         </div>
 
         <AppSidebar />
-        <AppContent variant="sidebar" :class="'overflow-x-hidden ' + ($page.props.auth?.is_impersonating ? 'pt-10' : '')">
+        <AppContent variant="sidebar" :class="'overflow-x-hidden ' + ($page.props.auth?.is_impersonating ? 'pt-14 sm:pt-16 md:pt-12 lg:pt-10' : '')">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <slot />
         </AppContent>

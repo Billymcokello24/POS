@@ -202,150 +202,152 @@ const getPaymentMethodColor = (method: string) => {
   <Head title="Sales Reports" />
 
   <AppLayout title="Sales Reports">
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -mr-48 -mt-48"></div>
-          <div class="relative z-10 flex items-center justify-between">
-            <div>
-              <div class="flex items-center gap-3 mb-2">
-                <div class="rounded-xl bg-white/20 backdrop-blur p-3">
-                  <BarChart3 class="h-8 w-8" />
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 sm:p-8 text-white shadow-2xl">
+          <div class="absolute top-0 right-0 w-48 h-48 sm:w-96 sm:h-96 bg-white/10 rounded-full -mr-24 sm:-mr-48 -mt-24 sm:-mt-48"></div>
+          <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                <div class="rounded-lg sm:rounded-xl bg-white/20 backdrop-blur p-2 sm:p-3 flex-shrink-0">
+                  <BarChart3 class="h-5 w-5 sm:h-8 sm:w-8" />
                 </div>
-                <div>
-                  <h1 class="text-4xl font-bold">Sales Analytics</h1>
-                  <p class="text-blue-100 text-lg mt-1">Comprehensive sales insights and performance metrics</p>
+                <div class="min-w-0 flex-1">
+                  <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold truncate">Sales Analytics</h1>
+                  <p class="text-blue-100 text-xs sm:text-base lg:text-lg mt-0.5 sm:mt-1 truncate">Comprehensive sales insights</p>
                 </div>
               </div>
             </div>
-            <div class="flex gap-3">
-              <Button @click="exportToPDF" variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
-                <FileText class="h-5 w-5" />
-                PDF
+            <div class="flex gap-2 flex-wrap">
+              <Button @click="exportToPDF" variant="outline" class="border-white text-white hover:bg-white/20 gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial">
+                <FileText class="h-3 w-3 sm:h-5 sm:w-5" />
+                <span class="hidden xs:inline">PDF</span>
               </Button>
-              <Button @click="exportToCSV" variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
-                <Download class="h-5 w-5" />
-                CSV
+              <Button @click="exportToCSV" variant="outline" class="border-white text-white hover:bg-white/20 gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial">
+                <Download class="h-3 w-3 sm:h-5 sm:w-5" />
+                <span class="hidden xs:inline">CSV</span>
               </Button>
-              <Button @click="exportToExcel" variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
-                <Download class="h-5 w-5" />
-                Excel
+              <Button @click="exportToExcel" variant="outline" class="border-white text-white hover:bg-white/20 gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial">
+                <Download class="h-3 w-3 sm:h-5 sm:w-5" />
+                <span class="hidden sm:inline">Excel</span>
+                <span class="sm:hidden">XLS</span>
               </Button>
             </div>
           </div>
         </div>
 
-        <!-- Date Filters -->
+        <!-- Date Filters - Mobile Optimized -->
         <Card class="border-0 shadow-xl bg-white">
-          <CardContent class="pt-6">
-            <div class="flex flex-wrap gap-4 items-end">
-              <div class="flex-1 min-w-[200px]">
-                <Label for="start-date">Start Date</Label>
+          <CardContent class="pt-4 sm:pt-6 p-3 sm:p-6">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-end">
+              <div class="flex-1 min-w-0">
+                <Label for="start-date" class="text-xs sm:text-sm">Start Date</Label>
                 <Input
                   id="start-date"
                   v-model="startDate"
                   type="date"
-                  class="mt-2 h-11"
+                  class="mt-1 sm:mt-2 h-10 sm:h-11 text-sm sm:text-base"
                 />
               </div>
-              <div class="flex-1 min-w-[200px]">
-                <Label for="end-date">End Date</Label>
+              <div class="flex-1 min-w-0">
+                <Label for="end-date" class="text-xs sm:text-sm">End Date</Label>
                 <Input
                   id="end-date"
                   v-model="endDate"
                   type="date"
-                  class="mt-2 h-11"
+                  class="mt-1 sm:mt-2 h-10 sm:h-11 text-sm sm:text-base"
                 />
               </div>
-              <Button @click="applyFilters" class="h-11 px-6 gap-2 bg-gradient-to-r from-blue-600 to-indigo-600">
-                <Filter class="h-5 w-5" />
-                Apply Filters
+              <Button @click="applyFilters" class="h-10 sm:h-11 px-4 sm:px-6 gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-xs sm:text-sm">
+                <Filter class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden xs:inline">Apply Filters</span>
+                <span class="xs:hidden">Apply</span>
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <!-- Key Metrics -->
-        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <!-- Key Metrics - Mobile Optimized -->
+        <div class="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
           <Card class="border-0 shadow-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-            <CardHeader class="relative z-10 pb-3">
-              <CardTitle class="text-sm text-white/80 flex items-center gap-2">
-                <DollarSign class="h-4 w-4" />
-                Total Revenue
+            <div class="absolute top-0 right-0 w-16 h-16 sm:w-24 sm:h-24 bg-white/10 rounded-full -mr-8 sm:-mr-12 -mt-8 sm:-mt-12"></div>
+            <CardHeader class="relative z-10 pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-white/80 flex items-center gap-1 sm:gap-2">
+                <DollarSign class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Total Revenue</span>
               </CardTitle>
             </CardHeader>
-            <CardContent class="relative z-10">
-              <div class="text-3xl font-bold">{{ formatCurrency(totalRevenue) }}</div>
-              <div class="flex items-center gap-1 mt-2 text-white/80">
-                <TrendingUp class="h-4 w-4" />
-                <span class="text-sm">{{ totalOrders }} orders</span>
+            <CardContent class="relative z-10 p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{{ formatCurrency(totalRevenue) }}</div>
+              <div class="flex items-center gap-1 mt-1 sm:mt-2 text-white/80">
+                <TrendingUp class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="text-xs sm:text-sm truncate">{{ totalOrders }} orders</span>
               </div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-            <CardHeader class="relative z-10 pb-3">
-              <CardTitle class="text-sm text-white/80 flex items-center gap-2">
-                <ShoppingCart class="h-4 w-4" />
-                Total Orders
+            <div class="absolute top-0 right-0 w-16 h-16 sm:w-24 sm:h-24 bg-white/10 rounded-full -mr-8 sm:-mr-12 -mt-8 sm:-mt-12"></div>
+            <CardHeader class="relative z-10 pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-white/80 flex items-center gap-1 sm:gap-2">
+                <ShoppingCart class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Total Orders</span>
               </CardTitle>
             </CardHeader>
-            <CardContent class="relative z-10">
-              <div class="text-3xl font-bold">{{ totalOrders }}</div>
-              <div class="flex items-center gap-1 mt-2 text-white/80">
-                <Calendar class="h-4 w-4" />
-                <span class="text-sm">{{ sales_data.length }} days</span>
+            <CardContent class="relative z-10 p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold">{{ totalOrders }}</div>
+              <div class="flex items-center gap-1 mt-1 sm:mt-2 text-white/80">
+                <Calendar class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="text-xs sm:text-sm truncate">{{ sales_data.length }} days</span>
               </div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-            <CardHeader class="relative z-10 pb-3">
-              <CardTitle class="text-sm text-white/80 flex items-center gap-2">
-                <TrendingUp class="h-4 w-4" />
-                Avg Order Value
+            <div class="absolute top-0 right-0 w-16 h-16 sm:w-24 sm:h-24 bg-white/10 rounded-full -mr-8 sm:-mr-12 -mt-8 sm:-mt-12"></div>
+            <CardHeader class="relative z-10 pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-white/80 flex items-center gap-1 sm:gap-2">
+                <TrendingUp class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Avg Order</span>
               </CardTitle>
             </CardHeader>
-            <CardContent class="relative z-10">
-              <div class="text-3xl font-bold">{{ formatCurrency(avgOrderValue) }}</div>
-              <div class="flex items-center gap-1 mt-2 text-white/80">
-                <ArrowUpRight class="h-4 w-4" />
-                <span class="text-sm">Per transaction</span>
+            <CardContent class="relative z-10 p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{{ formatCurrency(avgOrderValue) }}</div>
+              <div class="flex items-center gap-1 mt-1 sm:mt-2 text-white/80">
+                <ArrowUpRight class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="text-xs sm:text-sm truncate">Per transaction</span>
               </div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl bg-gradient-to-br from-pink-500 to-pink-600 text-white overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-            <CardHeader class="relative z-10 pb-3">
-              <CardTitle class="text-sm text-white/80 flex items-center gap-2">
-                <DollarSign class="h-4 w-4" />
-                Total Tax Collected
+            <div class="absolute top-0 right-0 w-16 h-16 sm:w-24 sm:h-24 bg-white/10 rounded-full -mr-8 sm:-mr-12 -mt-8 sm:-mt-12"></div>
+            <CardHeader class="relative z-10 pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-white/80 flex items-center gap-1 sm:gap-2">
+                <DollarSign class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Tax Collected</span>
               </CardTitle>
             </CardHeader>
-            <CardContent class="relative z-10">
-              <div class="text-3xl font-bold">{{ formatCurrency(totalTax) }}</div>
-              <div class="flex items-center gap-1 mt-2 text-white/80">
-                <span class="text-sm">VAT 16%</span>
+            <CardContent class="relative z-10 p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{{ formatCurrency(totalTax) }}</div>
+              <div class="flex items-center gap-1 mt-1 sm:mt-2 text-white/80">
+                <span class="text-xs sm:text-sm">VAT 16%</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <!-- Sales Trend Chart -->
+        <!-- Sales Trend Chart - Mobile Optimized -->
         <Card class="border-0 shadow-xl bg-white">
-          <CardHeader>
-            <CardTitle class="text-2xl flex items-center gap-2">
-              <BarChart3 class="h-6 w-6" />
-              Sales Bar Chart - Last 7 Days
+          <CardHeader class="p-4 sm:p-6">
+            <CardTitle class="text-base sm:text-xl lg:text-2xl flex items-center gap-2">
+              <BarChart3 class="h-5 w-5 sm:h-6 sm:w-6" />
+              <span class="truncate">Sales Chart - Last 7 Days</span>
             </CardTitle>
-            <CardDescription>Daily sales performance (Sales on Y-axis, Days on X-axis)</CardDescription>
+            <CardDescription class="text-xs sm:text-sm">Daily sales performance</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent class="p-3 sm:p-6 pt-0">
             <div v-if="sales_data && sales_data.length > 0" class="space-y-4">
               <!-- Bar Chart -->
               <div class="relative h-96 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-8">

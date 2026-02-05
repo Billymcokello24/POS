@@ -1,4 +1,4 @@
-<script setup lang="ts">
+f<script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3'
 import {
   TrendingUp,
@@ -172,69 +172,72 @@ const refundSale = (saleId: number) => {
   <Head title="Sales History" />
 
   <AppLayout title="Sales">
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
+     <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 p-4 sm:p-8 text-white shadow-2xl">
+          <div class="absolute top-0 right-0 w-32 h-32 sm:w-64 sm:h-64 bg-white/10 rounded-full -mr-16 sm:-mr-32 -mt-16 sm:-mt-32"></div>
           <div class="relative z-10">
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="flex items-center gap-3 mb-2">
-                  <div class="rounded-xl bg-white/20 backdrop-blur p-3">
-                    <TrendingUp class="h-8 w-8" />
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                  <div class="rounded-lg sm:rounded-xl bg-white/20 backdrop-blur p-2 sm:p-3 flex-shrink-0">
+                    <TrendingUp class="h-5 w-5 sm:h-8 sm:w-8" />
                   </div>
-                  <div>
-                    <h1 class="text-4xl font-bold">Sales History</h1>
-                    <p class="text-blue-100 text-lg mt-1">All transactions and orders</p>
+                  <div class="min-w-0 flex-1">
+                    <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold truncate">Sales History</h1>
+                    <p class="text-blue-100 text-xs sm:text-base lg:text-lg mt-0.5 sm:mt-1 truncate">All transactions and orders</p>
                   </div>
                 </div>
               </div>
-              <div class="flex gap-3">
-                <Button @click="router.visit('/sales/create')" class="bg-white text-blue-600 hover:bg-blue-50 gap-2">
-                  <ShoppingCart class="h-5 w-5" />
-                  New Sale
+              <div class="flex gap-2 flex-shrink-0">
+                <Button @click="router.visit('/sales/create')" class="bg-white text-blue-600 hover:bg-blue-50 gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial">
+                  <ShoppingCart class="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span class="hidden xs:inline">New Sale</span>
+                  <span class="xs:hidden">New</span>
                 </Button>
-                <Button @click="exportSales" variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
-                  <Download class="h-5 w-5" />
-                  Export
+                <Button @click="exportSales" variant="outline" class="border-white text-white hover:bg-white/20 gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm">
+                  <Download class="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span class="hidden sm:inline">Export</span>
                 </Button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Filters -->
+        <!-- Filters - Mobile Optimized -->
         <Card class="border-0 shadow-xl bg-white">
-          <CardContent class="pt-6">
-            <div class="flex flex-wrap gap-4">
-              <div class="flex-1 min-w-[300px]">
+          <CardContent class="pt-4 sm:pt-6 p-3 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4">
+              <div class="flex-1 min-w-0 sm:min-w-[300px]">
                 <div class="relative">
-                  <Search class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Search class="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
                   <Input
                     v-model="search"
-                    placeholder="Search by sale number, customer..."
-                    class="pl-12 h-12 border-2"
+                    placeholder="Search sales..."
+                    class="pl-10 sm:pl-12 h-10 sm:h-12 border-2 text-sm sm:text-base"
                   />
                 </div>
               </div>
+              <div class="grid grid-cols-2 gap-2 sm:flex sm:gap-4">
                 <Input
                   v-model="dateFrom"
                   type="date"
-                  class="h-12 border-2"
+                  class="h-10 sm:h-12 border-2 text-sm sm:text-base"
                   placeholder="From"
                 />
                 <Input
                   v-model="dateTo"
                   type="date"
-                  class="h-12 border-2"
+                  class="h-10 sm:h-12 border-2 text-sm sm:text-base"
                   placeholder="To"
                 />
-                
+              </div>
+
                 <!-- Cashier Filter (Admin Only) -->
-                <div v-if="cashiers && cashiers.length > 0" class="min-w-[150px]">
+                <div v-if="cashiers && cashiers.length > 0" class="min-w-0 sm:min-w-[150px]">
                   <Select v-model="selectedCashier">
-                    <SelectTrigger class="h-12 border-2 bg-white">
+                    <SelectTrigger class="h-10 sm:h-12 border-2 bg-white text-sm sm:text-base">
                       <SelectValue placeholder="All Cashiers" />
                     </SelectTrigger>
                     <SelectContent>
@@ -246,79 +249,80 @@ const refundSale = (saleId: number) => {
                   </Select>
                 </div>
 
-                <Button @click="applyFilters" class="h-12 px-6 bg-gradient-to-r from-blue-600 to-cyan-600 gap-2">
-                  <Filter class="h-5 w-5" />
+                <Button @click="applyFilters" class="h-10 sm:h-12 px-4 sm:px-6 bg-gradient-to-r from-blue-600 to-cyan-600 gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <Filter class="h-4 w-4 sm:h-5 sm:w-5" />
                   Filter
                 </Button>
               </div>
           </CardContent>
         </Card>
 
-        <!-- Quick Stats -->
-        <div class="grid gap-4 md:grid-cols-3">
+        <!-- Quick Stats - Mobile Optimized -->
+        <div class="grid gap-3 sm:gap-4 grid-cols-1 xs:grid-cols-2 md:grid-cols-3">
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600 flex items-center gap-2">
-                <DollarSign class="h-4 w-4" />
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 flex items-center gap-1 sm:gap-2">
+                <DollarSign class="h-3 w-3 sm:h-4 sm:w-4" />
                 Today's Revenue
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-blue-600">{{ formatCurrency(todayRevenue) }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600 truncate">{{ formatCurrency(todayRevenue) }}</div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600 flex items-center gap-2">
-                <ShoppingCart class="h-4 w-4" />
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 flex items-center gap-1 sm:gap-2">
+                <ShoppingCart class="h-3 w-3 sm:h-4 sm:w-4" />
                 Total Sales
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-cyan-600">{{ totalSales }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-cyan-600">{{ totalSales }}</div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600 flex items-center gap-2">
-                <TrendingUp class="h-4 w-4" />
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 flex items-center gap-1 sm:gap-2">
+                <TrendingUp class="h-3 w-3 sm:h-4 sm:w-4" />
                 Avg Sale Value
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-teal-600">{{ formatCurrency(avgSaleValue) }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-teal-600 truncate">{{ formatCurrency(avgSaleValue) }}</div>
             </CardContent>
           </Card>
         </div>
 
-        <!-- Sales Table -->
+        <!-- Sales Table - Mobile Optimized -->
         <Card class="border-0 shadow-2xl bg-white">
-          <CardHeader class="border-b bg-gradient-to-r from-slate-50 to-slate-100">
-            <CardTitle class="text-2xl">All Sales Transactions</CardTitle>
+          <CardHeader class="border-b bg-gradient-to-r from-slate-50 to-slate-100 p-3 sm:p-6">
+            <CardTitle class="text-base sm:text-xl lg:text-2xl truncate">All Sales Transactions</CardTitle>
           </CardHeader>
           <CardContent class="p-0">
-            <Table>
+            <div class="overflow-x-auto">
+            <Table class="min-w-full">
               <TableHeader>
                 <TableRow class="bg-slate-50/50">
-                  <TableHead class="font-semibold">Sale #</TableHead>
-                  <TableHead class="font-semibold">Date & Time</TableHead>
-                  <TableHead class="font-semibold">Cashier</TableHead>
-                  <TableHead class="font-semibold">Customer</TableHead>
-                  <TableHead class="font-semibold">Total</TableHead>
-                  <TableHead class="font-semibold">Status</TableHead>
-                  <TableHead class="text-right font-semibold">Actions</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4">Sale #</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4">Date & Time</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden md:table-cell">Cashier</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden lg:table-cell">Customer</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4">Total</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden sm:table-cell">Status</TableHead>
+                  <TableHead class="text-right font-semibold text-xs sm:text-sm px-2 sm:px-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow v-if="props.sales.data.length === 0">
-                  <TableCell colspan="7" class="text-center py-12">
-                    <div class="flex flex-col items-center gap-3 text-slate-500">
-                      <ShoppingCart class="h-12 w-12 text-slate-300" />
-                      <p class="text-lg font-medium">No sales found</p>
-                      <p class="text-sm">Sales transactions will appear here</p>
-                      <Button @click="router.visit('/sales/create')" class="mt-4">
+                  <TableCell colspan="7" class="text-center py-8 sm:py-12 px-3">
+                    <div class="flex flex-col items-center gap-2 sm:gap-3 text-slate-500">
+                      <ShoppingCart class="h-8 w-8 sm:h-12 sm:w-12 text-slate-300" />
+                      <p class="text-base sm:text-lg font-medium">No sales found</p>
+                      <p class="text-xs sm:text-sm">Sales transactions will appear here</p>
+                      <Button @click="router.visit('/sales/create')" class="mt-2 sm:mt-4 h-9 sm:h-10 text-sm">
                         Create New Sale
                       </Button>
                     </div>
@@ -329,64 +333,65 @@ const refundSale = (saleId: number) => {
                   :key="sale.id"
                   class="hover:bg-blue-50/50 transition-colors"
                 >
-                  <TableCell>
-                    <div class="font-mono font-semibold text-blue-600">{{ sale.sale_number }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="font-mono font-semibold text-blue-600 text-xs sm:text-sm">{{ sale.sale_number }}</div>
                   </TableCell>
-                  <TableCell>
-                    <div class="flex items-center gap-2">
-                      <Calendar class="h-4 w-4 text-slate-400" />
-                      <span class="text-sm">{{ new Date(sale.created_at).toLocaleString() }}</span>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="flex items-center gap-1 sm:gap-2">
+                      <Calendar class="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 flex-shrink-0" />
+                      <span class="text-xs sm:text-sm">{{ new Date(sale.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div class="text-sm">{{ sale.cashier.name }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                    <div class="text-xs sm:text-sm truncate max-w-[100px]">{{ sale.cashier.name }}</div>
                   </TableCell>
-                  <TableCell>
-                    <div class="text-sm">{{ sale.customer?.name || 'Walk-in' }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden lg:table-cell">
+                    <div class="text-xs sm:text-sm truncate max-w-[100px]">{{ sale.customer?.name || 'Walk-in' }}</div>
                   </TableCell>
-                  <TableCell>
-                    <div class="text-lg font-bold text-slate-900">{{ formatCurrency(sale.total) }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="text-sm sm:text-base lg:text-lg font-bold text-slate-900">{{ formatCurrency(sale.total) }}</div>
                   </TableCell>
-                  <TableCell>
-                    <Badge :class="getStatusColor(sale.status)">
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">
+                    <Badge :class="getStatusColor(sale.status)" class="text-xs">
                       {{ sale.status }}
                     </Badge>
                   </TableCell>
-                  <TableCell class="text-right">
-                    <div class="flex justify-end gap-2">
+                  <TableCell class="text-right px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="flex justify-end gap-1">
                       <Button
                         @click="viewSale(sale.id)"
                         variant="ghost"
                         size="sm"
-                        class="hover:bg-blue-100"
+                        class="hover:bg-blue-100 h-8 w-8 p-0"
                         title="View Details"
                       >
-                        <Eye class="h-4 w-4" />
+                        <Eye class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                       <Button
                         @click="downloadReceipt(sale.id)"
                         variant="ghost"
                         size="sm"
-                        class="hover:bg-green-100"
+                        class="hover:bg-green-100 h-8 w-8 p-0 hidden sm:inline-flex"
                         title="Download Receipt"
                       >
-                        <Download class="h-4 w-4" />
+                        <Download class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                       <Button
                         v-if="sale.status === 'completed'"
                         @click="refundSale(sale.id)"
                         variant="ghost"
                         size="sm"
-                        class="hover:bg-red-100"
+                        class="hover:bg-red-100 h-8 w-8 p-0 hidden md:inline-flex"
                         title="Refund Sale"
                       >
-                        <RefreshCw class="h-4 w-4" />
+                        <RefreshCw class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

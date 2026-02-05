@@ -238,47 +238,48 @@ const closeUserModal = () => {
   <Head title="Users Management" />
 
   <AppLayout title="Users">
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-          <div class="relative z-10 flex items-center justify-between">
-            <div>
-              <div class="flex items-center gap-3 mb-2">
-                <div class="rounded-xl bg-white/20 backdrop-blur p-3">
-                  <Users class="h-8 w-8" />
+    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 sm:p-8 text-white shadow-2xl">
+          <div class="absolute top-0 right-0 w-32 h-32 sm:w-64 sm:h-64 bg-white/10 rounded-full -mr-16 sm:-mr-32 -mt-16 sm:-mt-32"></div>
+          <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                <div class="rounded-lg sm:rounded-xl bg-white/20 backdrop-blur p-2 sm:p-3 flex-shrink-0">
+                  <Users class="h-5 w-5 sm:h-8 sm:w-8" />
                 </div>
-                <div>
-                  <h1 class="text-4xl font-bold">User Management</h1>
-                  <p class="text-blue-100 text-lg mt-1">{{ usersData.total }} users in the system</p>
+                <div class="min-w-0 flex-1">
+                  <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold truncate">User Management</h1>
+                  <p class="text-blue-100 text-xs sm:text-base lg:text-lg mt-0.5 sm:mt-1 truncate">{{ usersData.total }} users in the system</p>
                 </div>
               </div>
             </div>
-            <Button @click="openCreateModal" class="bg-white text-blue-600 hover:bg-blue-50 gap-2 h-12 px-6">
-              <Plus class="h-5 w-5" />
-              Add User
+            <Button @click="openCreateModal" class="bg-white text-blue-600 hover:bg-blue-50 gap-2 h-10 sm:h-12 px-3 sm:px-6 text-xs sm:text-sm w-full sm:w-auto flex-shrink-0">
+              <Plus class="h-4 w-4 sm:h-5 sm:w-5" />
+              <span class="hidden xs:inline">Add User</span>
+              <span class="xs:hidden">Add</span>
             </Button>
           </div>
         </div>
 
-        <!-- Filters -->
+        <!-- Filters - Mobile Optimized -->
         <Card class="border-0 shadow-xl bg-white/90 backdrop-blur">
-          <CardContent class="pt-6">
-            <div class="flex flex-wrap gap-4">
-              <div class="flex-1 min-w-[300px]">
+          <CardContent class="p-3 sm:p-6 pt-3 sm:pt-6">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div class="flex-1">
                 <div class="relative">
-                  <Search class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Search class="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
                   <Input
                     v-model="search"
-                    placeholder="Search by name or email..."
+                    placeholder="Search by name..."
                     @keyup.enter="applyFilters"
-                    class="pl-12 h-12 border-2 focus:border-blue-500"
+                    class="pl-9 sm:pl-12 h-10 sm:h-12 border-2 focus:border-blue-500 text-xs sm:text-sm"
                   />
                 </div>
               </div>
               <Select v-model="roleFilter">
-                <SelectTrigger class="h-12 w-48">
+                <SelectTrigger class="h-10 sm:h-12 text-xs sm:text-sm">
                   <SelectValue placeholder="Filter by role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -289,7 +290,7 @@ const closeUserModal = () => {
                 </SelectContent>
               </Select>
               <Select v-model="statusFilter">
-                <SelectTrigger class="h-12 w-48">
+                <SelectTrigger class="h-10 sm:h-12 text-xs sm:text-sm">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -306,77 +307,74 @@ const closeUserModal = () => {
           </CardContent>
         </Card>
 
-        <!-- Users Table -->
+        <!-- Users Table - Mobile Optimized -->
         <Card class="border-0 shadow-2xl bg-white/90 backdrop-blur">
-          <CardHeader class="border-b bg-gradient-to-r from-slate-50 to-slate-100">
-            <div class="flex items-center justify-between">
-              <CardTitle class="text-2xl flex items-center gap-2">
-                <Shield class="h-6 w-6 text-blue-600" />
-                Users
+          <CardHeader class="p-3 sm:p-6 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+              <CardTitle class="text-lg sm:text-2xl flex items-center gap-2">
+                <Shield class="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                <span class="truncate">Users</span>
               </CardTitle>
-              <div class="text-sm text-slate-600">
+              <div class="text-xs sm:text-sm text-slate-600 whitespace-nowrap">
                 Showing {{ usersData.data.length }} of {{ usersData.total }}
               </div>
             </div>
           </CardHeader>
           <CardContent class="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow class="bg-slate-50/50">
-                  <TableHead class="font-semibold">User</TableHead>
-                  <TableHead class="font-semibold">Role</TableHead>
-                  <TableHead class="font-semibold">Status</TableHead>
-                  <TableHead class="font-semibold">Last Login</TableHead>
-                  <TableHead class="font-semibold">Created</TableHead>
-                  <TableHead class="text-right font-semibold">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow
-                  v-for="user in usersData.data"
-                  :key="user.id"
-                  class="hover:bg-blue-50/50 transition-colors"
-                >
-                  <TableCell>
-                    <div class="flex items-center gap-3">
-                      <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {{ user.name.charAt(0).toUpperCase() }}
+            <div class="overflow-x-auto">
+              <Table class="min-w-full">
+                <TableHeader>
+                  <TableRow class="bg-slate-50/50">
+                    <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3">User</TableHead>
+                    <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">Role</TableHead>
+                    <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3">Status</TableHead>
+                    <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3 hidden md:table-cell">Last Login</TableHead>
+                    <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3 hidden lg:table-cell">Created</TableHead>
+                    <TableHead class="text-right font-semibold text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow
+                    v-for="user in usersData.data"
+                    :key="user.id"
+                    class="hover:bg-blue-50/50 transition-colors"
+                  >
+                    <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
+                          {{ user.name.charAt(0).toUpperCase() }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <div class="font-semibold text-slate-900 text-xs sm:text-sm truncate">{{ user.name }}</div>
+                          <div class="text-[10px] sm:text-xs text-slate-500 truncate hidden xs:block">{{ user.email }}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div class="font-semibold text-slate-900">{{ user.name }}</div>
-                        <div class="text-sm text-slate-500">{{ user.email }}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" class="flex items-center gap-1 w-fit bg-slate-50">
-                      <Shield class="h-3 w-3 text-indigo-600" />
-                      {{ user.role.charAt(0).toUpperCase() + user.role.slice(1) }}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge :variant="user.is_active ? 'default' : 'secondary'">
-                      {{ user.is_active ? 'Active' : 'Inactive' }}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div class="text-sm">
+                    </TableCell>
+                    <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">
+                      <Badge variant="outline" class="flex items-center gap-1 w-fit bg-slate-50 text-[10px] sm:text-xs">
+                        <Shield class="h-3 w-3 text-indigo-600" />
+                        {{ user.role.charAt(0).toUpperCase() + user.role.slice(1) }}
+                      </Badge>
+                    </TableCell>
+                    <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                      <Badge :variant="user.is_active ? 'default' : 'secondary'" class="text-[10px] sm:text-xs">
+                        {{ user.is_active ? 'Active' : 'Inactive' }}
+                      </Badge>
+                    </TableCell>
+                    <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden md:table-cell text-xs sm:text-sm">
                       {{ user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never' }}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div class="text-sm">
+                    </TableCell>
+                    <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden lg:table-cell text-xs sm:text-sm">
                       {{ new Date(user.created_at).toLocaleDateString() }}
-                    </div>
-                  </TableCell>
-                  <TableCell class="text-right">
-                    <div class="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        @click="viewUser(user)"
-                        class="hover:bg-blue-100 hover:text-blue-600"
-                      >
+                    </TableCell>
+                    <TableCell class="text-right px-2 sm:px-4 py-2 sm:py-3">
+                      <div class="flex justify-end gap-1 sm:gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          @click="viewUser(user)"
+                          class="hover:bg-blue-100 hover:text-blue-600 h-8 sm:h-9 px-2 sm:px-3 text-xs"
+                        >
                         <Eye class="h-4 w-4" />
                       </Button>
                       <Button
@@ -409,8 +407,8 @@ const closeUserModal = () => {
               </TableBody>
             </Table>
 
-            <!-- Pagination -->
-            <div v-if="usersData.last_page > 1" class="flex justify-center gap-2 p-6 bg-slate-50/50 border-t">
+            <!-- Pagination - Mobile Optimized -->
+            <div v-if="usersData.last_page > 1" class="flex justify-center gap-1 sm:gap-2 p-3 sm:p-6 bg-slate-50/50 border-t overflow-x-auto">
               <Button
                 v-for="page in usersData.last_page"
                 :key="page"
@@ -418,18 +416,20 @@ const closeUserModal = () => {
                 size="sm"
                 @click="router.get(`/users?page=${page}`)"
                 :class="page === usersData.current_page ? 'bg-gradient-to-r from-blue-600 to-indigo-600' : ''"
+                class="h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm min-w-fit"
               >
                 {{ page }}
               </Button>
             </div>
+            </div>
           </CardContent>
         </Card>
 
-        <!-- Create/Edit User Modal -->
+        <!-- Create/Edit User Modal - Mobile Optimized -->
         <Dialog v-model:open="showModal">
-          <DialogContent class="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogContent class="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
             <DialogHeader>
-              <DialogTitle class="text-2xl flex items-center gap-2">
+              <DialogTitle class="text-lg sm:text-2xl flex items-center gap-2 mb-4">
                 <Users class="h-6 w-6 text-blue-600" />
                 {{ editingUser ? 'Edit User' : 'Add New User' }}
               </DialogTitle>
@@ -438,12 +438,12 @@ const closeUserModal = () => {
               </DialogDescription>
             </DialogHeader>
 
-            <form @submit.prevent="submitForm" class="space-y-6 py-4">
+            <form @submit.prevent="submitForm" class="space-y-4 sm:space-y-6 py-3 sm:py-4">
               <!-- Basic Information -->
-              <div class="space-y-4">
-                <div class="space-y-2">
-                  <Label for="user-name" class="text-base font-semibold flex items-center gap-2">
-                    <Users class="h-4 w-4" />
+              <div class="space-y-3 sm:space-y-4">
+                <div class="space-y-1.5 sm:space-y-2">
+                  <Label for="user-name" class="text-sm sm:text-base font-semibold flex items-center gap-2">
+                    <Users class="h-3 w-3 sm:h-4 sm:w-4" />
                     Full Name *
                   </Label>
                   <Input
@@ -451,52 +451,52 @@ const closeUserModal = () => {
                     v-model="form.name"
                     placeholder="John Doe"
                     required
-                    class="h-12"
+                    class="h-9 sm:h-10 text-sm sm:text-base"
                     :class="form.errors.name ? 'border-red-500' : ''"
                   />
-                  <p v-if="form.errors.name" class="text-sm text-red-600">{{ form.errors.name }}</p>
+                  <p v-if="form.errors.name" class="text-xs sm:text-sm text-red-600">{{ form.errors.name }}</p>
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="user-email" class="text-base">Email Address *</Label>
+                <div class="space-y-1.5 sm:space-y-2">
+                  <Label for="user-email" class="text-sm sm:text-base font-semibold">Email Address *</Label>
                   <Input
                     id="user-email"
                     v-model="form.email"
                     type="email"
                     placeholder="john@example.com"
                     required
-                    class="h-12"
+                    class="h-9 sm:h-10 text-sm sm:text-base"
                     :class="form.errors.email ? 'border-red-500' : ''"
                   />
-                  <p v-if="form.errors.email" class="text-sm text-red-600">{{ form.errors.email }}</p>
+                  <p v-if="form.errors.email" class="text-xs sm:text-sm text-red-600">{{ form.errors.email }}</p>
                 </div>
               </div>
 
               <!-- Password (only for new users or when changing) -->
-              <div v-if="!editingUser" class="space-y-4">
-                <div class="space-y-2">
-                  <Label for="user-password" class="text-base">Password *</Label>
+              <div v-if="!editingUser" class="space-y-3 sm:space-y-4">
+                <div class="space-y-1.5 sm:space-y-2">
+                  <Label for="user-password" class="text-sm sm:text-base font-semibold">Password *</Label>
                   <Input
                     id="user-password"
                     v-model="form.password"
                     type="password"
                     placeholder="Enter password"
                     required
-                    class="h-12"
+                    class="h-9 sm:h-10 text-sm sm:text-base"
                     :class="form.errors.password ? 'border-red-500' : ''"
                   />
-                  <p v-if="form.errors.password" class="text-sm text-red-600">{{ form.errors.password }}</p>
+                  <p v-if="form.errors.password" class="text-xs sm:text-sm text-red-600">{{ form.errors.password }}</p>
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="user-password-confirmation" class="text-base">Confirm Password *</Label>
+                <div class="space-y-1.5 sm:space-y-2">
+                  <Label for="user-password-confirmation" class="text-sm sm:text-base font-semibold">Confirm Password *</Label>
                   <Input
                     id="user-password-confirmation"
                     v-model="form.password_confirmation"
                     type="password"
                     placeholder="Confirm password"
                     required
-                    class="h-12"
+                    class="h-9 sm:h-10 text-sm sm:text-base"
                     :class="form.errors.password_confirmation ? 'border-red-500' : ''"
                   />
                   <p v-if="form.errors.password_confirmation" class="text-sm text-red-600">{{ form.errors.password_confirmation }}</p>
@@ -509,20 +509,20 @@ const closeUserModal = () => {
                   <Shield class="h-5 w-5" />
                   User Role & Permissions
                 </h3>
-                <div class="space-y-3">
-                  <div class="space-y-2">
-                    <Label for="user-role" class="text-base">Structural Role *</Label>
+                <div class="space-y-2 sm:space-y-3">
+                  <div class="space-y-1.5 sm:space-y-2">
+                    <Label for="user-role" class="text-sm sm:text-base font-semibold">Structural Role *</Label>
                     <Select v-model="form.role_id">
-                      <SelectTrigger class="h-12">
+                      <SelectTrigger class="h-9 sm:h-10 text-sm sm:text-base">
                         <SelectValue placeholder="Select platform role" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem v-for="role in availableRoles" :key="role.id" :value="role.id">
                            <div class="flex items-center gap-2">
-                            <Shield class="h-4 w-4" />
+                            <Shield class="h-3 w-3 sm:h-4 sm:w-4" />
                             <div>
-                              <div class="font-medium">{{ role.display_name }}</div>
-                              <div class="text-xs text-slate-500">Level {{ role.level }} Rank</div>
+                              <div class="font-medium text-xs sm:text-sm">{{ role.display_name }}</div>
+                              <div class="text-[10px] sm:text-xs text-slate-500">Level {{ role.level }} Rank</div>
                             </div>
                           </div>
                         </SelectItem>
@@ -531,10 +531,10 @@ const closeUserModal = () => {
                   </div>
 
                   <!-- Role Description -->
-                  <div v-if="selectedRole" class="p-3 bg-white rounded border">
-                    <div class="text-sm">
+                  <div v-if="selectedRole" class="p-2 sm:p-3 bg-white rounded border">
+                    <div class="text-xs sm:text-sm">
                       <strong>{{ selectedRole.display_name }} Structural Mandate:</strong>
-                      <p class="mt-1 text-xs text-slate-600 italic leading-relaxed">
+                      <p class="mt-1 text-[10px] sm:text-xs text-slate-600 italic leading-relaxed">
                         {{ selectedRole.description || "Refer to platform configuration for detailed capabilities." }}
                       </p>
                     </div>
@@ -543,11 +543,11 @@ const closeUserModal = () => {
               </div>
 
               <!-- Account Status -->
-              <div class="space-y-3">
-                <div class="flex items-center justify-between rounded-lg border-2 border-green-100 bg-green-50/50 p-4">
+              <div class="space-y-2 sm:space-y-3">
+                <div class="flex items-center justify-between rounded-lg border-2 border-green-100 bg-green-50/50 p-2 sm:p-4">
                   <div>
-                    <Label class="text-base font-semibold">Account Active</Label>
-                    <p class="text-sm text-slate-600">User can log in and access the system</p>
+                    <Label class="text-sm sm:text-base font-semibold">Account Active</Label>
+                    <p class="text-xs sm:text-sm text-slate-600">User can log in and access the system</p>
                   </div>
                   <input
                     type="checkbox"
@@ -557,22 +557,22 @@ const closeUserModal = () => {
                 </div>
               </div>
 
-              <DialogFooter class="gap-2 pt-4 border-t">
+              <DialogFooter class="gap-2 pt-3 sm:pt-4 border-t flex flex-col-reverse sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"
                   @click="closeModal"
-                  class="h-12 px-6"
+                  class="h-9 sm:h-10 px-3 sm:px-6 text-xs sm:text-sm"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   :disabled="form.processing"
-                  class="h-12 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  class="h-9 sm:h-10 px-3 sm:px-6 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
-                  <Plus v-if="!editingUser" class="h-4 w-4 mr-2" />
-                  <Edit v-else class="h-4 w-4 mr-2" />
+                  <Plus v-if="!editingUser" class="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <Edit v-else class="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   {{ form.processing ? 'Saving...' : (editingUser ? 'Update User' : 'Create User') }}
                 </Button>
               </DialogFooter>
@@ -580,12 +580,12 @@ const closeUserModal = () => {
           </DialogContent>
         </Dialog>
 
-        <!-- View User Modal -->
+        <!-- View User Modal - Mobile Optimized -->
         <Dialog v-model:open="showUserModal">
-          <DialogContent class="sm:max-w-[500px]">
+          <DialogContent class="max-w-[95vw] sm:max-w-[500px] p-3 sm:p-6">
             <DialogHeader>
-              <DialogTitle class="text-2xl flex items-center gap-2">
-                <Eye class="h-6 w-6 text-blue-600" />
+              <DialogTitle class="text-lg sm:text-2xl flex items-center gap-2">
+                <Eye class="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                 User Details
               </DialogTitle>
             </DialogHeader>

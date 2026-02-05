@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\PaymentService;
 use App\Services\CmsService;
+use App\Services\NotificationService;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use Illuminate\Support\Facades\Auth;
@@ -16,12 +17,14 @@ class SubscriptionPaymentController extends Controller
     protected $paymentService;
     protected $cmsService;
     protected $activationService;
+    protected $notificationService;
 
-    public function __construct(PaymentService $paymentService, CmsService $cmsService, \App\Services\SubscriptionActivationService $activationService)
+    public function __construct(PaymentService $paymentService, CmsService $cmsService, \App\Services\SubscriptionActivationService $activationService, NotificationService $notificationService)
     {
         $this->paymentService = $paymentService;
         $this->cmsService = $cmsService;
         $this->activationService = $activationService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -160,6 +163,10 @@ class SubscriptionPaymentController extends Controller
             'transaction_id' => $initiationId, // Holding ID until confirmed
             'starts_at' => null, // Not started
             'ends_at' => null,
+            'payment_details' => [
+                'billing_cycle' => $billing, // Store billing cycle for later use
+                'phone' => $phone,
+            ],
         ]);
 
         $mpesaPayment->update(['subscription_id' => $subscription->id]);
@@ -218,7 +225,7 @@ class SubscriptionPaymentController extends Controller
         if ($ok) {
             return response()->json(['success' => true, 'message' => 'Subscription finalized and activated']);
         }
-        
+
         return response()->json(['success' => false, 'message' => 'Failed to finalize subscription'], 500);
     }
 

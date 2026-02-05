@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle } from 'lucide-vue-next'
 import { ref, computed, watch, onUnmounted } from 'vue'
+
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle } from 'lucide-vue-next'
 import { postJsonWithSanctum } from '@/lib/sanctum'
 
 const props = defineProps<{

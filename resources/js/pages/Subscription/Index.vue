@@ -282,35 +282,28 @@ onUnmounted(() => {
     <Head title="Subscription Management" />
 
     <AppLayout>
-        <div class="py-10 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full mx-auto">
+        <div class="py-4 sm:py-6 lg:py-10 space-y-6 sm:space-y-8 lg:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full mx-auto px-3 sm:px-6">
 
-            <!-- Debug info (remove in production) -->
-            <div v-if="false" class="fixed bottom-4 right-4 bg-gray-900 text-white p-4 rounded-lg text-xs z-50">
-                <div>Current Sub: {{ currentSubscription?.plan_name }}</div>
-                <div>Business Plan ID: {{ businessRef?.plan_id }}</div>
-                <div>Pending: {{ pendingSubscriptionRef?.plan_name }}</div>
-            </div>
-
-            <!-- Minimalist Centered Header -->
-            <div class="text-center space-y-4 max-w-2xl mx-auto px-6">
-                <div class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100 shadow-sm">
-                    <Sparkles class="size-3.5" />
-                    <span class="text-[10px] font-black uppercase tracking-widest leading-none">Subscription Workspace</span>
+            <!-- Minimalist Centered Header - Mobile Optimized -->
+            <div class="text-center space-y-2 sm:space-y-3 lg:space-y-4 max-w-3xl mx-auto">
+                <div class="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100 shadow-sm">
+                    <Sparkles class="size-3 sm:size-4" />
+                    <span class="text-[9px] sm:text-[10px] lg:text-[11px] font-black uppercase tracking-widest leading-none">Subscription Workspace</span>
                 </div>
-                <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                <h1 class="text-xl sm:text-2xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight px-2">
                     Scale Your Operations with <span class="bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">Professional Power</span>
                 </h1>
-                <p class="text-slate-500 font-medium text-lg leading-relaxed">
+                <p class="text-slate-500 font-medium text-[10px] sm:text-sm lg:text-lg leading-relaxed px-2">
                     Flexible plans designed to grow with your business. Select a tier to unlock advanced features.
                 </p>
 
-                <!-- Professional Billing Switch -->
-                <div class="pt-6">
-                    <div class="inline-flex items-center p-1.5 bg-slate-100 rounded-2xl border border-slate-200/60 shadow-inner">
+                <!-- Professional Billing Switch - Mobile Optimized -->
+                <div class="pt-3 sm:pt-4 lg:pt-6">
+                    <div class="inline-flex items-center p-1 bg-slate-100 rounded-lg sm:rounded-xl border border-slate-200/60 shadow-inner">
                         <button
                             @click="billingCycle = 'monthly'"
                             :class="[
-                                'px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300',
+                                'px-3 sm:px-6 lg:px-8 py-1.5 sm:py-2 lg:py-2.5 rounded-md sm:rounded-lg text-[8px] sm:text-[9px] lg:text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300',
                                 billingCycle === 'monthly' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/50' : 'text-slate-400 hover:text-slate-600'
                             ]"
                         >
@@ -319,45 +312,45 @@ onUnmounted(() => {
                         <button
                             @click="billingCycle = 'yearly'"
                             :class="[
-                                'px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300 flex items-center gap-2',
+                                'px-3 sm:px-6 lg:px-8 py-1.5 sm:py-2 lg:py-2.5 rounded-md sm:rounded-lg text-[8px] sm:text-[9px] lg:text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300 flex items-center gap-0.5 sm:gap-1 lg:gap-2',
                                 billingCycle === 'yearly' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/50' : 'text-slate-400 hover:text-slate-600'
                             ]"
                         >
                             Yearly
-                            <span class="bg-emerald-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">SAVE 15%</span>
+                            <span class="bg-emerald-500 text-white text-[6px] sm:text-[7px] px-1 py-0.5 rounded-full font-bold">SAVE 15%</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Focused Content Area -->
-            <div class="space-y-16 w-full mx-auto px-6">
+            <!-- Focused Content Area - Mobile Optimized -->
+            <div class="space-y-6 sm:space-y-8 lg:space-y-16 w-full mx-auto">
 
-                <!-- Rejected Subscription Alert -->
-                <div v-if="pendingSubscriptionRef?.status === 'rejected'" 
-                    class="border rounded-[2rem] p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group bg-red-50 border-red-200/60"
+                <!-- Rejected Subscription Alert - Mobile Optimized -->
+                <div v-if="pendingSubscriptionRef?.status === 'rejected'"
+                    class="border rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 shadow-sm flex flex-col gap-4 sm:gap-8 relative overflow-hidden group bg-red-50 border-red-200/60"
                 >
                     <div class="absolute inset-x-0 top-0 h-1 bg-red-400"></div>
-                    <div class="flex items-center gap-6 relative z-10 w-full md:w-auto">
-                        <div class="p-5 rounded-[1.5rem] shadow-sm group-hover:rotate-3 transition-transform bg-red-100 text-red-600">
-                            <XCircle class="size-10" />
+                    <div class="flex flex-col xs:flex-row items-start xs:items-center gap-3 sm:gap-6 relative z-10 w-full">
+                        <div class="p-3 sm:p-5 rounded-xl sm:rounded-[1.5rem] shadow-sm group-hover:rotate-3 transition-transform bg-red-100 text-red-600 flex-shrink-0">
+                            <XCircle class="size-6 sm:size-10" />
                         </div>
-                        <div class="space-y-1">
-                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-widest mb-1 bg-red-200/40 text-red-700 border-red-300/30">
+                        <div class="space-y-1 min-w-0 flex-1">
+                            <div class="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-0.5 rounded-md border text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-1 bg-red-200/40 text-red-700 border-red-300/30">
                                 <span class="text-red-700">Subscription Rejected</span>
                             </div>
-                            <h3 class="text-2xl font-black text-slate-900">
+                            <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-slate-900">
                                 {{ pendingSubscriptionRef?.plan_name }} Tier - Rejected
                             </h3>
-                            <p class="text-slate-500 text-sm font-medium">
+                            <p class="text-slate-500 text-xs sm:text-sm font-medium">
                                 Your subscription request was reviewed and rejected by our admin team.
                             </p>
-                            <div v-if="pendingSubscriptionRef?.rejection_reason" class="mt-3 p-3 bg-red-100/50 border border-red-200 rounded-lg">
-                                <p class="text-xs font-bold text-red-800 uppercase tracking-wide mb-1">Rejection Reason:</p>
-                                <p class="text-sm text-red-700 font-medium">{{ pendingSubscriptionRef.rejection_reason }}</p>
+                            <div v-if="pendingSubscriptionRef?.rejection_reason" class="mt-2 sm:mt-3 p-2 sm:p-3 bg-red-100/50 border border-red-200 rounded-lg">
+                                <p class="text-[10px] sm:text-xs font-bold text-red-800 uppercase tracking-wide mb-1">Rejection Reason:</p>
+                                <p class="text-xs sm:text-sm text-red-700 font-medium">{{ pendingSubscriptionRef.rejection_reason }}</p>
                             </div>
-                            <div class="pt-3">
-                                <p class="text-xs font-bold text-slate-600">
+                            <div class="pt-2 sm:pt-3">
+                                <p class="text-[10px] sm:text-xs font-bold text-slate-600">
                                     Pick another plan that suits you or contact support for assistance.
                                 </p>
                             </div>
@@ -365,31 +358,31 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <div v-if="pendingSubscriptionRef && pendingSubscriptionRef.status !== 'rejected'" 
+                <div v-if="pendingSubscriptionRef && pendingSubscriptionRef.status !== 'rejected'"
                     :class="[
-                        'border rounded-[2rem] p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group',
+                        'border rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 shadow-sm flex flex-col gap-4 sm:gap-8 relative overflow-hidden group',
                         pendingSubscriptionRef?.status === 'cancelled' ? 'bg-red-50 border-red-200/60' : 'bg-amber-50 border-amber-200/60'
                     ]"
                 >
                     <div :class="['absolute inset-x-0 top-0 h-1', pendingSubscriptionRef?.status === 'cancelled' ? 'bg-red-400' : 'bg-amber-400 animate-pulse']"></div>
-                    <div class="flex items-center gap-6 relative z-10 w-full md:w-auto">
-                        <div :class="['p-5 rounded-[1.5rem] shadow-sm group-hover:rotate-3 transition-transform', pendingSubscriptionRef?.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600']">
-                            <XCircle v-if="pendingSubscriptionRef?.status === 'cancelled'" class="size-10" />
-                            <Loader2 v-else class="size-10 animate-spin" />
+                    <div class="flex flex-col xs:flex-row items-start xs:items-center gap-3 sm:gap-6 relative z-10 w-full">
+                        <div :class="['p-3 sm:p-5 rounded-xl sm:rounded-[1.5rem] shadow-sm group-hover:rotate-3 transition-transform flex-shrink-0', pendingSubscriptionRef?.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600']">
+                            <XCircle v-if="pendingSubscriptionRef?.status === 'cancelled'" class="size-6 sm:size-10" />
+                            <Loader2 v-else class="size-6 sm:size-10 animate-spin" />
                         </div>
-                        <div class="space-y-1">
-                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-widest mb-1"
+                        <div class="space-y-1 min-w-0 flex-1">
+                            <div class="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-0.5 rounded-md border text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-1"
                                 :class="pendingSubscriptionRef?.status === 'cancelled' ? 'bg-red-200/40 text-red-700 border-red-300/30' : 'bg-amber-200/40 text-amber-700 border-amber-300/30'"
                             >
                                 <span v-if="pendingSubscriptionRef?.status === 'cancelled'" class="text-red-700">Transaction Failed</span>
                                 <span v-else>Awaiting Verification</span>
                             </div>
-                            <h3 class="text-2xl font-black text-slate-900">
-                                {{ pendingSubscriptionRef?.plan_name }} Tier 
+                            <h3 class="text-lg sm:text-xl lg:text-2xl font-black text-slate-900">
+                                {{ pendingSubscriptionRef?.plan_name }} Tier
                                 <span v-if="pendingSubscriptionRef?.status === 'cancelled'">Payment Failed</span>
                                 <span v-else>Payment</span>
                             </h3>
-                            <p class="text-slate-500 text-sm font-medium">
+                            <p class="text-slate-500 text-xs sm:text-sm font-medium">
                                 <span v-if="pendingSubscriptionRef?.status === 'cancelled'">
                                     The payment attempt for this subscription failed. Error: {{ pendingSubscriptionRef?.failure_reason || 'Unknown internal error' }}.
                                 </span>
@@ -397,18 +390,18 @@ onUnmounted(() => {
                                     We are verifying your <span class="text-slate-900 font-black uppercase">{{ pendingSubscriptionRef?.payment_method || 'M-PESA' }}</span> transaction.
                                 </span>
                             </p>
-                            <p class="text-slate-500 text-sm font-medium mt-2">
+                            <p class="text-slate-500 text-xs sm:text-sm font-medium mt-2">
                                 <span class="text-[11px] font-black uppercase text-slate-400">Ref:</span>
                                 <span v-if="pendingSubscriptionRef?.mpesa_receipt || pendingSubscriptionRef?.transaction_id" class="font-bold ml-2" :class="pendingSubscriptionRef?.status === 'cancelled' ? 'text-red-700' : 'text-green-700'">{{ pendingSubscriptionRef?.mpesa_receipt || pendingSubscriptionRef?.transaction_id }}</span>
                                 <span v-else class="text-gray-400 ml-2">N/A</span>
                             </p>
-                            
+
                             <!-- Force Verify Button -->
                             <div v-if="pendingSubscriptionRef?.status !== 'cancelled'" class="pt-2">
-                                <Button 
+                                <Button
                                     @click="verifyPending"
                                     :disabled="verifyLoading"
-                                    variant="outline" 
+                                    variant="outline"
                                     class="h-8 text-[10px] font-black uppercase tracking-widest bg-white border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
                                 >
                                     <Loader2 v-if="verifyLoading" class="size-3 animate-spin mr-2" />
@@ -434,9 +427,14 @@ onUnmounted(() => {
                                 Currently Active
                             </div>
                             <h3 class="text-2xl font-black text-slate-900">{{ currentSubscription?.plan_name }} Tier</h3>
-                            <p class="text-slate-500 text-sm font-medium flex items-center gap-2">
-                                Next billing on <span class="text-slate-900 font-bold decoration-indigo-200 decoration-2 underline-offset-4 underline">{{ currentSubscription?.ends_at ? new Date(currentSubscription.ends_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : '' }}</span>
-                            </p>
+                            <div class="flex items-center gap-2">
+                                <Badge class="bg-blue-50 text-blue-700 border-blue-200 text-[9px] font-black uppercase tracking-widest px-2 py-0.5">
+                                    {{ currentSubscription?.payment_details?.billing_cycle === 'yearly' ? 'Annual' : 'Monthly' }} Billing
+                                </Badge>
+                                <p class="text-slate-500 text-sm font-medium flex items-center gap-2">
+                                    Next billing: <span class="text-slate-900 font-bold decoration-indigo-200 decoration-2 underline-offset-4 underline">{{ currentSubscription?.ends_at ? new Date(currentSubscription.ends_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : '' }}</span>
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -455,8 +453,8 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <!-- Balanced Pricing Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Balanced Pricing Grid - Mobile Optimized -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                     <Card
                         v-for="plan in props.plans"
                         :key="plan.id"
@@ -470,74 +468,74 @@ onUnmounted(() => {
                         <!-- Dynamic Background Accents -->
                         <div v-if="plan.size_category === 'Medium' || plan.size_category === 'Large'" class="absolute -top-12 -right-12 size-32 bg-indigo-500/10 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
 
-                        <CardHeader class="pt-10 pb-4 px-8 space-y-6 text-center">
+                        <CardHeader class="pt-6 sm:pt-8 lg:pt-10 pb-3 sm:pb-4 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-5 lg:space-y-6 text-center">
                             <div v-if="plan.size_category === 'Medium'" class="absolute top-6 right-8">
                                 <Badge class="bg-indigo-600 text-white border-none text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg h-6">Best Value</Badge>
                             </div>
 
-                            <div class="inline-flex p-4 rounded-3xl mx-auto transition-transform duration-500 group-hover:rotate-6 shadow-inner" :class="isCurrentPlan(plan.id) ? 'bg-white/10' : 'bg-slate-50 text-indigo-600'">
-                                <component :is="plan.size_category === 'Enterprise' ? Crown : (plan.size_category === 'Large' || plan.size_category === 'Medium' ? Zap : Building2)" class="size-8" />
+                            <div class="inline-flex p-2 sm:p-3 lg:p-4 rounded-2xl sm:rounded-3xl mx-auto transition-transform duration-500 group-hover:rotate-6 shadow-inner" :class="isCurrentPlan(plan.id) ? 'bg-white/10' : 'bg-slate-50 text-indigo-600'">
+                                <component :is="plan.size_category === 'Enterprise' ? Crown : (plan.size_category === 'Large' || plan.size_category === 'Medium' ? Zap : Building2)" class="size-6 sm:size-7 lg:size-8" />
                             </div>
 
-                            <div class="space-y-1">
-                                <CardTitle class="text-2xl font-black uppercase tracking-tighter" :class="isCurrentPlan(plan.id) ? 'text-white' : 'text-slate-900'">{{ plan.name }}</CardTitle>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em]" :class="isCurrentPlan(plan.id) ? 'text-indigo-400' : 'text-slate-400'">{{ plan.size_category }} Business Entity</p>
+                            <div class="space-y-0.5 sm:space-y-1">
+                                <CardTitle class="text-lg sm:text-xl lg:text-2xl font-black uppercase tracking-tighter" :class="isCurrentPlan(plan.id) ? 'text-white' : 'text-slate-900'">{{ plan.name }}</CardTitle>
+                                <p class="text-[8px] sm:text-[9px] lg:text-[10px] font-black uppercase tracking-[0.2em]" :class="isCurrentPlan(plan.id) ? 'text-indigo-400' : 'text-slate-400'">{{ plan.size_category }} Business Entity</p>
                             </div>
 
-                            <div class="flex items-baseline justify-center gap-1">
-                                <span class="text-sm font-bold opacity-60 mr-1">KSh</span>
-                                <span class="text-5xl font-black tracking-tighter">
+                            <div class="flex items-baseline justify-center gap-0.5 sm:gap-1">
+                                <span class="text-xs sm:text-sm font-bold opacity-60 mr-0.5 sm:mr-1">KSh</span>
+                                <span class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tighter">
                                     {{ billingCycle === 'monthly' ? Number(plan.price_monthly).toLocaleString() : Number(plan.price_yearly).toLocaleString() }}
                                 </span>
-                                <span class="text-xs font-bold opacity-40 uppercase tracking-widest leading-none">/{{ billingCycle === 'monthly' ? 'mo' : 'yr' }}</span>
+                                <span class="text-[8px] sm:text-[9px] lg:text-xs font-bold opacity-40 uppercase tracking-widest leading-none">/{{ billingCycle === 'monthly' ? 'mo' : 'yr' }}</span>
                             </div>
                         </CardHeader>
 
-                        <CardContent class="flex-1 px-10 pb-8 space-y-8">
+                        <CardContent class="flex-1 px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8 space-y-6 sm:space-y-7 lg:space-y-8">
                             <div class="h-px w-full" :class="isCurrentPlan(plan.id) ? 'bg-white/10' : 'bg-slate-100'"></div>
 
-                            <div class="space-y-6">
-                                <div class="space-y-3">
-                                    <div class="flex items-center gap-3 group/item">
+                            <div class="space-y-4 sm:space-y-5 lg:space-y-6">
+                                <div class="space-y-2 sm:space-y-3">
+                                    <div class="flex items-center gap-2 sm:gap-3 group/item">
                                         <div class="p-1 rounded-full" :class="isCurrentPlan(plan.id) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'">
-                                            <Check class="size-3 font-bold" />
+                                            <Check class="size-3 sm:size-4 font-bold" />
                                         </div>
-                                        <span class="text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">
+                                        <span class="text-xs sm:text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">
                                             {{ plan.max_users || 'Unlimited' }} <span class="opacity-50 font-medium ml-1">Staff Users</span>
                                         </span>
                                     </div>
-                                    <div class="flex items-center gap-3 group/item">
+                                    <div class="flex items-center gap-2 sm:gap-3 group/item">
                                         <div class="p-1 rounded-full" :class="isCurrentPlan(plan.id) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'">
-                                            <Check class="size-3 font-bold" />
+                                            <Check class="size-3 sm:size-4 font-bold" />
                                         </div>
-                                        <span class="text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">
+                                        <span class="text-xs sm:text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">
                                             {{ plan.max_employees || 'Unlimited' }} <span class="opacity-50 font-medium ml-1">Total Employees</span>
                                         </span>
                                     </div>
-                                    <div class="flex items-center gap-3 group/item">
+                                    <div class="flex items-center gap-2 sm:gap-3 group/item">
                                         <div class="p-1 rounded-full" :class="isCurrentPlan(plan.id) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'">
-                                            <Check class="size-3 font-bold" />
+                                            <Check class="size-3 sm:size-4 font-bold" />
                                         </div>
-                                        <span class="text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">
+                                        <span class="text-xs sm:text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">
                                             {{ plan.max_products || 'Unlimited' }} <span class="opacity-50 font-medium ml-1">Inventory Slots</span>
                                         </span>
                                     </div>
-                                    <div v-for="feature in plan.features" :key="feature.id" class="flex items-center gap-3">
+                                    <div v-for="feature in plan.features" :key="feature.id" class="flex items-center gap-2 sm:gap-3">
                                         <div class="p-1 rounded-full" :class="isCurrentPlan(plan.id) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'">
-                                            <Check class="size-3 font-bold" />
+                                            <Check class="size-3 sm:size-4 font-bold" />
                                         </div>
-                                        <span class="text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">{{ feature.name }} Access</span>
+                                        <span class="text-xs sm:text-sm font-bold tracking-tight" :class="isCurrentPlan(plan.id) ? 'text-white/80' : 'text-slate-700'">{{ feature.name }} Access</span>
                                     </div>
                                 </div>
                             </div>
                         </CardContent>
 
-                        <CardFooter class="px-8 pb-10">
+                        <CardFooter class="px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8 lg:pb-10">
                             <Button
                                 :disabled="isCurrentPlan(plan.id) || (pendingSubscriptionRef && pendingSubscriptionRef.status !== 'rejected')"
                                 @click="openPaymentModal(plan)"
                                 :class="[
-                                    'w-full h-14 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 shadow-lg',
+                                    'w-full h-10 sm:h-12 lg:h-14 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] lg:text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 shadow-lg',
                                     (isCurrentPlan(plan.id) || (pendingSubscriptionRef && pendingSubscriptionRef.status !== 'rejected'))
                                         ? 'bg-transparent border-2 border-white/20 text-white/50 cursor-not-allowed shadow-none'
                                         : (plan.size_category === 'Medium' || plan.size_category === 'Large'
@@ -551,19 +549,19 @@ onUnmounted(() => {
                     </Card>
                 </div>
 
-                <!-- Sleek Minimalist Footer Section -->
-                <div class="pt-8 border-t border-slate-100 flex flex-col md:flex-row items-center justify-center gap-12 text-slate-400">
+                <!-- Sleek Minimalist Footer Section - Mobile Optimized -->
+                <div class="pt-6 sm:pt-8 lg:pt-12 border-t border-slate-100 flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-6 sm:gap-8 lg:gap-12 text-slate-400">
                     <div class="flex items-center gap-2 group transition-colors hover:text-slate-600">
-                        <CreditCard class="size-5" />
-                        <span class="text-[10px] font-black uppercase tracking-widest">M-PESA Integrated</span>
+                        <CreditCard class="size-4 sm:size-5" />
+                        <span class="text-[8px] sm:text-[9px] lg:text-[10px] font-black uppercase tracking-widest">M-PESA Integrated</span>
                     </div>
                     <div class="flex items-center gap-2 group transition-colors hover:text-slate-600">
-                        <ShieldAlert class="size-5" />
-                        <span class="text-[10px] font-black uppercase tracking-widest">Policy Gated Access</span>
+                        <ShieldAlert class="size-4 sm:size-5" />
+                        <span class="text-[8px] sm:text-[9px] lg:text-[10px] font-black uppercase tracking-widest">Policy Gated Access</span>
                     </div>
                     <div class="flex items-center gap-2 group transition-colors hover:text-slate-600">
-                        <Info class="size-5" />
-                        <span class="text-[10px] font-black uppercase tracking-widest">Real-time Activation</span>
+                        <Info class="size-4 sm:size-5" />
+                        <span class="text-[8px] sm:text-[9px] lg:text-[10px] font-black uppercase tracking-widest">Real-time Activation</span>
                     </div>
                 </div>
 
@@ -571,8 +569,8 @@ onUnmounted(() => {
         </div>
 
         <!-- Premium Centered Dialog -->
-        <SubscriptionPaymentModal 
-            :open="showPaymentModal" 
+        <SubscriptionPaymentModal
+            :open="showPaymentModal"
             @update:open="showPaymentModal = $event"
             :plan="selectedPlan"
             :billing-cycle="billingCycle"

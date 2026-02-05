@@ -454,38 +454,39 @@ const flash: any = page.props.flash || {}
   <Head title="Products" />
 
   <AppLayout title="Products">
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-          <div class="relative z-10 flex items-center justify-between">
-            <div>
-              <div class="flex items-center gap-3 mb-2">
-                <div class="rounded-xl bg-white/20 backdrop-blur p-3">
-                  <Package class="h-8 w-8" />
+    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 sm:p-8 text-white shadow-2xl">
+          <div class="absolute top-0 right-0 w-32 h-32 sm:w-64 sm:h-64 bg-white/10 rounded-full -mr-16 sm:-mr-32 -mt-16 sm:-mt-32"></div>
+          <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                <div class="rounded-lg sm:rounded-xl bg-white/20 backdrop-blur p-2 sm:p-3 flex-shrink-0">
+                  <Package class="h-5 w-5 sm:h-8 sm:w-8" />
                 </div>
-                <div>
-                  <h1 class="text-4xl font-bold">Product Catalog</h1>
-                  <p class="text-blue-100 text-lg mt-1">{{ productsData.total }} items in inventory</p>
+                <div class="min-w-0 flex-1">
+                  <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold truncate">Product Catalog</h1>
+                  <p class="text-blue-100 text-xs sm:text-base lg:text-lg mt-0.5 sm:mt-1 truncate">{{ productsData.total }} items in inventory</p>
                 </div>
               </div>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2 flex-shrink-0">
               <Button
                 v-if="(page.props.auth as any).permissions?.includes('create_products')"
                 @click="openCreateModal"
-                class="bg-white text-blue-600 hover:bg-blue-50 gap-2 h-12 px-6"
+                class="bg-white text-blue-600 hover:bg-blue-50 gap-1 sm:gap-2 h-9 sm:h-12 px-3 sm:px-6 text-xs sm:text-sm flex-1 sm:flex-initial"
               >
-                <Plus class="h-5 w-5" />
-                Add Product
+                <Plus class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden xs:inline">Add Product</span>
+                <span class="xs:hidden">Add</span>
               </Button>
               <Button
                 @click="showImportModal = true"
-                class="bg-white text-blue-600 hover:bg-blue-50 gap-2 h-12 px-6"
+                class="bg-white text-blue-600 hover:bg-blue-50 gap-1 sm:gap-2 h-9 sm:h-12 px-3 sm:px-6 text-xs sm:text-sm flex-1 sm:flex-initial"
               >
-                <ArrowUp class="h-5 w-5" />
-                Import Products
+                <ArrowUp class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden sm:inline">Import</span>
               </Button>
               <a
                 href="/products/import/template"
@@ -493,10 +494,11 @@ const flash: any = page.props.flash || {}
                 data-inertia="false"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-center gap-2 px-4 h-12 rounded bg-white text-green-600 hover:bg-green-50"
+                class="inline-flex items-center gap-1 sm:gap-2 px-3 sm:px-4 h-9 sm:h-12 rounded bg-white text-green-600 hover:bg-green-50 text-xs sm:text-sm flex-1 sm:flex-initial justify-center"
               >
-                <Download class="h-5 w-5" />
-                Download Template
+                <Download class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden md:inline">Download Template</span>
+                <span class="md:hidden">Template</span>
               </a>
             </div>
           </div>
@@ -519,72 +521,74 @@ const flash: any = page.props.flash || {}
           </ul>
         </div>
 
-        <!-- Filters -->
+        <!-- Filters - Mobile Optimized -->
         <Card class="border-0 shadow-xl bg-white/90 backdrop-blur">
-          <CardContent class="pt-6">
-            <div class="flex flex-wrap gap-4">
-              <div class="flex-1 min-w-[300px]">
+          <CardContent class="pt-4 sm:pt-6 p-3 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4">
+              <div class="flex-1 min-w-0 sm:min-w-[300px]">
                 <div class="relative">
-                  <Search class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Search class="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
                   <Input
                     v-model="search"
-                    placeholder="Search by name, SKU, or barcode..."
+                    placeholder="Search products..."
                     @keyup.enter="applyFilters"
-                    class="pl-12 h-12 border-2 focus:border-blue-500"
+                    class="pl-10 sm:pl-12 h-10 sm:h-12 border-2 focus:border-blue-500 text-sm sm:text-base"
                   />
                 </div>
               </div>
               <Button
                 :variant="showLowStock ? 'default' : 'outline'"
                 @click="showLowStock = !showLowStock; applyFilters()"
-                class="h-12 px-6 gap-2"
+                class="h-10 sm:h-12 px-3 sm:px-6 gap-1 sm:gap-2 text-xs sm:text-sm flex-1 sm:flex-initial"
                 :class="showLowStock ? 'bg-gradient-to-r from-red-500 to-orange-500' : ''"
               >
-                <AlertTriangle class="h-5 w-5" />
-                Low Stock Only
+                <AlertTriangle class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden xs:inline">Low Stock Only</span>
+                <span class="xs:hidden">Low Stock</span>
               </Button>
-              <Button @click="applyFilters" class="h-12 px-6 gap-2 bg-gradient-to-r from-blue-600 to-indigo-600">
-                <Filter class="h-5 w-5" />
+              <Button @click="applyFilters" class="h-10 sm:h-12 px-3 sm:px-6 gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-xs sm:text-sm">
+                <Filter class="h-4 w-4 sm:h-5 sm:w-5" />
                 Apply
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <!-- Products Grid/Table -->
+        <!-- Products Grid/Table - Mobile Optimized -->
         <Card class="border-0 shadow-2xl bg-white/90 backdrop-blur">
-          <CardHeader class="border-b bg-gradient-to-r from-slate-50 to-slate-100">
-            <div class="flex items-center justify-between">
-              <CardTitle class="text-2xl flex items-center gap-2">
-                <Sparkles class="h-6 w-6 text-blue-600" />
-                Products
+          <CardHeader class="border-b bg-gradient-to-r from-slate-50 to-slate-100 p-3 sm:p-6">
+            <div class="flex items-center justify-between gap-2">
+              <CardTitle class="text-base sm:text-xl lg:text-2xl flex items-center gap-2 min-w-0 flex-1">
+                <Sparkles class="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-blue-600 flex-shrink-0" />
+                <span class="truncate">Products</span>
               </CardTitle>
-              <div class="text-sm text-slate-600">
-                Showing {{ productsData.data.length }} of {{ productsData.total }}
+              <div class="text-xs sm:text-sm text-slate-600 flex-shrink-0">
+                {{ productsData.data.length }} / {{ productsData.total }}
               </div>
             </div>
           </CardHeader>
           <CardContent class="p-0">
-            <Table>
+            <div class="overflow-x-auto">
+            <Table class="min-w-full">
               <TableHeader>
                 <TableRow class="bg-slate-50/50">
-                  <TableHead class="font-semibold w-4">
+                  <TableHead class="font-semibold w-4 px-2 sm:px-4">
                     <!-- Select All Checkbox -->
                     <div class="flex items-center">
                       <input
                         type="checkbox"
                         v-model="allSelected"
-                        class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        class="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </div>
                   </TableHead>
-                  <TableHead class="font-semibold">Product</TableHead>
-                  <TableHead class="font-semibold">SKU / Barcode</TableHead>
-                  <TableHead class="font-semibold">Category</TableHead>
-                  <TableHead class="font-semibold">Price</TableHead>
-                  <TableHead class="font-semibold">Stock</TableHead>
-                  <TableHead class="font-semibold">Status</TableHead>
-                  <TableHead class="text-right font-semibold">Actions</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4">Product</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden md:table-cell">SKU / Barcode</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden lg:table-cell">Category</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4">Price</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden sm:table-cell">Stock</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden lg:table-cell">Status</TableHead>
+                  <TableHead class="text-right font-semibold text-xs sm:text-sm px-2 sm:px-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -593,7 +597,7 @@ const flash: any = page.props.flash || {}
                   :key="product.id"
                   class="hover:bg-blue-50/50 transition-colors"
                 >
-                  <TableCell>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
                     <!-- Individual Select Checkbox -->
                     <div class="flex items-center">
                       <input
@@ -601,81 +605,84 @@ const flash: any = page.props.flash || {}
                         :value="product.id"
                         :checked="isSelected(product.id)"
                         @change="toggleSelect(product.id)"
-                        class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        class="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div class="font-semibold text-slate-900">{{ product.name }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="font-semibold text-slate-900 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{{ product.name }}</div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
                     <div class="space-y-1">
-                      <div class="text-sm font-mono bg-slate-100 px-2 py-1 rounded inline-block">{{ product.sku }}</div>
-                      <div class="text-xs text-slate-500">{{ product.barcode }}</div>
+                      <div class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded inline-block">{{ product.sku }}</div>
+                      <div class="text-[10px] text-slate-500">{{ product.barcode }}</div>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" class="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden lg:table-cell">
+                    <Badge variant="outline" class="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 text-xs">
                       {{ product.category?.name || 'Uncategorized' }}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <div class="space-y-1">
-                      <div class="text-lg font-bold text-slate-900">{{ formatCurrency(product.selling_price) }}</div>
-                      <div class="text-xs text-slate-500">Cost: {{ formatCurrency(product.cost_price) }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="space-y-0.5">
+                      <div class="text-sm sm:text-base lg:text-lg font-bold text-slate-900">{{ formatCurrency(product.selling_price) }}</div>
+                      <div class="text-[10px] sm:text-xs text-slate-500 hidden sm:block">Cost: {{ formatCurrency(product.cost_price) }}</div>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">
                     <div class="flex items-center gap-2">
                       <div
-                        :class="product.is_low_stock ? 'text-red-600 font-bold text-lg' : 'text-slate-900 font-semibold'"
+                        :class="product.is_low_stock ? 'text-red-600 font-bold text-base sm:text-lg' : 'text-slate-900 font-semibold'"
                         class="flex items-center gap-1"
                       >
                         {{ product.quantity }}
                         <AlertTriangle
                           v-if="product.is_low_stock"
-                          class="h-5 w-5 animate-pulse"
+                          class="h-4 w-4 sm:h-5 sm:w-5 animate-pulse"
                         />
                       </div>
                     </div>
-                    <div class="text-xs text-slate-500 mt-1">
+                    <div class="text-[10px] sm:text-xs text-slate-500 mt-1">
                       Min: {{ product.reorder_level }}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden lg:table-cell">
                     <Badge
                       :class="product.is_active
                         ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white'
                         : 'bg-slate-300 text-slate-700'"
+                      class="text-xs"
                     >
                       {{ product.is_active ? '✓ Active' : '✕ Inactive' }}
                     </Badge>
                   </TableCell>
-                  <TableCell class="text-right">
-                    <div class="flex justify-end gap-2">
+                  <TableCell class="text-right px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="flex justify-end gap-1 sm:gap-2">
                        <Button
                         v-if="(page.props.auth as any).permissions?.includes('edit_products')"
                         variant="ghost"
                         size="sm"
                         @click="openEditModal(product)"
-                        class="hover:bg-blue-100 hover:text-blue-600"
+                        class="hover:bg-blue-100 hover:text-blue-600 h-8 w-8 p-0"
                       >
-                        <Edit class="h-4 w-4" />
+                        <Edit class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                       <Button
                         v-if="(page.props.auth as any).permissions?.includes('delete_products')"
                         variant="ghost"
                         size="sm"
                         @click="deleteProduct(product)"
-                        class="hover:bg-red-100 hover:text-red-600"
+                        class="hover:bg-red-100 hover:text-red-600 h-8 w-8 p-0"
                       >
-                        <Trash2 class="h-4 w-4" />
+                        <Trash2 class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
+            </div>
+
 
             <!-- Pagination -->
             <div v-if="productsData.last_page > 1" class="flex justify-center gap-2 p-6 bg-slate-50/50 border-t">

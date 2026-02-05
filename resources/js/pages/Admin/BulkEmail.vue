@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import {
     Mail,
     Send,
@@ -17,6 +11,14 @@ import {
     Info,
     Eraser
 } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import AdminLayout from '@/layouts/AdminLayout.vue'
+
 
 const props = defineProps<{
     selectedBusinesses: Array<{

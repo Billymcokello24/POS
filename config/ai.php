@@ -1,21 +1,24 @@
 <?php
 
 return [
-    // Driver: 'mock' (default) or 'openai'
-    'driver' => env('AI_DRIVER', env('AI_DRIVER', 'mock')),
+    // Driver: 'openai' for AI-powered analysis, 'mock' for rule-based fallback
+    // AI analyzes database-derived metrics (does NOT generate data)
+    'driver' => env('AI_DRIVER', 'openai'),
 
-    // API key is read from env; DO NOT commit your key to source control.
+    // OpenAI/OpenRouter API credentials
     'api_key' => env('AI_API_KEY', null),
-
-    // Token used to secure stateless dev API endpoints (X-AI-API-KEY)
     'api_token' => env('AI_API_TOKEN', null),
 
-    // Model to use for the OpenAI-compatible endpoint
-    'model' => env('AI_MODEL', 'gpt-5'),
+    // Model configuration
+    // OpenRouter: openai/gpt-4, openai/gpt-3.5-turbo
+    // OpenAI: gpt-4, gpt-4-turbo, gpt-3.5-turbo
+    'model' => env('AI_MODEL', 'openai/gpt-4'),
 
-    // Optional base URI for OpenAI compatible APIs (leave null to use OpenAI official)
-    'base_uri' => env('AI_BASE_URI', 'https://api.openai.com'),
+    // API endpoint
+    // OpenRouter: https://openrouter.ai/api
+    // OpenAI: https://api.openai.com
+    'base_uri' => env('AI_BASE_URI', 'https://openrouter.ai/api'),
 
-    // Token timeout & other HTTP options
-    'timeout_seconds' => env('AI_TIMEOUT', 10),
+    // Request timeout
+    'timeout_seconds' => env('AI_TIMEOUT', 120),
 ];

@@ -97,86 +97,87 @@ const deleteCategory = (category: Category) => {
   <Head title="Categories" />
 
   <AppLayout>
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-          <div class="relative z-10 flex items-center justify-between">
-            <div>
-              <div class="flex items-center gap-3 mb-2">
-                <div class="rounded-xl bg-white/20 backdrop-blur p-3">
-                  <Box class="h-8 w-8" />
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 p-4 sm:p-8 text-white shadow-2xl">
+          <div class="absolute top-0 right-0 w-32 h-32 sm:w-64 sm:h-64 bg-white/10 rounded-full -mr-16 sm:-mr-32 -mt-16 sm:-mt-32"></div>
+          <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                <div class="rounded-lg sm:rounded-xl bg-white/20 backdrop-blur p-2 sm:p-3 flex-shrink-0">
+                  <Box class="h-5 w-5 sm:h-8 sm:w-8" />
                 </div>
-                <div>
-                  <h1 class="text-4xl font-bold">Product Categories</h1>
-                  <p class="text-purple-100 text-lg mt-1">Organize your inventory</p>
+                <div class="min-w-0 flex-1">
+                  <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold truncate">Product Categories</h1>
+                  <p class="text-purple-100 text-xs sm:text-base lg:text-lg mt-0.5 sm:mt-1 truncate">Organize your inventory</p>
                 </div>
               </div>
             </div>
             <Button
               v-if="(page.props.auth as any).permissions?.includes('create_categories')"
               @click="openCreateModal"
-              class="bg-white text-purple-600 hover:bg-purple-50 gap-2 h-12 px-6"
+              class="bg-white text-purple-600 hover:bg-purple-50 gap-1 sm:gap-2 h-9 sm:h-12 px-3 sm:px-6 text-xs sm:text-sm"
             >
-              <Plus class="h-5 w-5" />
-              Add Category
+              <Plus class="h-4 w-4 sm:h-5 sm:w-5" />
+              <span class="hidden xs:inline">Add Category</span>
+              <span class="xs:hidden">Add</span>
             </Button>
           </div>
         </div>
 
-        <!-- Stats -->
-        <div class="grid gap-4 md:grid-cols-3">
+        <!-- Stats - Mobile Optimized -->
+        <div class="grid gap-3 sm:gap-4 grid-cols-3">
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600">Total Categories</CardTitle>
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 truncate">Total Categories</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-purple-600">{{ categories.length }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-600">{{ categories.length }}</div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600">Total Products</CardTitle>
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 truncate">Total Products</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-pink-600">
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-pink-600">
                 {{ categories.reduce((sum, cat) => sum + cat.products_count, 0) }}
               </div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600">Active Categories</CardTitle>
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 truncate">Active</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-orange-600">
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-orange-600">
                 {{ categories.filter(cat => cat.is_active).length }}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <!-- Categories Grid -->
-        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <!-- Categories Grid - Mobile Optimized -->
+        <div class="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <Card
             v-for="category in categories"
             :key="category.id"
             class="border-0 shadow-xl bg-white hover:shadow-2xl transition-all group"
           >
-            <CardHeader>
-              <div class="flex items-start justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 p-3 text-white group-hover:scale-110 transition-transform">
-                    <Box class="h-6 w-6" />
+            <CardHeader class="p-4 sm:p-6">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div class="rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 p-2 sm:p-3 text-white group-hover:scale-110 transition-transform flex-shrink-0">
+                    <Box class="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
-                  <div>
-                    <CardTitle class="text-xl">{{ category.name }}</CardTitle>
+                  <div class="min-w-0 flex-1">
+                    <CardTitle class="text-base sm:text-lg lg:text-xl truncate">{{ category.name }}</CardTitle>
                     <Badge
                       :class="category.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'"
-                      class="mt-2"
+                      class="mt-1 sm:mt-2 text-xs"
                     >
                       {{ category.is_active ? 'Active' : 'Inactive' }}
                     </Badge>
@@ -184,43 +185,44 @@ const deleteCategory = (category: Category) => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <p class="text-sm text-slate-600">
+            <CardContent class="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
+              <p class="text-xs sm:text-sm text-slate-600 line-clamp-2">
                 {{ category.description || 'No description' }}
               </p>
 
               <div class="flex items-center gap-2 text-slate-700">
-                <Package class="h-4 w-4" />
-                <span class="text-sm font-semibold">{{ category.products_count }} Products</span>
+                <Package class="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span class="text-xs sm:text-sm font-semibold">{{ category.products_count }} Products</span>
               </div>
 
-              <div class="flex gap-2 pt-4 border-t">
+              <div class="flex gap-2 pt-3 sm:pt-4 border-t">
                 <Button
                   variant="outline"
                   size="sm"
-                  class="flex-1 hover:bg-purple-50 hover:border-purple-300"
+                  class="flex-1 hover:bg-purple-50 hover:border-purple-300 h-8 sm:h-9 text-xs sm:text-sm"
                   @click="router.visit(`/products?category_id=${category.id}`)"
                 >
-                  <Package class="h-4 w-4 mr-2" />
-                  View Products
+                  <Package class="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span class="hidden xs:inline">View Products</span>
+                  <span class="xs:hidden">Products</span>
                 </Button>
                 <Button
                   v-if="(page.props.auth as any).permissions?.includes('edit_categories')"
                   variant="ghost"
                   size="sm"
-                  class="hover:bg-blue-100"
+                  class="hover:bg-blue-100 h-8 w-8 sm:h-9 sm:w-9 p-0"
                   @click="openEditModal(category)"
                 >
-                  <Edit class="h-4 w-4" />
+                  <Edit class="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
                 <Button
                   v-if="(page.props.auth as any).permissions?.includes('delete_categories')"
                   variant="ghost"
                   size="sm"
-                  class="hover:bg-red-100"
+                  class="hover:bg-red-100 h-8 w-8 sm:h-9 sm:w-9 p-0"
                   @click="deleteCategory(category)"
                 >
-                  <Trash2 class="h-4 w-4" />
+                  <Trash2 class="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </CardContent>

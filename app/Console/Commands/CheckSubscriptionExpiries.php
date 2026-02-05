@@ -75,7 +75,7 @@ class CheckSubscriptionExpiries extends Command
         try {
             \DB::transaction(function () use ($subscription) {
                 $now = now();
-                
+
                 // Transition Subscription state (Truth)
                 $subscription->update([
                     'status' => Subscription::STATUS_EXPIRED,
@@ -98,14 +98,30 @@ class CheckSubscriptionExpiries extends Command
                         'plan_ends_at' => null,
                         'active_features' => [] // Reset cache
                     ]);
-                    
+
                     if (method_exists($business, 'refreshFeatures')) {
                         $business->refreshFeatures();
+                    }
+
+                    // Send auto-suspension notification to business admins
+                    try {
+                        $admins = $business->users()->whereHas('roles', function($q) {
+                            $q->where('name', 'admin');
+                        })->get();
+
+                        foreach ($admins as $admin) {
+                            $admin->notify(new \App\Notifications\AutoSuspensionNotification(
+                                $business,
+                                'Subscription expired'
+                            ));
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('Failed to send auto-suspension notification', ['error' => $e->getMessage()]);
                     }
                 }
 
                 try { \App\Services\SseService::pushBusinessEvent($subscription->business_id, 'subscription.expired', ['id' => $subscription->id]); } catch (\Throwable $_) {}
-                
+
                 // Notify Admins
                 $this->notifyAdmins($subscription, new SubscriptionExpired($subscription));
 
@@ -126,7 +142,7 @@ class CheckSubscriptionExpiries extends Command
 
         try {
             Log::info("Saas Billing: Triggering renewal window for Subscription #{$subscription->id}");
-            
+
             $phone = $subscription->payment_details['phone'] ?? null;
             if ($phone && ($subscription->metadata['auto_renew'] ?? false)) {
                 $this->initiateAutoRenewal($subscription, $phone);
@@ -155,14 +171,14 @@ class CheckSubscriptionExpiries extends Command
     {
         try {
             Log::info("Saas Billing: Initiating auto-renew STK for Business #{$subscription->business_id}");
-            
+
             // We can't directly call the controller easily without Auth
             // But we can manually trigger the payment service or use the activation service strategy
             // For now, we'll use a mocked request to the controller if possible, or just log
             // In a real production system, this would call a dedicated PaymentService method
-            
+
             $finalizer = app(\App\Http\Controllers\Api\SubscriptionPaymentController::class);
-            
+
             // We need to bypass Auth or provide a system user
             // For now, let's just log exactly what would happen
             Log::info("Saas Billing: Auto-Renewal Request", [
@@ -194,7 +210,7 @@ class CheckSubscriptionExpiries extends Command
         }
 
         Log::info("Saas Billing: Sending 3-day reminder for Subscription #{$subscription->id}");
-        
+
         $this->notifyAdmins($subscription, new SubscriptionExpiring($subscription));
 
         $subscription->update([
@@ -212,7 +228,7 @@ class CheckSubscriptionExpiries extends Command
                 $admins = $business->users()->whereHas('roles', function($q) {
                     $q->where('name', 'admin');
                 })->get();
-                
+
                 foreach ($admins as $admin) {
                     $admin->notify($notification);
                 }

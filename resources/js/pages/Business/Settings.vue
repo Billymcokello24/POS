@@ -128,335 +128,330 @@ const toggleSimulate = (e: Event) => {
   <Head title="Business Settings" />
 
   <AppLayout>
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-700 via-gray-800 to-zinc-900 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-          <div class="relative z-10">
-            <div class="flex items-center gap-3 mb-2">
-              <div class="rounded-xl bg-white/20 backdrop-blur p-3">
-                <Store class="h-8 w-8" />
-              </div>
-              <div>
-                <h1 class="text-4xl font-bold">Business Settings</h1>
-                <p class="text-slate-200 text-lg mt-1">Configure your business information</p>
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-r from-slate-700 via-gray-800 to-zinc-900 p-4 sm:p-8 text-white shadow-2xl">
+          <div class="absolute top-0 right-0 w-32 h-32 sm:w-64 sm:h-64 bg-white/10 rounded-full -mr-16 sm:-mr-32 -mt-16 sm:-mt-32"></div>
+          <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                <div class="rounded-lg sm:rounded-xl bg-white/20 backdrop-blur p-2 sm:p-3 flex-shrink-0">
+                  <Store class="h-5 w-5 sm:h-8 sm:w-8" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold truncate">Business Settings</h1>
+                  <p class="text-slate-200 text-xs sm:text-base lg:text-lg mt-0.5 sm:mt-1 truncate">Configure your business</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-6">
-          <!-- Business Information -->
+        <form @submit.prevent="submit" class="space-y-3 sm:space-y-4 lg:space-y-6">
+          <!-- Business Information - Mobile Optimized -->
           <Card class="border-0 shadow-xl">
-            <CardHeader>
-              <div class="flex items-center gap-3">
-                <div class="rounded-lg bg-blue-100 p-2">
-                  <Building class="h-6 w-6 text-blue-600" />
+            <CardHeader class="p-3 sm:p-4 lg:p-6">
+              <div class="flex items-center gap-2 sm:gap-3">
+                <div class="rounded-lg bg-blue-100 p-1.5 sm:p-2 flex-shrink-0">
+                  <Building class="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-blue-600" />
                 </div>
-                <div>
-                  <CardTitle class="text-2xl">Business Information</CardTitle>
-                  <CardDescription>Basic details about your business</CardDescription>
+                <div class="min-w-0">
+                  <CardTitle class="text-sm sm:text-lg lg:text-2xl truncate">Business Information</CardTitle>
+                  <CardDescription class="text-xs sm:text-sm">Basic details about your business</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2 space-y-2">
-                  <Label for="name">Business Name *</Label>
+            <CardContent class="p-3 sm:p-4 lg:p-6 pt-0 space-y-2 sm:space-y-3 lg:space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
+                <div class="col-span-1 sm:col-span-2 space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="name" class="text-xs sm:text-sm lg:text-base">Business Name *</Label>
                   <Input
                     id="name"
                     v-model="form.name"
                     required
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="business_type">Business Type</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="business_type" class="text-xs sm:text-sm lg:text-base">Business Type</Label>
                   <Input
                     id="business_type"
                     v-model="form.business_type"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="tax_id">Tax ID</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="tax_id" class="text-xs sm:text-sm lg:text-base">Tax ID</Label>
                   <Input
                     id="tax_id"
                     v-model="form.tax_id"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <!-- Contact Information -->
+          <!-- Contact Information - Mobile Optimized -->
           <Card class="border-0 shadow-xl">
-            <CardHeader>
-              <div class="flex items-center gap-3">
-                <div class="rounded-lg bg-green-100 p-2">
-                  <Phone class="h-6 w-6 text-green-600" />
+            <CardHeader class="p-3 sm:p-4 lg:p-6">
+              <div class="flex items-center gap-2 sm:gap-3">
+                <div class="rounded-lg bg-green-100 p-1.5 sm:p-2 flex-shrink-0">
+                  <Phone class="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-green-600" />
                 </div>
-                <div>
-                  <CardTitle class="text-2xl">Contact Information</CardTitle>
-                  <CardDescription>How customers can reach you</CardDescription>
+                <div class="min-w-0">
+                  <CardTitle class="text-sm sm:text-lg lg:text-2xl truncate">Contact Information</CardTitle>
+                  <CardDescription class="text-xs sm:text-sm">How customers can reach you</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="space-y-2">
-                <Label for="email" class="flex items-center gap-2">
-                  <Mail class="h-4 w-4" />
+            <CardContent class="p-3 sm:p-4 lg:p-6 pt-0 space-y-2 sm:space-y-3 lg:space-y-4">
+              <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                <Label for="email" class="flex items-center gap-2 text-xs sm:text-sm lg:text-base">
+                  <Mail class="h-3 w-3 sm:h-4 sm:w-4" />
                   Email Address
                 </Label>
                 <Input
                   id="email"
                   v-model="form.email"
                   type="email"
-                  class="h-12"
+                  class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                 />
               </div>
 
-              <div class="space-y-2">
-                <Label for="phone" class="flex items-center gap-2">
-                  <Phone class="h-4 w-4" />
+              <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                <Label for="phone" class="flex items-center gap-2 text-xs sm:text-sm lg:text-base">
+                  <Phone class="h-3 w-3 sm:h-4 sm:w-4" />
                   Phone Number
                 </Label>
                 <Input
                   id="phone"
                   v-model="form.phone"
                   type="tel"
-                  class="h-12"
+                  class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                 />
               </div>
 
-              <div class="space-y-2">
-                <Label for="address" class="flex items-center gap-2">
-                  <MapPin class="h-4 w-4" />
+              <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                <Label for="address" class="flex items-center gap-2 text-xs sm:text-sm lg:text-base">
+                  <MapPin class="h-3 w-3 sm:h-4 sm:w-4" />
                   Business Address
                 </Label>
                 <Textarea
                   id="address"
                   v-model="form.address"
                   rows="3"
-                  class="resize-none"
+                  class="resize-none text-xs sm:text-sm lg:text-base min-h-[70px] sm:min-h-[80px]"
                 />
               </div>
             </CardContent>
           </Card>
 
-          <!-- POS Settings -->
+          <!-- POS Settings - Mobile Optimized -->
           <Card class="border-0 shadow-xl">
-            <CardHeader>
-              <div class="flex items-center gap-3">
-                <div class="rounded-lg bg-purple-100 p-2">
-                  <Settings class="h-6 w-6 text-purple-600" />
+            <CardHeader class="p-3 sm:p-4 lg:p-6">
+              <div class="flex items-center gap-2 sm:gap-3">
+                <div class="rounded-lg bg-purple-100 p-1.5 sm:p-2 flex-shrink-0">
+                  <Settings class="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-purple-600" />
                 </div>
-                <div>
-                  <CardTitle class="text-2xl">POS Configuration</CardTitle>
-                  <CardDescription>Point of sale system settings</CardDescription>
+                <div class="min-w-0">
+                  <CardTitle class="text-sm sm:text-lg lg:text-2xl truncate">POS Configuration</CardTitle>
+                  <CardDescription class="text-xs sm:text-sm">Point of sale system settings</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-2">
-                  <Label for="receipt_prefix">Receipt Prefix</Label>
+            <CardContent class="p-3 sm:p-4 lg:p-6 pt-0 space-y-2 sm:space-y-3 lg:space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="receipt_prefix" class="text-xs sm:text-sm lg:text-base">Receipt Prefix</Label>
                   <Input
                     id="receipt_prefix"
                     v-model="form.receipt_prefix"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
-                  <p class="text-xs text-slate-500">Prefix for receipt numbers (e.g., DS000123)</p>
+                  <p class="text-[9px] sm:text-xs text-slate-500">e.g., DS000123</p>
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="currency" class="flex items-center gap-2">
-                    <DollarSign class="h-4 w-4" />
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="currency" class="flex items-center gap-2 text-xs sm:text-sm lg:text-base">
+                    <DollarSign class="h-3 w-3 sm:h-4 sm:w-4" />
                     Currency
                   </Label>
                   <Input
                     id="currency"
                     v-model="form.currency"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
-                  <p class="text-xs text-slate-500">Default currency (e.g., USD, EUR)</p>
+                  <p class="text-[9px] sm:text-xs text-slate-500">Default currency (e.g., USD)</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <!-- MPESA Settings -->
+          <!-- MPESA Settings - Mobile Optimized -->
           <Card class="border-0 shadow-xl">
-            <CardHeader>
-              <div class="flex items-center gap-3">
-                <div class="rounded-lg bg-yellow-100 p-2">
-                  <Settings class="h-6 w-6 text-yellow-600" />
+            <CardHeader class="p-3 sm:p-4 lg:p-6">
+              <div class="flex items-center gap-2 sm:gap-3">
+                <div class="rounded-lg bg-yellow-100 p-1.5 sm:p-2 flex-shrink-0">
+                  <Settings class="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-yellow-600" />
                 </div>
-                <div>
-                  <CardTitle class="text-2xl">MPESA Configuration</CardTitle>
-                  <CardDescription>Mobile payment settings</CardDescription>
+                <div class="min-w-0">
+                  <CardTitle class="text-sm sm:text-lg lg:text-2xl truncate">MPESA Configuration</CardTitle>
+                  <CardDescription class="text-xs sm:text-sm">Mobile payment settings</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-2">
-                  <Label for="mpesa_consumer_key">MPESA Consumer Key</Label>
+            <CardContent class="p-3 sm:p-4 lg:p-6 pt-0 space-y-2 sm:space-y-3 lg:space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_consumer_key" class="text-xs sm:text-sm lg:text-base">Consumer Key</Label>
                   <Input
                     id="mpesa_consumer_key"
                     v-model="form.mpesa_consumer_key"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_consumer_secret">MPESA Consumer Secret</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_consumer_secret" class="text-xs sm:text-sm lg:text-base">Consumer Secret</Label>
                   <Input
                     id="mpesa_consumer_secret"
                     v-model="form.mpesa_consumer_secret"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_shortcode">MPESA Shortcode</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_shortcode" class="text-xs sm:text-sm lg:text-base">Shortcode</Label>
                   <Input
                     id="mpesa_shortcode"
                     v-model="form.mpesa_shortcode"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_passkey">MPESA Passkey</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_passkey" class="text-xs sm:text-sm lg:text-base">Passkey</Label>
                   <Input
                     id="mpesa_passkey"
                     v-model="form.mpesa_passkey"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_environment">MPESA Environment</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_environment" class="text-xs sm:text-sm lg:text-base">Environment</Label>
                   <Input
                     id="mpesa_environment"
                     v-model="form.mpesa_environment"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
-                  <p class="text-xs text-slate-500">Set to "live" or "sandbox"</p>
+                  <p class="text-[9px] sm:text-xs text-slate-500">"live" or "sandbox"</p>
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_callback_url">MPESA Callback URL</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_callback_url" class="text-xs sm:text-sm lg:text-base">Callback URL</Label>
                   <Input
                     id="mpesa_callback_url"
                     v-model="form.mpesa_callback_url"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
-                  <p class="text-xs text-slate-500">e.g., https://yourdomain.com/api/payments/mpesa/callback</p>
                 </div>
 
                 <!-- New MPESA Fields -->
-                <div class="space-y-2">
-                  <Label for="mpesa_head_office_shortcode">Head Office Shortcode</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_head_office_shortcode" class="text-xs sm:text-sm lg:text-base">Head Office Shortcode</Label>
                   <Input
                     id="mpesa_head_office_shortcode"
                     v-model="form.mpesa_head_office_shortcode"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_head_office_passkey">Head Office Passkey</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_head_office_passkey" class="text-xs sm:text-sm lg:text-base">Head Office Passkey</Label>
                   <Input
                     id="mpesa_head_office_passkey"
                     v-model="form.mpesa_head_office_passkey"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_result_url">Result URL</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_result_url" class="text-xs sm:text-sm lg:text-base">Result URL</Label>
                   <Input
                     id="mpesa_result_url"
                     v-model="form.mpesa_result_url"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_initiator_name">Initiator Name</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_initiator_name" class="text-xs sm:text-sm lg:text-base">Initiator Name</Label>
                   <Input
                     id="mpesa_initiator_name"
                     v-model="form.mpesa_initiator_name"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_initiator_password">Initiator Password</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_initiator_password" class="text-xs sm:text-sm lg:text-base">Initiator Password</Label>
                   <Input
                     id="mpesa_initiator_password"
                     v-model="form.mpesa_initiator_password"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_security_credential">Security Credential</Label>
+                <div class="space-y-1 sm:space-y-1.5 lg:space-y-2">
+                  <Label for="mpesa_security_credential" class="text-xs sm:text-sm lg:text-base">Security Credential</Label>
                   <Input
                     id="mpesa_security_credential"
                     v-model="form.mpesa_security_credential"
-                    class="h-12"
+                    class="h-9 sm:h-10 lg:h-12 text-xs sm:text-sm lg:text-base"
                   />
                 </div>
 
-                <div class="space-y-2">
-                  <Label for="mpesa_simulate" class="flex items-center gap-2">
+                <!-- Simulate Checkbox -->
+                <div class="col-span-1 sm:col-span-2 pt-2 sm:pt-3 lg:pt-4">
+                  <div class="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 lg:p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <input
-                      id="mpesa_simulate"
                       type="checkbox"
-                      :checked="form.mpesa_simulate == 1"
+                      id="mpesa_simulate"
+                      :checked="form.mpesa_simulate === 1"
                       @change="toggleSimulate"
-                      class="h-4 w-4"
+                      class="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                     />
-                    Simulate Mode
-                  </Label>
-                  <p class="text-xs text-slate-500">Enable to test transactions without real payments</p>
+                    <Label for="mpesa_simulate" class="text-xs sm:text-sm lg:text-base cursor-pointer select-none">
+                      Enable Simulation Mode (Sandbox Only)
+                    </Label>
+                  </div>
                 </div>
               </div>
 
-              <!-- Test Credentials Button -->
-              <div class="flex justify-end">
+              <!-- Test Button -->
+              <div class="pt-2 sm:pt-3 lg:pt-4 border-t">
                 <Button
                   type="button"
+                  variant="outline"
+                  class="w-full sm:w-auto h-9 sm:h-10 lg:h-12 gap-2 text-xs sm:text-sm lg:text-base"
                   @click="testMpesa"
-                  class="h-12 px-6 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 gap-2"
                 >
-                  Test MPESA Credentials
+                  <Settings class="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
+                  Test Credentials
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <!-- Save Button -->
-          <div class="flex justify-end gap-4">
-            <Button type="button" variant="outline" class="h-12 px-6">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              class="h-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 gap-2"
-              :disabled="form.processing"
-            >
-              <Save class="h-5 w-5" />
-              {{ form.processing ? 'Saving...' : 'Save Settings' }}
-            </Button>
-          </div>
+          <Button type="submit" class="w-full h-9 sm:h-10 lg:h-12 text-sm sm:text-base lg:text-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
+            <Save class="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2" />
+            Save Changes
+          </Button>
         </form>
       </div>
     </div>

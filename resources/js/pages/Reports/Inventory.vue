@@ -104,100 +104,101 @@ const exportToExcel = () => {
   <Head title="Inventory Reports" />
 
   <AppLayout title="Inventory Reports">
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-4xl font-bold text-slate-900 flex items-center gap-3">
-              <div class="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 p-3">
-                <Package class="h-8 w-8 text-white" />
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="min-w-0 flex-1">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 flex items-center gap-2 sm:gap-3">
+              <div class="rounded-lg sm:rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 p-2 sm:p-3 flex-shrink-0">
+                <Package class="h-5 w-5 sm:h-8 sm:w-8 text-white" />
               </div>
-              Inventory Analytics
+              <span class="truncate">Inventory Analytics</span>
             </h1>
-            <p class="mt-2 text-slate-600">Real-time stock monitoring and valuation</p>
+            <p class="mt-1 sm:mt-2 text-slate-600 text-xs sm:text-sm truncate">Real-time stock monitoring</p>
           </div>
-          <div class="flex gap-3">
-            <Button @click="exportToPDF" variant="outline" class="gap-2">
-              <FileText class="h-4 w-4" />
-              PDF
+          <div class="flex gap-2 flex-wrap">
+            <Button @click="exportToPDF" variant="outline" class="gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial">
+              <FileText class="h-3 w-3 sm:h-4 sm:w-4" />
+              <span class="hidden xs:inline">PDF</span>
             </Button>
-            <Button @click="exportToCSV" variant="outline" class="gap-2">
-              <Download class="h-4 w-4" />
-              CSV
+            <Button @click="exportToCSV" variant="outline" class="gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial">
+              <Download class="h-3 w-3 sm:h-4 sm:w-4" />
+              <span class="hidden xs:inline">CSV</span>
             </Button>
-            <Button @click="exportToExcel" variant="outline" class="gap-2">
-              <Download class="h-4 w-4" />
-              Excel
+            <Button @click="exportToExcel" variant="outline" class="gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial">
+              <Download class="h-3 w-3 sm:h-4 sm:w-4" />
+              <span class="hidden sm:inline">Excel</span>
+              <span class="sm:hidden">XLS</span>
             </Button>
           </div>
         </div>
 
-        <!-- Key Metrics -->
-        <div class="grid gap-6 md:grid-cols-4">
+        <!-- Key Metrics - Mobile Optimized -->
+        <div class="grid gap-3 sm:gap-6 grid-cols-2 md:grid-cols-4">
           <Card class="border-0 shadow-xl bg-white/90 backdrop-blur">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <DollarSign class="h-4 w-4" />
-                Total Value
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1 sm:gap-2">
+                <DollarSign class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Total Value</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-emerald-600">{{ formatCurrency(totalInventoryValue) }}</div>
-              <p class="text-xs text-slate-500 mt-1">Current stock worth</p>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-emerald-600 truncate">{{ formatCurrency(totalInventoryValue) }}</div>
+              <p class="text-[10px] sm:text-xs text-slate-500 mt-1 truncate">Current stock worth</p>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl bg-white/90 backdrop-blur">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <Package class="h-4 w-4" />
-                Total Products
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1 sm:gap-2">
+                <Package class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Total Products</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-blue-600">{{ totalProducts }}</div>
-              <p class="text-xs text-slate-500 mt-1">Active items</p>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600">{{ totalProducts }}</div>
+              <p class="text-[10px] sm:text-xs text-slate-500 mt-1 truncate">Active items</p>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl bg-white/90 backdrop-blur">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <AlertTriangle class="h-4 w-4" />
-                Low Stock
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1 sm:gap-2">
+                <AlertTriangle class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Low Stock</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-red-600">{{ lowStockCount }}</div>
-              <p class="text-xs text-slate-500 mt-1">Needs restocking</p>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">{{ lowStockCount }}</div>
+              <p class="text-[10px] sm:text-xs text-slate-500 mt-1 truncate">Needs restocking</p>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl bg-white/90 backdrop-blur">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <TrendingUp class="h-4 w-4" />
-                Categories
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1 sm:gap-2">
+                <TrendingUp class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Categories</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-purple-600">{{ value_by_category.length }}</div>
-              <p class="text-xs text-slate-500 mt-1">Product categories</p>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-600">{{ value_by_category.length }}</div>
+              <p class="text-[10px] sm:text-xs text-slate-500 mt-1 truncate">Product categories</p>
             </CardContent>
           </Card>
         </div>
 
-        <!-- Low Stock Alerts -->
+        <!-- Low Stock Alerts - Mobile Optimized -->
         <Card v-if="low_stock_items.length > 0" class="border-0 shadow-xl bg-gradient-to-r from-red-500 to-orange-500 text-white">
-          <CardHeader>
-            <CardTitle class="text-white flex items-center gap-2">
-              <AlertTriangle class="h-6 w-6" />
-              🚨 Low Stock Alerts
+          <CardHeader class="p-4 sm:p-6">
+            <CardTitle class="text-white flex items-center gap-2 text-base sm:text-lg">
+              <AlertTriangle class="h-5 w-5 sm:h-6 sm:w-6" />
+              <span class="truncate">🚨 Low Stock Alerts</span>
             </CardTitle>
-            <CardDescription class="text-white/80">{{ low_stock_items.length }} items need immediate attention</CardDescription>
+            <CardDescription class="text-white/80 text-xs sm:text-sm">{{ low_stock_items.length }} items need attention</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent class="p-3 sm:p-6 pt-0">
             <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               <div
                 v-for="product in low_stock_items.slice(0, 6)"

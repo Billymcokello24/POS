@@ -1,9 +1,26 @@
 <?php
 
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PublicSubscriptionController;
+use App\Http\Controllers\Api\ContactController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\MpesaController;
+use Illuminate\Support\Facades\Broadcast;
+
+// Broadcasting auth is configured in bootstrap/app.php with withBroadcasting()
+// No need to register it here again
+
+// Public Subscription API (no auth required for welcome page)
+Route::prefix('public')->group(function () {
+    Route::get('/plans', [PublicSubscriptionController::class, 'getPlans']);
+    Route::post('/subscriptions/create', [PublicSubscriptionController::class, 'createPendingSubscription']);
+    Route::post('/subscriptions/payment/initiate', [PublicSubscriptionController::class, 'initiateMpesaPayment']);
+    Route::post('/subscriptions/payment/status', [PublicSubscriptionController::class, 'checkPaymentStatus']);
+});
+
+// Contact Form API (no auth required)
+Route::post('/contact', [ContactController::class, 'send']);
 
 // M-Pesa Callback (no auth required - public endpoint for Safaricom)
 Route::post('/payments/mpesa/callback', [MpesaController::class, 'stkCallback']);

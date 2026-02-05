@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-import { MessageCircle, X, Send, Loader2, LifeBuoy, ShieldCheck, User as UserIcon, Bot } from 'lucide-vue-next';
 import axios from 'axios';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogHeader, 
-    DialogTitle, 
-    DialogTrigger 
-} from '@/components/ui/dialog';
+import { MessageCircle, X, Send, Loader2, LifeBuoy, ShieldCheck, User as UserIcon, Bot } from 'lucide-vue-next';
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
+
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 // State Machine types: 'initial' | 'verification' | 'chat'
 const step = ref('initial');
@@ -80,9 +81,9 @@ const scrollToBottom = async () => {
 // Subscribe to Echo channel for real-time updates
 const subscribeToChannel = () => {
     if (!currentTicketId.value || !window.Echo) return;
-    
+
     leaveChannel(); // Clean up any existing subscription
-    
+
     echoChannel = window.Echo.private(`support.ticket.${currentTicketId.value}`)
         .listen('.message.sent', (data: any) => {
             // Check if message already exists to avoid duplicates
@@ -99,7 +100,7 @@ const subscribeToChannel = () => {
             if (data.is_admin) {
                 otherUserTyping.value = data.is_typing;
                 otherUserName.value = data.user_name;
-                
+
                 // Auto-clear typing after 3 seconds
                 if (typingTimeout) clearTimeout(typingTimeout);
                 if (data.is_typing) {
@@ -170,22 +171,48 @@ const fetchMessages = async () => {
 
 const sendMessage = async () => {
     if (!newMessage.value.trim() || !currentTicketId.value) return;
-    
+
     const msg = newMessage.value;
     newMessage.value = '';
-    
+
     // Stop typing indicator
     sendTypingIndicator(false);
-    
+
+    // Create optimistic message (instant UI update)
+    const optimisticMessage = {
+        id: `optimistic-${Date.now()}`,
+        support_ticket_id: currentTicketId.value,
+        user_id: (page.props.auth as any).user.id,
+        message: msg,
+        is_from_admin: (page.props.auth as any).user.is_super_admin,
+        created_at: new Date().toISOString(),
+        user: {
+            id: (page.props.auth as any).user.id,
+            name: (page.props.auth as any).user.name
+        },
+        _optimistic: true // Mark as optimistic for styling
+    };
+
+    // Add to UI immediately (optimistic update)
+    messages.value.push(optimisticMessage);
+    scrollToBottom();
+
     try {
         const response = await axios.post(`/api/support/tickets/${currentTicketId.value}/messages`, {
             message: msg
         });
-        messages.value.push(response.data.message);
+
+        // Replace optimistic message with real one
+        const optimisticIndex = messages.value.findIndex(m => m.id === optimisticMessage.id);
+        if (optimisticIndex !== -1) {
+            messages.value[optimisticIndex] = response.data.message;
+        }
         scrollToBottom();
     } catch (error) {
         console.error('Failed to send message', error);
-        newMessage.value = msg; // Restore on failure
+        // Remove optimistic message on failure
+        messages.value = messages.value.filter(m => m.id !== optimisticMessage.id);
+        newMessage.value = msg; // Restore message for retry
     }
 };
 
@@ -204,9 +231,9 @@ const sendTypingIndicator = async (isTyping: boolean) => {
 // Handle input changes for typing indicator
 const onInputChange = () => {
     if (typingDebounce) clearTimeout(typingDebounce);
-    
+
     sendTypingIndicator(true);
-    
+
     // Send stop typing after 2 seconds of no input
     typingDebounce = setTimeout(() => {
         sendTypingIndicator(false);
@@ -290,8 +317,8 @@ const resetSession = () => {
                         <h4 class="text-xl font-black text-slate-900 tracking-tight">Security Check</h4>
                         <p class="text-slate-500 text-xs font-medium">We've sent a 6-digit code to your **business account email**. Please enter it below to verify your identity.</p>
                     </div>
-                    <Input 
-                        v-model="verificationCode" 
+                    <Input
+                        v-model="verificationCode"
                         maxlength="6"
                         class="h-16 text-center text-3xl font-black tracking-[0.5em] bg-slate-50 border-slate-200 rounded-3xl"
                         placeholder="000000"
@@ -313,7 +340,7 @@ const resetSession = () => {
                                 <span class="text-[9px] mt-1 block opacity-50 font-black uppercase">{{ msg.user?.name || 'User' }}</span>
                             </div>
                         </div>
-                        
+
                         <!-- Typing Indicator -->
                         <div v-if="otherUserTyping" class="flex items-center gap-2 px-2 py-1">
                             <div class="flex space-x-1">
@@ -329,10 +356,10 @@ const resetSession = () => {
                     <div class="p-4 bg-white border-t border-slate-100">
                         <form @submit.prevent="sendMessage" class="flex items-center gap-2">
                             <div class="flex-1 relative">
-                                <input 
+                                <input
                                     v-model="newMessage"
                                     @input="onInputChange"
-                                    placeholder="Type a message..." 
+                                    placeholder="Type a message..."
                                     class="w-full h-12 bg-slate-100 border-none rounded-2xl px-4 pr-12 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-400"
                                 />
                                 <button type="submit" class="absolute right-2 top-1.5 h-9 w-9 bg-indigo-600 text-white rounded-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95 shadow-md">

@@ -1,24 +1,27 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { 
-    ShoppingCart, 
-    CheckCircle2, 
-    Sparkles, 
-    Building2, 
-    ArrowUpRight, 
-    Store, 
-    User, 
-    Mail, 
-    Lock, 
-    Loader2 
+import {
+    ShoppingCart,
+    CheckCircle2,
+    Sparkles,
+    Building2,
+    ArrowUpRight,
+    Store,
+    User,
+    Mail,
+    Lock,
+    Loader2
 } from 'lucide-vue-next'
+import { ref } from 'vue'
 
 import InputError from '@/components/InputError.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Spinner } from '@/components/ui/spinner'
 import { login } from '@/routes'
+
+// Preloader state
+const showPreloader = ref(false)
 
 const form = useForm({
     business_name: '',
@@ -30,6 +33,15 @@ const form = useForm({
 
 const submit = () => {
     form.post('/register-business', {
+        onSuccess: () => {
+            // Show preloader for 5 seconds
+            showPreloader.value = true
+
+            // Redirect to dashboard after 5 seconds
+            setTimeout(() => {
+                window.location.href = '/dashboard'
+            }, 5000)
+        },
         onFinish: () => form.reset('password', 'password_confirmation'),
     })
 }
@@ -40,16 +52,61 @@ const submit = () => {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     </Head>
 
+    <!-- Preloader Overlay -->
+    <div v-if="showPreloader" class="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 overflow-hidden">
+        <!-- Animated background particles -->
+        <div class="absolute inset-0 opacity-20">
+            <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
+            <div class="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
+            <div class="absolute bottom-1/4 left-1/3 w-64 h-64 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+        </div>
+
+        <!-- Main logo container with zoom animation -->
+        <div class="relative z-10 flex flex-col items-center gap-8">
+            <!-- Logo with zoom in/out animation -->
+            <div class="animate-zoom-pulse">
+                <svg
+                    class="w-32 h-32 text-white drop-shadow-2xl"
+                    viewBox="0 0 200 200"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <circle cx="100" cy="100" r="90" fill="currentColor" fill-opacity="0.1" />
+                    <circle cx="100" cy="100" r="70" stroke="currentColor" stroke-width="3" />
+                    <path d="M60 80 L60 120 L80 100 L100 120 L100 80" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <path d="M120 80 L120 120 M120 80 L140 80 Q150 80 150 95 Q150 110 140 110 L120 110" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+            </div>
+
+            <!-- ModernPOS Text -->
+            <div class="text-center space-y-2">
+                <h1 class="text-5xl font-black text-white tracking-tight animate-fade-in">
+                    Modern<span class="text-indigo-400">POS</span>
+                </h1>
+                <p class="text-indigo-200 text-sm font-medium tracking-wider uppercase animate-fade-in animation-delay-500">
+                    Point of Sale System
+                </p>
+            </div>
+
+            <!-- Loading dots -->
+            <div class="flex gap-2 animate-fade-in animation-delay-1000">
+                <div class="w-3 h-3 bg-indigo-400 rounded-full animate-bounce"></div>
+                <div class="w-3 h-3 bg-indigo-400 rounded-full animate-bounce animation-delay-200"></div>
+                <div class="w-3 h-3 bg-indigo-400 rounded-full animate-bounce animation-delay-400"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="min-h-screen bg-slate-50 font-sans flex text-slate-900 selection:bg-indigo-500 selection:text-white">
         <!-- Visual Side -->
         <div class="hidden lg:flex lg:w-3/5 relative overflow-hidden bg-[#0A0C1B]">
             <div class="absolute inset-0 z-10 bg-gradient-to-br from-[#0A0C1B] via-transparent to-indigo-900/30"></div>
-            
+
             <!-- Animated Background Grid -->
             <div class="absolute inset-0 grid-background opacity-20"></div>
-            
-            <img 
-                src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop" 
+
+            <img
+                src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop"
                 class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay scale-105"
             />
              <div class="absolute inset-0 bg-gradient-to-t from-[#0A0C1B] to-transparent"></div>
@@ -79,11 +136,11 @@ const submit = () => {
                             <span class="bg-gradient-to-r from-indigo-400 to-blue-300 bg-clip-text text-transparent">Retail Empire.</span>
                         </h2>
                     </div>
-                    
+
                     <p class="text-white/60 text-lg font-medium leading-relaxed">
                         Create a dedicated workspace for your business. Manage multiple locations, thousands of products, and your entire staff from one central command center.
                     </p>
-                    
+
                     <div class="space-y-4">
                         <div class="flex items-center gap-4 text-white/80">
                             <div class="size-6 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">
@@ -251,5 +308,74 @@ const submit = () => {
 .grid-background {
     background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
     background-size: 40px 40px;
+}
+
+/* Preloader Animations */
+@keyframes zoom-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+@keyframes blob {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+        transform: translate(-20px, 20px) scale(0.9);
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-zoom-pulse {
+    animation: zoom-pulse 2s ease-in-out infinite;
+}
+
+.animate-blob {
+    animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+    animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+    animation-delay: 4s;
+}
+
+.animate-fade-in {
+    animation: fade-in 0.6s ease-out forwards;
+}
+
+.animation-delay-200 {
+    animation-delay: 0.2s;
+}
+
+.animation-delay-400 {
+    animation-delay: 0.4s;
+}
+
+.animation-delay-500 {
+    animation-delay: 0.5s;
+}
+
+.animation-delay-1000 {
+    animation-delay: 1s;
 }
 </style>

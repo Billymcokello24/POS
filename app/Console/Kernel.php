@@ -16,6 +16,9 @@ class Kernel extends ConsoleKernel
     {
         // Run subscription monitor every minute to enforce expiry
         $schedule->command('subscriptions:monitor')->everyMinute();
+
+        // Send subscription expiry notifications every day at 8 AM
+        $schedule->command('notifications:subscription-expiry')->dailyAt('08:00');
     }
 
     protected function commands()

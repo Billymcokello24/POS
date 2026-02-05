@@ -126,6 +126,29 @@ class Business extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get the owner/admin user of this business for notifications
+     */
+    public function owner()
+    {
+        // Get the admin user (role_id for 'admin' role)
+        return $this->belongsToMany(User::class, 'role_user')
+            ->withPivot('role_id')
+            ->whereHas('roles', function($query) {
+                $query->where('name', 'admin');
+            })
+            ->orderBy('role_user.created_at', 'asc') // Get the first admin (original owner)
+            ->limit(1);
+    }
+
+    /**
+     * Get the owner user attribute (single user, not collection)
+     */
+    public function getOwnerAttribute()
+    {
+        return $this->owner()->first();
+    }
+
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
@@ -229,7 +252,7 @@ class Business extends Model
         foreach ($featureIds as $id) {
             $sync[$id] = ['is_enabled' => true, 'created_at' => $now, 'updated_at' => $now];
         }
-        
+
         $this->features()->sync($sync);
         $this->update(['active_features' => $slugs]);
     }
@@ -247,14 +270,13 @@ class Business extends Model
         }
 
         $billingCycle = $subscription->payment_details['billing_cycle'] ?? 'monthly';
-        $duration = $billingCycle === 'yearly' ? 365 : 30;
 
         // Prepare metadata and timestamps
         $now = now();
         $activatedAt = $now;
         $verifiedAt = $now;
 
-        DB::transaction(function () use ($subscription, $receipt, $metadata, $plan, $duration, $activatedAt, $now) {
+        DB::transaction(function () use ($subscription, $receipt, $metadata, $plan, $billingCycle, $activatedAt, $now) {
             // 1. Comparison logic for Scheduled Downgrades
             $currentPlan = $this->plan;
             $currentPrice = $currentPlan ? (float)$currentPlan->price_monthly : 0;
@@ -266,10 +288,17 @@ class Business extends Model
                 ->where('id', '!=', $subscription->id)
                 ->whereIn('status', [Subscription::STATUS_PENDING])
                 ->update([
-                    'status' => 'expired', 
+                    'status' => 'expired',
                     'ends_at' => $now,
                     'is_active' => false
                 ]);
+
+            // Helper function to calculate end date based on billing cycle
+            $calculateEndDate = function($startDate) use ($billingCycle) {
+                return $billingCycle === 'yearly'
+                    ? $startDate->copy()->addYear()
+                    : $startDate->copy()->addMonth();
+            };
 
             // 3. Handle Plan Transition Date (Point 11: Schedule downgrades at boundary)
             if ($isUpgrade) {
@@ -278,10 +307,10 @@ class Business extends Model
                     ->where('id', '!=', $subscription->id)
                     ->whereIn('status', ['active', 'trialing'])
                     ->update(['status' => 'expired', 'ends_at' => $now, 'is_active' => false]);
-                
+
                 $subscriptionStarts = $now;
-                $subscriptionEnds = $now->copy()->addDays($duration);
-                
+                $subscriptionEnds = $calculateEndDate($subscriptionStarts);
+
                 // Switch business plan immediately
                 $this->update([
                     'plan_id' => $plan->id,
@@ -298,10 +327,10 @@ class Business extends Model
 
                 if ($activeSub && $activeSub->ends_at?->isFuture()) {
                     $subscriptionStarts = $activeSub->ends_at; // Start when previous ends
-                    $subscriptionEnds = $subscriptionStarts->copy()->addDays($duration);
+                    $subscriptionEnds = $calculateEndDate($subscriptionStarts);
                 } else {
                     $subscriptionStarts = $now;
-                    $subscriptionEnds = $now->copy()->addDays($duration);
+                    $subscriptionEnds = $calculateEndDate($subscriptionStarts);
                     $this->update([
                         'plan_id' => $plan->id,
                         'plan_ends_at' => $subscriptionEnds

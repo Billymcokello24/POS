@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner'
 
 interface Props {
     status?: string;
@@ -31,6 +30,9 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+// Preloader state
+const showPreloader = ref(false);
 
 // Initialize form with Inertia's useForm
 const form = useForm({
@@ -82,7 +84,7 @@ onMounted(() => {
 
 const submit = async () => {
     console.log('Submitting login form...');
-    
+
     // Clear previous errors at the start
     if (typeof (form as any).clearErrors === 'function') {
         (form as any).clearErrors();
@@ -119,8 +121,8 @@ const submit = async () => {
                 const validationErrors: Record<string, string> = {};
                 // Flatten the errors array for a cleaner experience
                 Object.keys(err.response?.data?.errors || {}).forEach(key => {
-                    validationErrors[key] = Array.isArray(err.response.data.errors[key]) 
-                        ? err.response.data.errors[key][0] 
+                    validationErrors[key] = Array.isArray(err.response.data.errors[key])
+                        ? err.response.data.errors[key][0]
                         : err.response.data.errors[key];
                 });
 
@@ -136,7 +138,15 @@ const submit = async () => {
         }
 
         if (res?.status >= 200 && res?.status < 300) {
-            window.location.href = res.headers?.location || '/dashboard'
+            const redirectUrl = res.headers?.location || '/dashboard';
+
+            // Show preloader for 5 seconds
+            showPreloader.value = true;
+
+            // Redirect after 5 seconds
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, 5000);
         }
     } catch (err: any) {
         console.error('Login request failed:', err)
@@ -154,14 +164,59 @@ const submit = async () => {
         <meta name="csrf-token" :content="csrfToken" v-if="csrfToken">
     </Head>
 
+    <!-- Preloader Overlay -->
+    <div v-if="showPreloader" class="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 overflow-hidden">
+        <!-- Animated background particles -->
+        <div class="absolute inset-0 opacity-20">
+            <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
+            <div class="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
+            <div class="absolute bottom-1/4 left-1/3 w-64 h-64 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+        </div>
+
+        <!-- Main logo container with zoom animation -->
+        <div class="relative z-10 flex flex-col items-center gap-8">
+            <!-- Logo with zoom in/out animation -->
+            <div class="animate-zoom-pulse">
+                <svg
+                    class="w-32 h-32 text-white drop-shadow-2xl"
+                    viewBox="0 0 200 200"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <circle cx="100" cy="100" r="90" fill="currentColor" fill-opacity="0.1" />
+                    <circle cx="100" cy="100" r="70" stroke="currentColor" stroke-width="3" />
+                    <path d="M60 80 L60 120 L80 100 L100 120 L100 80" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <path d="M120 80 L120 120 M120 80 L140 80 Q150 80 150 95 Q150 110 140 110 L120 110" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+            </div>
+
+            <!-- ModernPOS Text -->
+            <div class="text-center space-y-2">
+                <h1 class="text-5xl font-black text-white tracking-tight animate-fade-in">
+                    Modern<span class="text-indigo-400">POS</span>
+                </h1>
+                <p class="text-indigo-200 text-sm font-medium tracking-wider uppercase animate-fade-in animation-delay-500">
+                    Point of Sale System
+                </p>
+            </div>
+
+            <!-- Loading dots -->
+            <div class="flex gap-2 animate-fade-in animation-delay-1000">
+                <div class="w-3 h-3 bg-indigo-400 rounded-full animate-bounce"></div>
+                <div class="w-3 h-3 bg-indigo-400 rounded-full animate-bounce animation-delay-200"></div>
+                <div class="w-3 h-3 bg-indigo-400 rounded-full animate-bounce animation-delay-400"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="min-h-screen bg-slate-50 font-sans flex text-slate-900 selection:bg-indigo-500 selection:text-white">
         <!-- Left Side - Visual Powerhouse -->
         <div class="hidden lg:flex lg:w-3/5 relative overflow-hidden bg-[#0A0C1B]">
             <div class="absolute inset-0 z-10 bg-gradient-to-br from-[#0A0C1B] via-transparent to-indigo-900/30"></div>
-            
+
             <!-- Animated Background Grid -->
             <div class="absolute inset-0 grid-background opacity-20"></div>
-            
+
             <img
                 src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop"
                 alt="Retail Experience"
@@ -355,8 +410,8 @@ const submit = async () => {
                 <div class="pt-10 border-t border-slate-100 space-y-6">
                     <div class="text-center space-y-4">
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">New to the platform?</p>
-                        <Link 
-                            href="/register-business" 
+                        <Link
+                            href="/register-business"
                             class="inline-flex items-center justify-center gap-3 w-full h-14 rounded-2xl border-2 border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 text-slate-900 font-bold text-xs transition-all uppercase tracking-widest"
                         >
                             <Building2 class="size-4 text-indigo-500" />
@@ -384,5 +439,74 @@ const submit = async () => {
 }
 .fade-enter-from, .fade-leave-to {
     opacity: 0;
+}
+
+/* Preloader Animations */
+@keyframes zoom-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+@keyframes blob {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+        transform: translate(-20px, 20px) scale(0.9);
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-zoom-pulse {
+    animation: zoom-pulse 2s ease-in-out infinite;
+}
+
+.animate-blob {
+    animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+    animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+    animation-delay: 4s;
+}
+
+.animate-fade-in {
+    animation: fade-in 0.6s ease-out forwards;
+}
+
+.animation-delay-200 {
+    animation-delay: 0.2s;
+}
+
+.animation-delay-400 {
+    animation-delay: 0.4s;
+}
+
+.animation-delay-500 {
+    animation-delay: 0.5s;
+}
+
+.animation-delay-1000 {
+    animation-delay: 1s;
 }
 </style>

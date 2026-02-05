@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3'
-import AdminLayout from '@/layouts/AdminLayout.vue'
 import {
     Settings as SettingsIcon,
     Smartphone,
@@ -12,10 +11,8 @@ import {
     Zap,
     Lock
 } from 'lucide-vue-next'
+
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Card,
     CardContent,
@@ -23,6 +20,8 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
     Select,
     SelectContent,
@@ -30,6 +29,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const props = defineProps<{
     settings: {

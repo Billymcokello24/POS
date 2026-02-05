@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3'
-import { ref, watch, onMounted } from 'vue'
 import { 
     Layout, 
     Image as ImageIcon, 
@@ -14,6 +13,7 @@ import {
     Search,
     PenLine
 } from 'lucide-vue-next'
+import { ref, watch, onMounted } from 'vue'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -61,7 +61,7 @@ onMounted(() => {
 
 function save() {
   // @ts-ignore
-  let url = typeof route !== 'undefined' ? route('admin.cms.update') : '/admin/cms'
+  const url = typeof route !== 'undefined' ? route('admin.cms.update') : '/admin/cms'
   form.put(url, {
     preserveScroll: true,
   })

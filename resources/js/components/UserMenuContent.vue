@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { LogOut, Settings } from 'lucide-vue-next';
 
+import axios from '@/axios';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -9,12 +10,11 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import UserInfo from '@/components/UserInfo.vue';
+import { ensureSanctum } from '@/lib/sanctum';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
 
-import axios from '@/axios';
 
-import { ensureSanctum } from '@/lib/sanctum';
 
 
 interface Props {

@@ -10,7 +10,13 @@ use Illuminate\Validation\Rules\Password;
 
 // add observer import
 use App\Models\Subscription;
+use App\Models\SupportTicket;
+use App\Models\Product;
+use App\Models\Category;
 use App\Observers\SubscriptionObserver;
+use App\Observers\SupportTicketObserver;
+use App\Observers\ProductObserver;
+use App\Observers\CategoryObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,6 +35,15 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register the subscription observer
         Subscription::observe(SubscriptionObserver::class);
+
+        // Register the support ticket observer
+        SupportTicket::observe(SupportTicketObserver::class);
+
+        // Register product observer
+        Product::observe(ProductObserver::class);
+
+        // Register category observer
+        Category::observe(CategoryObserver::class);
 
         $this->configureDefaults();
     }

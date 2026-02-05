@@ -1,4 +1,3 @@
-import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
@@ -12,9 +11,10 @@ export default defineConfig({
             refresh: true,
         }),
         tailwindcss(),
-        wayfinder({
-            formVariants: true,
-        }),
+        // Wayfinder disabled - causes build issues
+        // process.env.VITE_SKIP_WAYFINDER !== 'true' && wayfinder({
+        //     formVariants: true,
+        // }),
         vue({
             template: {
                 transformAssetUrls: {
@@ -23,7 +23,7 @@ export default defineConfig({
                 },
             },
         }),
-    ],
+    ].filter(Boolean),
     // Dev server config to support Vite HMR and cross-origin requests from the frontend
     server: {
         hmr: {

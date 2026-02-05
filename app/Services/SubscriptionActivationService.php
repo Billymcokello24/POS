@@ -11,6 +11,13 @@ use App\Notifications\SubscriptionActivated;
 
 class SubscriptionActivationService
 {
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Finalize and activate a subscription based on a successful M-Pesa payment.
      * This is the canonical activation entry point for all paths (Callbacks, Confirmations, Reconciliation).
@@ -44,14 +51,14 @@ class SubscriptionActivationService
         if ($mpesaPayment->subscription_id) {
             $subscription = Subscription::find($mpesaPayment->subscription_id);
         }
-        
+
         if (!$subscription && $checkout) {
             $subscription = Subscription::where('checkout_request_id', $checkout)->first();
         }
 
         Log::info('SubscriptionActivationService: Attempting finalization', [
-            'checkout' => $checkout, 
-            'receipt' => $mpesaReceipt, 
+            'checkout' => $checkout,
+            'receipt' => $mpesaReceipt,
             'found_sub' => $subscription ? $subscription->id : 'none',
             'payment_status' => $mpesaPayment->status
         ]);
@@ -98,7 +105,7 @@ class SubscriptionActivationService
                 if (!$subscription) {
                     // Point 6: Automated subscription creation after confirmed payment
                     $metadata = $mpesaPayment->metadata ?? [];
-                    
+
                     // If it's not a subscription payment intent, we don't auto-create here
                     if (($metadata['type'] ?? '') !== 'subscription' && empty($metadata['plan_id'])) {
                         // Try heuristic fallback if it's a known business
@@ -132,15 +139,39 @@ class SubscriptionActivationService
 
                 // Deterministic Activation (Idempotency - Point 13)
                 if ($subscription->status === Subscription::STATUS_ACTIVE && !$isNewSubscription) {
-                    return true; 
+                    return true;
                 }
 
                 $business = $subscription->business;
-                
+
                 // SaaS Blue-Print Point 1 & 9: AUTO-ACTIVATION ENFORCEMENT
                 if ($business) {
                     $business->activateSubscription($subscription, $mpesaReceipt ?? $mpesaPayment->receipt);
                     $business->refresh();
+
+                    // AUTO-ACTIVATE BUSINESS AND USER (for public subscriptions)
+                    if (!$business->is_active) {
+                        $business->update(['is_active' => true]);
+                    }
+
+                    // Activate the business owner/admin user
+                    $owner = $business->owner;
+                    if ($owner && !$owner->is_active) {
+                        $owner->update(['is_active' => true]);
+                        Log::info('Auto-activated business owner account', ['user_id' => $owner->id]);
+                    }
+
+                    // Send email with receipt
+                    try {
+                        $owner->notify(new SubscriptionActivated($subscription));
+                        Log::info('Sent subscription activated email with receipt', [
+                            'subscription_id' => $subscription->id,
+                            'user_email' => $owner->email
+                        ]);
+                    } catch (\Throwable $e) {
+                        Log::error('Failed to send subscription email', ['error' => $e->getMessage()]);
+                    }
+
                     Log::info('Subscription and Business activated via activateSubscription', [
                         'subscription_id' => $subscription->id,
                         'business_id' => $business->id,
@@ -188,27 +219,29 @@ class SubscriptionActivationService
                 );
 
                 // Point 10: Real-time propagation
-                try { 
+                try {
                     \App\Services\SseService::pushBusinessEvent($subscription->business_id, 'subscription.activated', [
                         'id' => $subscription->id,
                         'plan_name' => $subscription->plan_name,
                         'ends_at' => $subscription->ends_at
-                    ]); 
+                    ]);
                 } catch (\Throwable $_) {}
 
-                // Notify Admins
+                // Notify Admins & Business with new system
                 try {
-                    if ($business) {
-                        $admins = $business->users()->whereHas('roles', function($q) {
-                            $q->where('name', 'admin');
-                        })->get();
-                        
-                        foreach ($admins as $admin) {
-                            $admin->notify(new SubscriptionActivated($subscription));
-                        }
+                    // Notify all super admins
+                    $this->notificationService->notifyNewSubscription($subscription);
+
+                    // Check for duplicate subscriptions
+                    $activeCount = $subscription->business->subscriptions()
+                        ->where('status', Subscription::STATUS_ACTIVE)
+                        ->count();
+
+                    if ($activeCount > 1) {
+                        $this->notificationService->notifyDuplicateSubscription($subscription);
                     }
                 } catch (\Throwable $e) {
-                    Log::error('SubscriptionActivationService: Failed to send notification', ['error' => $e->getMessage()]);
+                    Log::error('Failed to send notifications', ['error' => $e->getMessage()]);
                 }
 
                 return true;

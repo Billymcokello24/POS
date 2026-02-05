@@ -157,91 +157,91 @@ const exportInventory = () => {
   <Head title="Inventory Management" />
 
   <AppLayout>
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div class="mx-auto w-[90%] space-y-6">
-        <!-- Header -->
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-8 text-white shadow-2xl">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-          <div class="relative z-10 flex items-center justify-between">
-            <div>
-              <div class="flex items-center gap-3 mb-2">
-                <div class="rounded-xl bg-white/20 backdrop-blur p-3">
-                  <Package class="h-8 w-8" />
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
+      <div class="mx-auto w-full max-w-[1800px] space-y-4 sm:space-y-6">
+        <!-- Header - Mobile Optimized -->
+        <div class="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-4 sm:p-8 text-white shadow-2xl">
+          <div class="absolute top-0 right-0 w-32 h-32 sm:w-64 sm:h-64 bg-white/10 rounded-full -mr-16 sm:-mr-32 -mt-16 sm:-mt-32"></div>
+          <div class="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                <div class="rounded-lg sm:rounded-xl bg-white/20 backdrop-blur p-2 sm:p-3 flex-shrink-0">
+                  <Package class="h-5 w-5 sm:h-8 sm:w-8" />
                 </div>
-                <div>
-                  <h1 class="text-4xl font-bold">Inventory Management</h1>
-                  <p class="text-emerald-100 text-lg mt-1">{{ totalItems }} items in stock</p>
+                <div class="min-w-0 flex-1">
+                  <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold truncate">Inventory Management</h1>
+                  <p class="text-emerald-100 text-xs sm:text-base lg:text-lg mt-0.5 sm:mt-1 truncate">{{ totalItems }} items in stock</p>
                 </div>
               </div>
             </div>
-            <div class="flex gap-3">
-              <Button @click="exportInventory" variant="outline" class="border-white text-white hover:bg-white/20 gap-2">
-                <Download class="h-5 w-5" />
-                Export
+            <div class="flex gap-2">
+              <Button @click="exportInventory" variant="outline" class="border-white text-white hover:bg-white/20 gap-1 sm:gap-2 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm">
+                <Download class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden sm:inline">Export</span>
               </Button>
             </div>
           </div>
         </div>
 
-        <!-- Quick Stats -->
-        <div class="grid gap-4 md:grid-cols-4">
+        <!-- Quick Stats - Mobile Optimized -->
+        <div class="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600 flex items-center gap-2">
-                <Package class="h-4 w-4" />
-                Total Items
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 flex items-center gap-1 sm:gap-2">
+                <Package class="h-3 w-3 sm:h-4 sm:w-4" />
+                <span class="truncate">Total Items</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-emerald-600">{{ totalItems }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-emerald-600">{{ totalItems }}</div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600 flex items-center gap-2">
-                <AlertCircle class="h-4 w-4 text-red-500" />
-                Low Stock
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 flex items-center gap-1 sm:gap-2">
+                <AlertCircle class="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
+                <span class="truncate">Low Stock</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-red-600">{{ lowStockCount }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">{{ lowStockCount }}</div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600 flex items-center gap-2">
-                <TrendingUp class="h-4 w-4 text-green-500" />
-                In Stock
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 flex items-center gap-1 sm:gap-2">
+                <TrendingUp class="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
+                <span class="truncate">In Stock</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-teal-600">{{ inStockCount }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-teal-600">{{ inStockCount }}</div>
             </CardContent>
           </Card>
 
           <Card class="border-0 shadow-xl">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-sm text-slate-600">Total Value</CardTitle>
+            <CardHeader class="pb-2 sm:pb-3 p-3 sm:p-6">
+              <CardTitle class="text-xs sm:text-sm text-slate-600 truncate">Total Value</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div class="text-3xl font-bold text-cyan-600">{{ formatCurrency(totalValue) }}</div>
+            <CardContent class="p-3 sm:p-6 pt-0">
+              <div class="text-xl sm:text-2xl lg:text-3xl font-bold text-cyan-600 truncate">{{ formatCurrency(totalValue) }}</div>
             </CardContent>
           </Card>
         </div>
 
-        <!-- Filters -->
+        <!-- Filters - Mobile Optimized -->
         <Card class="border-0 shadow-xl bg-white">
-          <CardContent class="pt-6">
-            <div class="flex gap-4">
+          <CardContent class="pt-4 sm:pt-6 p-3 sm:p-6">
+            <div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <div class="flex-1">
                 <div class="relative">
-                  <Search class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Search class="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
                   <Input
                     v-model="search"
-                    placeholder="Search products by name or SKU..."
-                    class="pl-12 h-12 border-2"
+                    placeholder="Search products..."
+                    class="pl-10 sm:pl-12 h-10 sm:h-12 border-2 text-sm sm:text-base"
                     @keyup.enter="applyFilters"
                   />
                 </div>
@@ -249,46 +249,49 @@ const exportInventory = () => {
               <Button
                 :variant="showLowStock ? 'default' : 'outline'"
                 @click="showLowStock = !showLowStock; applyFilters()"
-                class="h-12 px-6 gap-2"
+                class="h-10 sm:h-12 px-3 sm:px-6 gap-1 sm:gap-2 text-xs sm:text-sm"
                 :class="showLowStock ? 'bg-gradient-to-r from-red-500 to-orange-500' : ''"
               >
-                <AlertCircle class="h-5 w-5" />
-                Low Stock Only
+                <AlertCircle class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden xs:inline">Low Stock Only</span>
+                <span class="xs:hidden">Low Stock</span>
               </Button>
-              <Button @click="applyFilters" class="h-12 px-6 gap-2 bg-gradient-to-r from-emerald-600 to-teal-600">
-                <Filter class="h-5 w-5" />
-                Apply Filters
+              <Button @click="applyFilters" class="h-10 sm:h-12 px-3 sm:px-6 gap-1 sm:gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-xs sm:text-sm">
+                <Filter class="h-4 w-4 sm:h-5 sm:w-5" />
+                <span class="hidden sm:inline">Apply Filters</span>
+                <span class="sm:hidden">Apply</span>
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <!-- Inventory Table -->
+        <!-- Inventory Table - Mobile Optimized -->
         <Card class="border-0 shadow-2xl bg-white">
-          <CardHeader class="border-b bg-gradient-to-r from-slate-50 to-slate-100">
-            <CardTitle class="text-2xl">Stock Levels</CardTitle>
+          <CardHeader class="border-b bg-gradient-to-r from-slate-50 to-slate-100 p-3 sm:p-6">
+            <CardTitle class="text-base sm:text-xl lg:text-2xl truncate">Stock Levels</CardTitle>
           </CardHeader>
           <CardContent class="p-0">
-            <Table>
+            <div class="overflow-x-auto">
+            <Table class="min-w-full">
               <TableHeader>
                 <TableRow class="bg-slate-50/50">
-                  <TableHead class="font-semibold">Product</TableHead>
-                  <TableHead class="font-semibold">SKU</TableHead>
-                  <TableHead class="font-semibold">Category</TableHead>
-                  <TableHead class="font-semibold">Current Stock</TableHead>
-                  <TableHead class="font-semibold">Reorder Level</TableHead>
-                  <TableHead class="font-semibold">Value</TableHead>
-                  <TableHead class="font-semibold">Status</TableHead>
-                  <TableHead class="text-right font-semibold">Actions</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4">Product</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden md:table-cell">SKU</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden lg:table-cell">Category</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4">Stock</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden sm:table-cell">Reorder</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden md:table-cell">Value</TableHead>
+                  <TableHead class="font-semibold text-xs sm:text-sm px-2 sm:px-4 hidden lg:table-cell">Status</TableHead>
+                  <TableHead class="text-right font-semibold text-xs sm:text-sm px-2 sm:px-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow v-if="products.data.length === 0">
-                  <TableCell colspan="8" class="text-center py-12">
-                    <div class="flex flex-col items-center gap-3 text-slate-500">
-                      <Package class="h-12 w-12 text-slate-300" />
-                      <p class="text-lg font-medium">No products found</p>
-                      <p class="text-sm">Try adjusting your filters</p>
+                  <TableCell colspan="8" class="text-center py-8 sm:py-12 px-3">
+                    <div class="flex flex-col items-center gap-2 sm:gap-3 text-slate-500">
+                      <Package class="h-8 w-8 sm:h-12 sm:w-12 text-slate-300" />
+                      <p class="text-base sm:text-lg font-medium">No products found</p>
+                      <p class="text-xs sm:text-sm">Try adjusting your filters</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -298,94 +301,97 @@ const exportInventory = () => {
                   :class="product.is_low_stock ? 'bg-red-50/50' : 'hover:bg-emerald-50/50'"
                   class="transition-colors"
                 >
-                  <TableCell>
-                    <div class="font-semibold text-slate-900">{{ product.name }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="font-semibold text-slate-900 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{{ product.name }}</div>
                   </TableCell>
-                  <TableCell>
-                    <div class="font-mono text-sm bg-slate-100 px-2 py-1 rounded inline-block">
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                    <div class="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded inline-block">
                       {{ product.sku }}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden lg:table-cell">
+                    <Badge variant="outline" class="text-xs">
                       {{ product.category?.name || 'Uncategorized' }}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <div class="flex items-center gap-2">
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="flex items-center gap-1 sm:gap-2">
                       <div
                         :class="product.is_low_stock ? 'text-red-600' : 'text-emerald-600'"
-                        class="text-2xl font-bold"
+                        class="text-lg sm:text-xl lg:text-2xl font-bold"
                       >
                         {{ product.quantity }}
                       </div>
                       <component
                         :is="product.is_low_stock ? TrendingDown : TrendingUp"
                         :class="product.is_low_stock ? 'text-red-500' : 'text-emerald-500'"
-                        class="h-5 w-5"
+                        class="h-4 w-4 sm:h-5 sm:w-5"
                       />
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div class="text-sm text-slate-600">{{ product.reorder_level }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">
+                    <div class="text-xs sm:text-sm text-slate-600">{{ product.reorder_level }}</div>
                   </TableCell>
-                  <TableCell>
-                    <div class="font-semibold">{{ formatCurrency(product.quantity * product.cost_price) }}</div>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                    <div class="font-semibold text-sm">{{ formatCurrency(product.quantity * product.cost_price) }}</div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell class="px-2 sm:px-4 py-2 sm:py-3 hidden lg:table-cell">
                     <Badge
                       :class="product.is_low_stock
                         ? 'bg-red-100 text-red-800 animate-pulse'
                         : 'bg-emerald-100 text-emerald-800'"
+                      class="text-xs"
                     >
                       {{ product.is_low_stock ? '⚠️ Low Stock' : '✓ In Stock' }}
                     </Badge>
                   </TableCell>
-                  <TableCell class="text-right">
-                    <div class="flex justify-end gap-2">
+                  <TableCell class="text-right px-2 sm:px-4 py-2 sm:py-3">
+                    <div class="flex justify-end gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        class="hover:bg-green-100"
+                        class="hover:bg-green-100 h-8 w-8 p-0"
                         @click="openAdjustModal(product, 'IN')"
                         title="Add Stock"
                       >
-                        <Plus class="h-4 w-4 text-green-600" />
+                        <Plus class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        class="hover:bg-red-100"
+                        class="hover:bg-red-100 h-8 w-8 p-0"
                         @click="openAdjustModal(product, 'OUT')"
                         title="Remove Stock"
                       >
-                        <Minus class="h-4 w-4 text-red-600" />
+                        <Minus class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        class="hover:bg-blue-100"
+                        class="hover:bg-blue-100 h-8 w-8 p-0 hidden sm:inline-flex"
                         @click="viewHistory(product.id)"
                         title="View History"
                       >
-                        <History class="h-4 w-4 text-blue-600" />
+                        <History class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
 
-        <!-- Pagination -->
-        <div v-if="products.last_page > 1" class="flex justify-center gap-2 p-6">
+        <!-- Pagination - Mobile Optimized -->
+        <div v-if="products.last_page > 1" class="flex justify-center gap-2 p-3 sm:p-6">
           <Button
             v-for="page in products.last_page"
             :key="page"
             :variant="page === products.current_page ? 'default' : 'outline'"
             @click="router.get(`/inventory?page=${page}`)"
             :class="page === products.current_page ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : ''"
+            class="h-8 w-8 sm:h-10 sm:w-10 p-0 text-xs sm:text-sm"
           >
             {{ page }}
           </Button>
