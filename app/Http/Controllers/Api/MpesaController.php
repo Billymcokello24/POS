@@ -70,37 +70,19 @@ class MpesaController extends Controller
             ], 404);
         }
 
-        // Point 5: Active Polling Fallback
-    // If status is still pending, ask M-Pesa directly (handles missed callbacks/localhost)
+        // Point 5: Active Polling Fallback (Async)
+    // If status is still pending, queue a background check for faster response
     if ($payment->status === 'pending') {
-        try {
-            // Blueprint Point 5: Always use the business associated with the payment
-            $business = $payment->business;
-            
-            if ($business) {
-                $mpesaService = new MpesaService($business);
-                $response = $mpesaService->queryStkStatus($payment->checkout_request_id);
+        // Dispatch async status check job - doesn't block response
+        CheckMpesaPaymentStatusJob::dispatch($payment->checkout_request_id)
+            ->onQueue('mpesa')
+            ->delay(now()->addSeconds(2)); // Small delay to let M-Pesa finalize
 
-                // If we get a definitive ResultCode, update our ledger
-                if (isset($response['ResultCode'])) {
-                    $payment->update([
-                        'result_code' => $response['ResultCode'],
-                        'status' => MpesaPayment::resolveStatusFromCode($response['ResultCode']),
-                        'raw_response' => array_merge($payment->raw_response ?? [], ['query_resp' => $response]),
-                        'metadata' => array_merge($payment->metadata ?? [], ['source_update' => 'active_poll'])
-                    ]);
-                    
-                    $payment->refresh();
-                    Log::info('CheckStatus: Ledger updated via active poll', ['checkout' => $payment->checkout_request_id, 'code' => $payment->result_code]);
-                }
-            } else {
-                Log::warning('CheckStatus: Payment found but no business linked', ['payment_id' => $payment->id]);
-            }
-        } catch (\Throwable $e) {
-            Log::info('Active Polling: Query failed or transaction pending', ['msg' => $e->getMessage()]);
-        }
+        Log::info('CheckStatus: Queued background status check', [
+            'checkout' => $payment->checkout_request_id
+        ]);
     }
-        
+
         // IMMEDIATE ACTIVATION ENFORCEMENT
         // If payment is successful (from callback or poll) but subscription not linked, force it now.
         if (($payment->status === 'success' || (string)$payment->result_code === '0') && !$payment->subscription_id) {

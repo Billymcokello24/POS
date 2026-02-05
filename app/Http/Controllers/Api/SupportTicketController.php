@@ -106,60 +106,8 @@ class SupportTicketController extends Controller
             'is_from_admin' => auth()->user()->is_super_admin,
         ]);
 
-        // Broadcast the message to others on the channel
-        broadcast(new SupportMessageSent($message))->toOthers();
-
-        // Send in-app notifications to the other party
-        $currentUser = auth()->user();
-        if ($currentUser->is_super_admin) {
-            // Admin sent message - notify the ticket owner
-            $ticketOwner = User::find($ticket->user_id);
-            if ($ticketOwner) {
-                broadcast(new SupportNotification(
-                    $ticketOwner,
-                    "New message from support admin: " . substr($message->message, 0, 50),
-                    ['ticket_id' => $ticket->id, 'message_id' => $message->id]
-                ));
-
-                // Also save database notification
-                $ticketOwner->notify(new class extends BaseNotification {
-                    public function via($notifiable) {
-                        return ['database'];
-                    }
-
-                    public function toArray($notifiable) {
-                        return [
-                            'message' => 'New message from support admin',
-                            'ticket_id' => $ticket->id,
-                        ];
-                    }
-                });
-            }
-        } else {
-            // Business user sent message - notify all super admins
-            $superAdmins = User::where('is_super_admin', true)->get();
-            foreach ($superAdmins as $admin) {
-                broadcast(new SupportNotification(
-                    $admin,
-                    "New message from {$ticket->user->name}: " . substr($message->message, 0, 50),
-                    ['ticket_id' => $ticket->id, 'message_id' => $message->id]
-                ));
-
-                // Also save database notification
-                $admin->notify(new class extends BaseNotification {
-                    public function via($notifiable) {
-                        return ['database'];
-                    }
-
-                    public function toArray($notifiable) {
-                        return [
-                            'message' => "New message from {$ticket->user->name}",
-                            'ticket_id' => $ticket->id,
-                        ];
-                    }
-                });
-            }
-        }
+        // Process broadcasting and notifications in background for speed!
+        ProcessSupportMessageJob::dispatch($message->id)->onQueue('support');
 
         return response()->json([
             'success' => true,

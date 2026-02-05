@@ -13,6 +13,9 @@ class ProcessMpesaCallback implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $timeout = 60;
+    public $tries = 3;
+
     protected $callback;
 
     public function __construct(array $callback)
@@ -36,9 +39,9 @@ class ProcessMpesaCallback implements ShouldQueue
 
         // 1. Update/Create MpesaPayment as the canonical ledger entry
         $mpesaPayment = \App\Models\MpesaPayment::where('checkout_request_id', $checkoutRequestId)->first();
-        
+
         $status = \App\Models\MpesaPayment::resolveStatusFromCode($resultCode);
-        
+
         $callbackMetadata = $stk['CallbackMetadata']['Item'] ?? [];
         $mpesaReceiptNumber = null;
         $phoneNumber = null;
@@ -81,7 +84,7 @@ class ProcessMpesaCallback implements ShouldQueue
         // 2. Resolve Activation (Subscriptions & Sales)
         if ($mpesaPayment->result_code === 0) {
             Log::info('ProcessMpesaCallback: Successful payment recorded. Triggering finalizers.', ['checkout' => $checkoutRequestId]);
-            
+
             // 2a. Subscription Finalization
             try {
                 // Point 1 & 6: Immediate activation enforcement
@@ -119,7 +122,7 @@ class ProcessMpesaCallback implements ShouldQueue
                         $totalPaid = \App\Models\Payment::where('sale_id', $sale->id)
                             ->where('status', 'completed')
                             ->sum('amount');
-                        
+
                         if ($totalPaid >= $sale->total) {
                             $sale->update([
                                 'status' => 'completed',
@@ -133,13 +136,13 @@ class ProcessMpesaCallback implements ShouldQueue
             } catch (\Throwable $e) {
                 Log::error('ProcessMpesaCallback: Sales finalization failed', ['error' => $e->getMessage()]);
             }
-            
+
             $mpesaPayment->refresh();
             Log::info('ProcessMpesaCallback: Finalization process complete', ['mpesa_id' => $mpesaPayment->id, 'status' => $mpesaPayment->status]);
 
         } else {
             Log::warning('ProcessMpesaCallback: Payment failed or non-zero result recorded.', ['checkout' => $checkoutRequestId, 'result_code' => $resultCode]);
-            
+
             // Update subscription to failed if applicable
             try {
                 app(\App\Services\SubscriptionActivationService::class)->finalizeFromPayment([

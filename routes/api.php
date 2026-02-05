@@ -22,6 +22,26 @@ Route::prefix('public')->group(function () {
 // Contact Form API (no auth required)
 Route::post('/contact', [ContactController::class, 'send']);
 
+// Download Export Files (auth required)
+Route::get('/download/export', function (Request $request) {
+    if (!auth()->check()) {
+        abort(403, 'Unauthorized');
+    }
+
+    $path = base64_decode($request->query('path'));
+
+    // Security: ensure path is within exports directory
+    if (!str_starts_with($path, 'exports/')) {
+        abort(403, 'Invalid path');
+    }
+
+    if (!\Illuminate\Support\Facades\Storage::disk('local')->exists($path)) {
+        abort(404, 'File not found');
+    }
+
+    return \Illuminate\Support\Facades\Storage::disk('local')->download($path);
+})->name('api.download.export');
+
 // M-Pesa Callback (no auth required - public endpoint for Safaricom)
 Route::post('/payments/mpesa/callback', [MpesaController::class, 'stkCallback']);
 

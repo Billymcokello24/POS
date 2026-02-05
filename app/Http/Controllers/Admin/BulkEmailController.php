@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\User;
 use App\Notifications\GenericBulkEmail;
+use App\Jobs\SendBulkEmailJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
@@ -15,7 +16,7 @@ class BulkEmailController extends Controller
     public function index(Request $request)
     {
         $selectedIds = $request->input('ids', []);
-        
+
         $businesses = [];
         if (!empty($selectedIds)) {
             $businesses = Business::whereIn('id', $selectedIds)->get(['id', 'name', 'email']);
@@ -58,7 +59,8 @@ class BulkEmailController extends Controller
             })->first() ?: $business->users()->first();
 
             if ($admin) {
-                $admin->notify(new GenericBulkEmail($request->subject, $request->content));
+                // Dispatch to queue for async processing - much faster!
+                SendBulkEmailJob::dispatch($admin, $request->subject, $request->content);
                 $sentCount++;
             }
         }

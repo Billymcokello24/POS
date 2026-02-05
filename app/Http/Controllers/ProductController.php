@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\TaxConfiguration;
 use App\Http\Controllers\Controller;
+use App\Jobs\ImportProductsJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -470,6 +471,13 @@ class ProductController extends Controller
             }
         } catch (\Throwable $e) {
             return back()->with('error', 'Failed to parse uploaded file: '.$e->getMessage());
+        }
+
+        // If large import (>50 rows), dispatch to queue for async processing
+        if (count($rows) > 50) {
+            ImportProductsJob::dispatch($rows, $targetBusinessIds, auth()->id());
+
+            return back()->with('success', 'Large import queued! You will be notified when the import is complete. Importing ' . count($rows) . ' products in the background...');
         }
 
         $created = 0;
