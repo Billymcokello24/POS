@@ -10,6 +10,8 @@ import { ensureSanctum, attachSanctumToAxios } from './lib/sanctum';
 import { startBusinessSse } from './lib/sse';
 import { startRealtimePolling } from './lib/realtime';
 import './echo'; // Initialize Laravel Echo for WebSocket support
+import { ZiggyVue } from 'ziggy-js';
+import { Ziggy } from './ziggy'; // Only if you have a generated ziggy.js file, otherwise remove this line.
 
 // Defensive wrapper: intercept 'keydown' listeners and wrap them in a try/catch so
 // a single faulty handler (e.g. reading .length on undefined) doesn't throw an
@@ -131,10 +133,19 @@ createInertiaApp({
             `./pages/${name}.vue`,
             import.meta.glob<DefineComponent>('./pages/**/*.vue'),
         ),
-    setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
-            .use(plugin)
-            .mount(el);
+    async setup({ el, App, props, plugin }) {
+        const app = createApp({ render: () => h(App, props) });
+
+        // Initialize theme before mounting
+        initializeTheme();
+
+        // Configure and use plugins
+        app.use(plugin);
+        app.use(ZiggyVue, Ziggy);
+
+        // Ensure Sanctum is ready before mounting
+        await ensureSanctum()
+
         // Start SSE for authenticated users (Inertia sets page props on root)
         try {
             const pageProps = (props as any).initialPage?.props ?? (props as any).page?.props ?? (props as any).props ?? null;
@@ -161,6 +172,8 @@ createInertiaApp({
                 }
             } catch { }
         }
+
+        app.mount(el);
     },
     progress: {
         color: '#4B5563',

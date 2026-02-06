@@ -217,7 +217,8 @@ require __DIR__.'/settings.php';
 // M-Pesa Callback (Deprecated: use api.php route to avoid CSRF issues)
 // Route::post('/api/payments/mpesa/callback', [\App\Http\Controllers\Api\PaymentController::class, 'mpesaCallback']);
 
-Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'super_admin'])
+    ->prefix('admin')->group(function () {
     Route::get('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'index'])->name('admin.cms.index');
     Route::put('/cms', [\App\Http\Controllers\Admin\CmsController::class, 'update'])->name('admin.cms.update');
     // Test platform MPESA credentials (super-admin only)

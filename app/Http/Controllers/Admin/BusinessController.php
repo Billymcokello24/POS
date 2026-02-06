@@ -7,6 +7,7 @@ use App\Models\Business;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class BusinessController extends Controller
@@ -14,6 +15,7 @@ class BusinessController extends Controller
     public function index(Request $request)
     {
         $query = Business::query()->withCount(['users', 'sales']);
+
 
         if ($request->search) {
             $query->where('name', 'like', "%{$request->search}%")
@@ -41,7 +43,7 @@ class BusinessController extends Controller
     public function show(Business $business)
     {
         $business->load(['subscriptions.plan', 'plan']);
-        
+
         $users = $business->users()
             ->select('users.*', 'roles.display_name as role_name')
             ->leftJoin('roles', 'role_user.role_id', '=', 'roles.id')
@@ -60,7 +62,7 @@ class BusinessController extends Controller
 
     public function toggleStatus(Request $request, Business $business)
     {
-        $newStatus = ! $business->is_active;
+        $newStatus = !$business->is_active;
         $reason = $request->input('reason');
 
         $business->update([
@@ -95,7 +97,7 @@ class BusinessController extends Controller
 
         \App\Models\AuditLog::log(
             'business.status_updated',
-            "Business '{$business->name}' status changed to ".($business->is_active ? 'Active' : 'Suspended'),
+            "Business '{$business->name}' status changed to " . ($business->is_active ? 'Active' : 'Suspended'),
             [
                 'business_id' => $business->id,
                 'reason' => $business->suspension_reason
@@ -112,7 +114,7 @@ class BusinessController extends Controller
             $q->select('id')->from('roles')->where('name', 'admin');
         })->first() ?: $business->users()->first();
 
-        if (! $admin) {
+        if (!$admin) {
             return back()->with('error', 'No admin user found for this business.');
         }
 
@@ -138,7 +140,7 @@ class BusinessController extends Controller
             $q->select('id')->from('roles')->where('name', 'admin');
         })->first() ?: $business->users()->first();
 
-        if (! $admin) {
+        if (!$admin) {
             return back()->with('error', 'No user found to impersonate.');
         }
 
@@ -161,7 +163,7 @@ class BusinessController extends Controller
 
     public function stopImpersonating()
     {
-        if (! session()->has('impersonating_from')) {
+        if (!session()->has('impersonating_from')) {
             return redirect()->route('dashboard');
         }
 
@@ -181,67 +183,100 @@ class BusinessController extends Controller
 
     public function destroy(Business $business)
     {
+        \Illuminate\Support\Facades\Log::info('=== DELETE BUSINESS METHOD CALLED ===', [
+            'business_id' => $business->id,
+            'business_name' => $business->name,
+            'deleted_by' => auth()->id(),
+        ]);
+
         $businessName = $business->name;
         $businessId = $business->id;
 
         try {
-            // Get count of users for logging
-            $userCount = $business->users()->count();
-            $userIds = $business->users()->pluck('users.id')->toArray();
+            \Illuminate\Support\Facades\DB::transaction(function () use ($business, $businessId, $businessName) {
+                // Delete all related data in the correct order to avoid foreign key constraints
 
-            // Log before deletion
+                // 1. Delete sale items (depends on sales)
+                \Illuminate\Support\Facades\DB::table('sale_items')
+                    ->whereIn('sale_id', function ($query) use ($businessId) {
+                        $query->select('id')->from('sales')->where('business_id', $businessId);
+                    })->delete();
+
+                // 2. Delete sales
+                \Illuminate\Support\Facades\DB::table('sales')->where('business_id', $businessId)->delete();
+
+                // 3. Delete products
+                \Illuminate\Support\Facades\DB::table('products')->where('business_id', $businessId)->delete();
+
+                // 4. Delete inventory transactions
+                \Illuminate\Support\Facades\DB::table('inventory_transactions')->where('business_id', $businessId)->delete();
+
+                // 5. Delete categories
+                \Illuminate\Support\Facades\DB::table('categories')->where('business_id', $businessId)->delete();
+
+                // 6. Delete customers
+                if (\Illuminate\Support\Facades\Schema::hasTable('customers')) {
+                    \Illuminate\Support\Facades\DB::table('customers')->where('business_id', $businessId)->delete();
+                }
+
+                // 7. Delete suppliers
+                if (\Illuminate\Support\Facades\Schema::hasTable('suppliers')) {
+                    \Illuminate\Support\Facades\DB::table('suppliers')->where('business_id', $businessId)->delete();
+                }
+
+                // 8. Delete expenses
+                if (\Illuminate\Support\Facades\Schema::hasTable('expenses')) {
+                    \Illuminate\Support\Facades\DB::table('expenses')->where('business_id', $businessId)->delete();
+                }
+
+                // 9. Delete subscriptions
+                \Illuminate\Support\Facades\DB::table('subscriptions')->where('business_id', $businessId)->delete();
+
+                // 10. Delete subscription payments
+                \Illuminate\Support\Facades\DB::table('subscription_payments')->where('business_id', $businessId)->delete();
+
+                // 11. Delete mpesa payments
+                if (\Illuminate\Support\Facades\Schema::hasTable('mpesa_payments')) {
+                    \Illuminate\Support\Facades\DB::table('mpesa_payments')->where('business_id', $businessId)->delete();
+                }
+
+                // 12. Delete audit logs
+                \Illuminate\Support\Facades\DB::table('audit_logs')->where('business_id', $businessId)->delete();
+
+                // 13. Detach all users from this business (role_user pivot table)
+                \Illuminate\Support\Facades\DB::table('role_user')->where('business_id', $businessId)->delete();
+
+                // 14. Detach all features (business_feature pivot table)
+                if (\Illuminate\Support\Facades\Schema::hasTable('business_feature')) {
+                    \Illuminate\Support\Facades\DB::table('business_feature')->where('business_id', $businessId)->delete();
+                }
+
+                // 15. Finally, delete the business itself
+                $business->forceDelete();
+
+                \Illuminate\Support\Facades\Log::info('Business deleted successfully', [
+                    'business_id' => $businessId,
+                    'business_name' => $businessName
+                ]);
+            });
+
+            // Log the deletion
             \App\Models\AuditLog::log(
                 'business.deleted',
-                "Business '{$businessName}' (ID: {$businessId}) with {$userCount} user(s) was permanently deleted by Super Admin.",
+                "Business '{$businessName}' (ID: {$businessId}) has been permanently deleted by Super Admin.",
                 [
-                    'business_id' => $businessId, 
+                    'business_id' => $businessId,
                     'business_name' => $businessName,
-                    'user_count' => $userCount,
-                    'user_ids' => $userIds
+                    'deleted_by' => auth()->id(),
                 ]
             );
 
+            return redirect()->route('admin.businesses.index')->with('success', "Business '{$businessName}' has been permanently deleted.");
 
-            \Illuminate\Support\Facades\DB::transaction(function () use ($business, $userIds) {
-                // 1. Delete users FIRST (before detaching, so we can check their business count)
-                foreach ($userIds as $userId) {
-                    $user = User::find($userId);
-                    if ($user && !$user->is_super_admin) { // Never delete super admins
-                        // Check if user has other businesses BEFORE we detach
-                        $otherBusinessCount = \Illuminate\Support\Facades\DB::table('role_user')
-                            ->where('user_id', $userId)
-                            ->where('business_id', '!=', $business->id)
-                            ->count();
-                        
-                        // If no other businesses, delete the user account completely
-                        if ($otherBusinessCount === 0) {
-                            // Delete from users table directly
-                            \Illuminate\Support\Facades\DB::table('users')
-                                ->where('id', $userId)
-                                ->delete();
-                        }
-                    }
-                }
-
-                // 2. Now detach all users from this business (clean up role_user pivot)
-                $business->users()->detach();
-
-                // 3. Detach all features
-                $business->features()->detach();
-
-                // 4. Delete related records if needed
-                // Optionally delete products, sales, etc. for complete removal
-                // $business->products()->delete();
-                // $business->sales()->delete();
-                
-                // 5. Force delete the business (bypass soft delete)
-                $business->forceDelete();
-            });
-
-            return back()->with('success', "Business '{$businessName}' and all associated user accounts have been permanently deleted.");
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Business deletion failed', [
                 'business_id' => $businessId,
+                'business_name' => $businessName,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);

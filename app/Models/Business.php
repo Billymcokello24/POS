@@ -27,6 +27,9 @@ class Business extends Model
         'currency',
         'timezone',
         'is_active',
+        'is_hidden',
+        'hidden_at',
+        'hidden_by',
         'plan_id',
         'plan_ends_at',
         'subscription_updated_at',
@@ -37,6 +40,8 @@ class Business extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_hidden' => 'boolean',
+        'hidden_at' => 'datetime',
         'settings' => 'array',
         'active_features' => 'array',
         'subscription_updated_at' => 'datetime',
