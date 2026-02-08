@@ -75,7 +75,7 @@ class MpesaService
             ];
 
             // Simulated response object with same interface used in controller
-            $simResponse = (new class($sim) {
+            $simResponse = new class($sim) {
                 private $data;
 
                 public function __construct($data)
@@ -97,7 +97,7 @@ class MpesaService
                 {
                     return json_encode($this->data);
                 }
-            })($sim);
+            };
 
             return ['response' => $simResponse, 'payload' => $payload];
         }

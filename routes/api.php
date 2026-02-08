@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\MpesaController;
 use Illuminate\Support\Facades\Broadcast;
+use App\Http\Controllers\Api\WhatsAppController;
 
 // Broadcasting auth is configured in bootstrap/app.php with withBroadcasting()
 // No need to register it here again
@@ -48,6 +49,9 @@ Route::post('/payments/mpesa/callback', [MpesaController::class, 'stkCallback'])
 // M-Pesa C2B validation and confirmation endpoints
 Route::post('/payments/mpesa/validation', [MpesaController::class, 'validation']);
 Route::post('/payments/mpesa/confirmation', [MpesaController::class, 'confirmation']);
+
+// WhatsApp Bot Webhook - Accept both GET and POST (Twilio sends GET for verification)
+Route::match(['get', 'post'], '/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
 
 // Friendly message when someone visits callback URL in browser
 Route::get('/payments/mpesa/callback', function () {
